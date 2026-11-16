@@ -1458,17 +1458,6 @@
   margin-top: auto;
 }
 
-/* 切模式：最近更新 / 最近项目和广场换掉，淡入 150ms ease-out */
-.tpl-home__swap {
-  animation: tpl-home-in var(--motion-duration-150) var(--motion-ease-out);
-}
-
-@keyframes tpl-home-in {
-  from {
-    opacity: 0;
-  }
-}
-
 /* 每块离上面 32；标题行 16 / 24 中粗，右边「查看全部」或翻页，离内容 12 */
 .tpl-home__section {
   margin-top: var(--spacing-32);
@@ -1595,11 +1584,6 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .tpl-home__swap {
-    animation: none;
-  }
-}
 
 /* ---------- 探索页：发现、模板、技能、工作流 ----------
    主区自己滚（ScrollArea，滚到底加载下一页），左右内边距 32；筛选条和资产页同一套（tpl-as__filters，吸顶） */
