@@ -213,6 +213,26 @@ export function CreateHome({
   onAllCanvases: () => void;
 }) {
   const [mode, setMode] = useState<HomeMode>('generate');
+  // 外壳高度跟着显示的那套走：两套高度不一样时（画布里加了附件），切换时高度做动画，下面的内容跟着挪
+  const generateBox = useRef<HTMLDivElement>(null);
+  const canvasBox = useRef<HTMLDivElement>(null);
+  const [shellHeight, setShellHeight] = useState<number>();
+  const [shellReady, setShellReady] = useState(false);
+  useLayoutEffect(() => {
+    const active = mode === 'generate' ? generateBox.current : canvasBox.current;
+    if (!active) return;
+    const measure = () => setShellHeight(active.offsetHeight);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(active);
+    return () => ro.disconnect();
+  }, [mode]);
+  // 第一次量完不做动画，之后才有
+  useEffect(() => {
+    if (shellHeight == null) return;
+    const id = window.setTimeout(() => setShellReady(true), 50);
+    return () => window.clearTimeout(id);
+  }, [shellHeight != null]);
   const [square, setSquare] = useState<Exclude<ExploreTab, 'discover'>>('featured');
 
 
@@ -232,12 +252,12 @@ export function CreateHome({
           {/* 外壳只有一个（渐变底、描边、圆角）不动；两套内容叠在同一格里都挂着，切换时交叉淡化，框的大小位置不变、打的字也还在。
               一格的高度取两套里高的那个，所以两个一样高 */}
           <div className="tpl-home__composer">
-            <div className="tpl-home__shell">
+            <div className="tpl-home__shell" data-ready={shellReady || undefined} style={shellHeight != null ? { height: shellHeight } : undefined}>
               <ComposerMotion />
-              <div className="tpl-home__box" data-active={mode === 'generate' || undefined}>
+              <div ref={generateBox} className="tpl-home__box" data-active={mode === 'generate' || undefined}>
                 <Composer placement="bottom-start" onSubmit={onSubmit} />
               </div>
-              <div className="tpl-home__box" data-active={mode === 'canvas' || undefined}>
+              <div ref={canvasBox} className="tpl-home__box" data-active={mode === 'canvas' || undefined}>
                 <AgentComposer className="tpl-home__agent" placement="bottom-start" onSend={onOpenCanvas} />
               </div>
             </div>

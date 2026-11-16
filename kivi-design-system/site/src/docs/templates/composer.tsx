@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { AttachmentStrip, DropOverlay, GenModelPicker, IconButton, MentionChip, PromptInput, SendButton, SkillPicker, toast, type AttachmentItem, type IconName } from '@kivi';
+import { AttachmentStrip, DropOverlay, GenModelPicker, IconButton, MentionChip, PromptInput, SendButton, SkillPicker, placeholderImageSrc, toast, type AttachmentItem, type IconName, type PlaceholderImageName } from '@kivi';
 import { rejectMessage, useFileDrop } from '../../kivi/hooks';
 import { SKILL_CATEGORIES, SKILL_ITEMS } from '../business/skill-data';
 
@@ -19,6 +19,9 @@ export interface AgentComposerProps {
   onSend?: () => void;
   className?: string;
 }
+
+/** 拖进来的视频没有封面，用占位图顶 */
+const DROP_COVERS: PlaceholderImageName[] = ['ip-peek', 'bunny-gouache', 'monstera-dots', 'kivi-future', 'ip-gouache'];
 
 // Agent 输入框贴在侧栏底部：模型偏好、技能面板都往上弹（Dropdown 默认往下，用的地方改方向；放不下自己翻）
 const UP = 'top-start' as const;
@@ -65,10 +68,19 @@ export function AgentComposer({ attachments: initial = [], skillOpen, skill, pla
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 把文件拖到输入框上：盖一层「松手上传」，不收的类型提示不支持。模板只能看，放下只弹一条提示
+  // 把文件拖到输入框上：盖一层「松手上传」，不收的类型提示不支持。放下后加进附件条（图片、音频用本地文件，视频缩略图用占位图）
   const { dragging, rejected, bind } = useFileDrop({
     accept: 'image/*,video/*,audio/*',
-    onFiles: (files) => toast.success(`已添加 ${files.length} 个文件`),
+    onFiles: (files) =>
+      setAttachments((list) => {
+        const next = [...list];
+        files.forEach((f, i) => {
+          const type = f.type.startsWith('video') ? 'video' : f.type.startsWith('audio') ? 'audio' : 'image';
+          const src = type === 'video' ? placeholderImageSrc(DROP_COVERS[(next.length + i) % DROP_COVERS.length], '1:1') : URL.createObjectURL(f);
+          next.push({ id: `drop-${Date.now()}-${i}`, type, name: f.name, src, video: type === 'video' ? URL.createObjectURL(f) : undefined });
+        });
+        return next;
+      }),
     onReject: (_, reason) => toast.error(rejectMessage(reason)),
   });
 

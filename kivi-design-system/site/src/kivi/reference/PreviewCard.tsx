@@ -45,7 +45,7 @@ export const PreviewCard = forwardRef<HTMLDivElement, PreviewCardProps>(function
   ref,
 ) {
   const big = type === 'image' || type === 'video';
-  if (type === 'audio' && src) {
+  if (type === 'audio') {
     return <AudioRow ref={ref} src={src} name={name} description={description} duration={duration} className={className} {...rest} />;
   }
   const playVideo = type === 'video' && video && !prefersReducedMotion();
@@ -61,7 +61,7 @@ export const PreviewCard = forwardRef<HTMLDivElement, PreviewCardProps>(function
           {type === 'video' && duration && <span className="kv-preview-card__duration">{duration}</span>}
         </div>
       ) : (
-        <AssetThumb size={56} type="icon" icon={type === 'audio' ? 'Music' : fileIcon(ext)} />
+        <AssetThumb size={56} type="icon" icon={fileIcon(ext)} />
       )}
       {(name != null || description != null || (!big && (duration || ext))) && (
         <div className="kv-preview-card__text">
@@ -84,12 +84,13 @@ const clock = (sec: number) => {
   return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
 };
 
-type AudioRowProps = Omit<PreviewCardProps, 'type' | 'ext' | 'box' | 'video'> & { src: string };
+type AudioRowProps = Omit<PreviewCardProps, 'type' | 'ext' | 'box' | 'video'>;
 
 /**
  * 音频预览卡：照线上（ai-chat AudioHoverCard）能播。上面 56 缩略图 + 名字（和说明），下面一行：播放 / 暂停按钮、「已播 / 总长」（没播是 0:00）、进度条；
  * 播完回到开头（照线上），进度条点、拖跳到那里，方向键前后 5 秒。
  * 同一时间只播一个（useAudioPlayer 走 exclusivePlayback），卡片收起（卸载）就停。
+ * 音频只有这一种样子：没传 `src`（还没有文件地址）时播放按钮禁用，时长照传的显示。
  */
 const AudioRow = forwardRef<HTMLDivElement, AudioRowProps>(function AudioRow(
   { src, name, description, duration: durationText, className, ...rest },
@@ -138,7 +139,7 @@ const AudioRow = forwardRef<HTMLDivElement, AudioRowProps>(function AudioRow(
           variant="ghost"
           size={28}
           loading={playing && status === 'loading'}
-          disabled={failed}
+          disabled={failed || !src}
           onClick={toggle}
         />
         <span className="kv-preview-card__meta">{failed ? '加载失败' : `${clock(currentTime)} / ${total ?? '—'}`}</span>
