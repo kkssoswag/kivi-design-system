@@ -87,14 +87,14 @@ const HISTORY: History[] = Array.from({ length: 72 }, (_, i) => {
 
 const SOURCE_OPTIONS: SelectOption[] = [{ value: 'all', label: '全部' }, ...SOURCES.map((s) => ({ value: s, label: s }))];
 
-/** 一块的标题行：左标题，右边「新建」「查看全部」 */
+/** 一块的标题行：左标题，右边「新建」「查看全部」。右边按钮一律无底灰（设计规则 · 布局 · 标题行，11-14） */
 function SectionHead({ title, children }: { title: string; children?: React.ReactNode }) {
   return (
     <header className="tpl-as__head">
       <h2>{title}</h2>
       <div className="tpl-as__head-actions">
         {children}
-        <Button size={32} variant="ghost" rightIcon="RightArrowSmall">
+        <Button size={32} variant="ghost-muted" rightIcon="RightArrowSmall">
           查看全部
         </Button>
       </div>
@@ -176,7 +176,7 @@ export function AssetsPage() {
 
       <section className="tpl-as__section">
         <SectionHead title="我的画布">
-          <Button size={32} variant="ghost" leftIcon="AddSmall">
+          <Button size={32} variant="ghost-muted" leftIcon="AddSmall">
             新建画布
           </Button>
         </SectionHead>

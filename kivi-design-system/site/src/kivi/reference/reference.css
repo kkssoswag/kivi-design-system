@@ -274,71 +274,38 @@
   font-size: var(--font-size-12);
 }
 
-/* 音频能播（传了 src）：56 缩略图就是播放按钮。平时音符；悬停、播过之后换成播放 / 暂停 24，primary，直接换不交叉淡化。
-   底：悬停 Light 1 hover，按下 pressed，播过之后常驻用默认。下面一条进度：高 2，悬停、拖动 4（同播放器），轨道白 20%，已播白色。
-   照线上 ai-chat AudioHoverCard（11-06 用户定） */
-.kv-preview-card__play {
-  position: relative;
-  flex: none;
-  padding: 0;
-  border: 0;
-  border-radius: var(--border-radius-8);
-  background: none;
-  color: var(--color-text-fill-primary);
-  cursor: pointer;
+/* 音频能播（传了 src）：宽 280。上面一行 56 缩略图 + 名字（说明），间距 12；下面一行 IconButton 无底 28（播放 / 暂停）、「已播 / 总长」、进度条（占满剩下的），间距 8，离上一行 12。
+   进度条：高 2，悬停、拖动 4（同播放器），轨道白 20%，已播白色。照线上 ai-chat AudioHoverCard（11-06 用户定，11-16 改成线上这种排法） */
+.kv-preview-card--audio {
+  flex-direction: column;
+  gap: var(--spacing-12);
+  width: 280px;
 }
 
-.kv-preview-card__play > .kv-asset-thumb {
-  transition: background-color var(--motion-duration-100) var(--motion-ease-in-out);
-}
-
-.kv-preview-card__play:hover > .kv-asset-thumb {
-  background: var(--color-bg-fill-container-light-1-hover);
-}
-
-.kv-preview-card__play:active > .kv-asset-thumb {
-  background: var(--color-bg-fill-container-light-1-pressed);
-}
-
-.kv-preview-card__play-icon {
-  position: absolute;
-  inset: 0;
-  display: none;
-  align-items: center;
-  justify-content: center;
-}
-
-.kv-preview-card__play-icon > .kv-icon {
-  width: 24px;
-  height: 24px;
-}
-
-:is(.kv-preview-card__play:hover, .kv-preview-card__play:focus-visible, .kv-preview-card__play[data-active]) > .kv-preview-card__play-icon {
+.kv-preview-card__head {
   display: flex;
+  align-items: center;
+  gap: var(--spacing-12);
 }
 
-:is(.kv-preview-card__play:hover, .kv-preview-card__play:focus-visible, .kv-preview-card__play[data-active]) > .kv-asset-thumb > .kv-icon {
-  visibility: hidden;
+.kv-preview-card__head > .kv-asset-thumb {
+  flex: none;
 }
 
-.kv-preview-card__play:disabled {
-  cursor: not-allowed;
+.kv-preview-card__player {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-8);
 }
 
-.kv-preview-card__play:disabled > .kv-asset-thumb {
-  background: var(--color-bg-fill-container-light-1); /* 禁用底和平时一样，只变字色 */
-}
-
-.kv-preview-card__play:disabled > .kv-preview-card__play-icon {
-  display: none;
-}
-
-.kv-preview-card__text--audio {
-  flex: 1;
+.kv-preview-card__player > .kv-preview-card__meta {
+  flex: none;
 }
 
 .kv-preview-card__progress {
   position: relative;
+  flex: 1;
+  min-width: 0;
   height: var(--spacing-12);
   cursor: pointer;
   touch-action: none;

@@ -198,11 +198,11 @@ const WORK_PAGE = 20;
 // 最多 4 列（11-10 用户定：前期作品不多，列少一屏要的作品少、卡也大；1600 宽一张约 400，和即梦 1920 屏、LibTV 一样）
 const COLUMNS: MasonryColumns = { default: 4, 1100: 3, 700: 2, 500: 1 };
 
-function Discover({ moreRef }: { moreRef: MutableRefObject<(() => void) | undefined> }) {
+function Discover({ moreRef, initialKeyword = '' }: { moreRef: MutableRefObject<(() => void) | undefined>; initialKeyword?: string }) {
   const [category, setCategory] = useState('all');
   const [subs, setSubs] = useState<string[]>([]);
   const [onlyCollected, setOnlyCollected] = useState(false);
-  const [keyword, setKeyword] = useState('');
+  const [keyword, setKeyword] = useState(initialKeyword);
   const k = useDebounced(keyword.trim());
   const [collected, setCollected] = useState<string[]>(['w2', 'w9', 'w15']);
   const [liked, setLiked] = useState<string[]>(['w4']);
@@ -228,11 +228,6 @@ function Discover({ moreRef }: { moreRef: MutableRefObject<(() => void) | undefi
 
   const toggle = (set: typeof setLiked, id: string, on: boolean) => set((all) => (on ? [...all, id] : all.filter((x) => x !== id)));
   const likesOf = (w: Work) => w.likes + (liked.includes(w.id) ? 1 : 0);
-  const clearFilters = () => {
-    setCategory('all');
-    setSubs([]);
-    setOnlyCollected(false);
-  };
   // 小类：当前大类下的；「全部」时按大类分组列出
   const subGroups = category === 'all' ? CATS : [category];
 
@@ -291,16 +286,7 @@ function Discover({ moreRef }: { moreRef: MutableRefObject<(() => void) | undefi
         onlyCollected && category === 'all' && !subs.length && !k ? (
           <EmptyState type="favorite" size={160} title="暂无收藏" description="在作品上点收藏，就会出现在这里" className="tpl-as__empty" />
         ) : (
-          <EmptyState
-            size={160}
-            title="没有搜索到符合条件的内容"
-            action={
-              <Button variant="secondary-muted" onClick={clearFilters}>
-                清空筛选
-              </Button>
-            }
-            className="tpl-as__empty"
-          />
+          <EmptyState size={160} title="没有搜索到符合条件的内容" className="tpl-as__empty" />
         )
       ) : (
         <Masonry columns={COLUMNS} gap={2} ratios={[...shown.map((w) => RATIO[w.ratio]), ...Array.from({ length: skeletons }, (_, i) => (i % 2 ? 1 : 3 / 4))]}>
@@ -468,11 +454,11 @@ export const flowsOf = (kind: 'featured' | 'workflow'): Flow[] =>
     };
   });
 
-function FlowGallery({ kind, onClone, moreRef }: { kind: 'featured' | 'workflow'; onClone: () => void; moreRef: MutableRefObject<(() => void) | undefined> }) {
+function FlowGallery({ kind, onClone, moreRef, initialKeyword = '' }: { kind: 'featured' | 'workflow'; onClone: () => void; moreRef: MutableRefObject<(() => void) | undefined>; initialKeyword?: string }) {
   const noun = kind === 'featured' ? '案例' : '工作流';
   const items = useMemo(() => flowsOf(kind), [kind]);
   const [category, setCategory] = useState('all');
-  const [keyword, setKeyword] = useState('');
+  const [keyword, setKeyword] = useState(initialKeyword);
   const k = useDebounced(keyword.trim());
   const [view, setView] = useState<Flow | null>(null);
   const shownView = useLastShown(view);
@@ -632,9 +618,9 @@ function skillFile(s: SkillItem, file: string): ReactNode {
   );
 }
 
-function Skills({ onUse, moreRef }: { onUse: (s: SkillItem) => void; moreRef: MutableRefObject<(() => void) | undefined> }) {
+function Skills({ onUse, moreRef, initialKeyword = '' }: { onUse: (s: SkillItem) => void; moreRef: MutableRefObject<(() => void) | undefined>; initialKeyword?: string }) {
   const [category, setCategory] = useState('all');
-  const [keyword, setKeyword] = useState('');
+  const [keyword, setKeyword] = useState(initialKeyword);
   const k = useDebounced(keyword.trim());
   const [detail, setDetail] = useState<ExploreSkill | null>(null);
   const shownSkill = useLastShown(detail);
@@ -747,11 +733,14 @@ const TABS: { value: ExploreTab; label: string }[] = [
 /** 探索页主区（侧栏在 UI 页面预览的外壳里）。技能「使用」新建画布并带上技能引用；创作精选、工作流「克隆」进画布 */
 export function ExplorePage({
   initialTab = 'discover',
+  initialKeyword,
   onUseSkill,
   onOpenCanvas,
 }: {
   /** 进来停在哪个选项卡：创作首页「查看全部」带过来 */
   initialTab?: ExploreTab;
+  /** 进来时搜索框里已经填好的字：创作首页广场的搜索框带过来，只对 initialTab 那个选项卡生效 */
+  initialKeyword?: string;
   onUseSkill?: (name: string) => void;
   onOpenCanvas?: () => void;
 }) {
@@ -761,10 +750,10 @@ export function ExplorePage({
   const moreRef = useRef<() => void>();
 
   const body: Record<ExploreTab, ReactNode> = {
-    discover: <Discover moreRef={moreRef} />,
-    featured: <FlowGallery key="featured" kind="featured" onClone={() => onOpenCanvas?.()} moreRef={moreRef} />,
-    skill: <Skills onUse={(s) => onUseSkill?.(s.title)} moreRef={moreRef} />,
-    workflow: <FlowGallery key="workflow" kind="workflow" onClone={() => onOpenCanvas?.()} moreRef={moreRef} />,
+    discover: <Discover moreRef={moreRef} initialKeyword={initialTab === 'discover' ? initialKeyword : undefined} />,
+    featured: <FlowGallery key="featured" kind="featured" onClone={() => onOpenCanvas?.()} moreRef={moreRef} initialKeyword={initialTab === 'featured' ? initialKeyword : undefined} />,
+    skill: <Skills onUse={(s) => onUseSkill?.(s.title)} moreRef={moreRef} initialKeyword={initialTab === 'skill' ? initialKeyword : undefined} />,
+    workflow: <FlowGallery key="workflow" kind="workflow" onClone={() => onOpenCanvas?.()} moreRef={moreRef} initialKeyword={initialTab === 'workflow' ? initialKeyword : undefined} />,
   };
 
   return (

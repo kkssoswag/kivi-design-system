@@ -113,8 +113,15 @@
   flex-direction: column;
   gap: var(--spacing-2);
   min-height: 0;
-  padding: var(--spacing-12);
+  padding: var(--spacing-16);
   border-right: var(--border-width-1) solid var(--color-border-subtle);
+  transition: padding var(--motion-duration-300) var(--motion-ease-in-out);
+}
+
+/* 收起成图标栏时左右回到 12：36 的条目两边各 12，正好 60。上下不动，Logo 行不上下挪 */
+.tpl-ms__side-wrap[data-collapsed] .tpl-ms__side {
+  padding-right: var(--spacing-12);
+  padding-left: var(--spacing-12);
 }
 
 /* 侧栏内容比框高时整条滚动，条目不被压扁 */
@@ -129,7 +136,7 @@
   display: flex;
   align-items: center;
   min-height: calc(28px + var(--spacing-16)); /* 内容行 28 + 下边距 16（border-box，不加上下边距会把行压矮，Logo 就不在中线上） */
-  margin-top: calc(var(--tpl-head-center, 32px) - var(--spacing-12) - 28px / 2); /* 减去侧栏上边距 12 和半行 14 */
+  margin-top: calc(var(--tpl-head-center, 32px) - var(--spacing-16) - 28px / 2); /* 减去侧栏上边距 16 和半行 14 */
   padding: 0 0 var(--spacing-16) var(--spacing-8);
 }
 
@@ -182,7 +189,7 @@
   position: absolute;
   display: flex;
   top: 0;
-  left: calc(240px - 2 * var(--spacing-12) - 28px); /* 展开时贴右边，收起时也钉在这，不往左滑 */
+  left: calc(240px - 2 * var(--spacing-16) - 28px); /* 展开时贴右边，收起时也钉在这，不往左滑 */
   transition: opacity var(--motion-duration-300) var(--motion-ease-in-out);
 }
 
@@ -953,7 +960,9 @@
   gap: var(--spacing-4);
 }
 
+/* 空状态在内容区里居中：EmptyState 本身是 inline-flex，放进块级容器会靠左，这里铺满一行让它居中 */
 .tpl-as__empty {
+  display: flex;
   padding: var(--spacing-32) 0;
 }
 
@@ -1474,6 +1483,11 @@
   line-height: var(--font-line-height-24);
 }
 
+.tpl-home__search {
+  flex: 0 1 240px;
+  min-width: 0;
+}
+
 .tpl-home__pager {
   display: flex;
   gap: var(--spacing-4);
@@ -1595,6 +1609,7 @@
 
 .tpl-ex__scroll {
   height: 100%;
+  container-type: size; /* 内容区高度给空状态用（100cqh），让它在筛选条下面剩的地方垂直居中 */
 }
 
 /* 内容最宽 1600（不算左右内边距），屏幕再宽就居中，两边留底色（11-10 用户定，免得大屏铺得太散） */
@@ -1603,6 +1618,15 @@
   max-width: 1600px;
   margin: 0 auto;
   padding: 0 var(--spacing-32) var(--spacing-32);
+  /* 至少一屏高（减去下内边距），搜不到东西时空状态占满剩下的高度、垂直居中 */
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100cqh - var(--spacing-32));
+}
+
+.tpl-ex .tpl-as__empty {
+  flex: 1;
+  justify-content: center;
 }
 
 /* 顶部四个选项卡：Tabs 36，离顶 24，和筛选条之间不留（筛选条自己有上下 12） */
