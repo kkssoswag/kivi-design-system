@@ -132,13 +132,14 @@ export function UserMessagePlayground() {
 
 // ---------- MessageFeedback ----------
 
-type MessageFeedbackState = { value: string; trace: boolean; reason: boolean };
+type MessageFeedbackState = { value: string; regenerate: boolean; trace: boolean; reason: boolean };
 
 function renderMessageFeedback(s: MessageFeedbackState, update: Update) {
   return (
     <MessageFeedback
       text="好的，已经按科幻宇宙风格生成了 4 张。"
       traceId={s.trace ? 'trace-8f3a21' : undefined}
+      onRegenerate={s.regenerate ? () => {} : undefined}
       reason={s.reason}
       value={s.value === 'none' ? null : (s.value as 'like' | 'dislike')}
       onChange={(v) => update({ value: v ?? 'none' })}
@@ -151,6 +152,7 @@ export function MessageFeedbackPlayground() {
     <Playground<MessageFeedbackState>
       controls={[
         { key: 'value', label: '赞 / 踩', type: 'segment', value: 'none', options: [['none', '没选'], ['like', '赞'], ['dislike', '踩']] },
+        { key: 'regenerate', label: '重新生成', type: 'toggle', value: true },
         { key: 'trace', label: '复制 TraceID', type: 'toggle', value: true },
         { key: 'reason', label: '踩了问原因', type: 'toggle', value: true },
       ]}

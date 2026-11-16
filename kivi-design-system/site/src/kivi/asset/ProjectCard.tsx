@@ -59,6 +59,8 @@ export const ProjectCard = forwardRef<HTMLDivElement, ProjectCardProps>(function
       <button type="button" className="kv-project-card__open" aria-label={`打开画布 ${name}`} onClick={onOpen} />
       <CoverGrid className="kv-project-card__cover" images={covers} />
       <div className="kv-project-card__meta">
+        {/* 深色渐变单独一层，压在两层模糊上面，白字靠它看清 */}
+        <span className="kv-project-card__shade" aria-hidden />
         <div className="kv-project-card__text">
           <span className="kv-project-card__name" title={name}>
             {name}

@@ -47,7 +47,7 @@ import {
 
 ## MessageFeedback
 
-回复反馈：Agent 回复下面的复制、赞、踩。
+回复反馈：Agent 回复下面的重新生成、复制、赞、踩。
 
 <MessageFeedbackPlayground />
 
@@ -124,6 +124,7 @@ Agent 问用户（问题卡）或生成前确认，在对话里留的一行，�
 | `reason` | `boolean` | `true` | 踩了之后下面往下推出原因输入：Textarea 撑满，提交（Button 28 主要，没写字不可点）在框里右下角。回车提交、Shift + 回车换行、Esc 收起；点赞、再点踩、提交、Esc 都收起；按 Esc 只关原因，不会连外层弹窗一起关 |
 | `onSubmitReason` | `(reason: string) => void` | — | 提交了踩的原因 |
 | `onCopied` | `(text: string) => void` | — | 复制成功后触发。复制成功图标换 `CheckSmall`、提示变「已复制」，1.5 秒后换回 |
+| `onRegenerate` | `() => void` | — | 点了「重新生成」：把这条回复对应的用户消息重新发给 Agent。传了才有这个按钮，排在最前：Button 次要灰 32，图标 `Reset`，和后面的图标按钮隔 8 |
 
 ### QuestionPanel
 
