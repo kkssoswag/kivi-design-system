@@ -50,6 +50,8 @@ export const FolderCard = forwardRef<HTMLDivElement, FolderCardProps>(function F
         </Tag>
       )}
       <div className="kv-folder-card__meta">
+        {/* 深色渐变单独一层，压在两层模糊上面，白字靠它看清 */}
+        <span className="kv-folder-card__shade" aria-hidden />
         <div className="kv-folder-card__text">
           <span className="kv-folder-card__title" title={name}>
             <span className="kv-folder-card__name">{name}</span>

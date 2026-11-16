@@ -87,7 +87,7 @@ function AgentPanel({ onLocate, skill }: { onLocate: (key: CanvasNodeKey) => voi
           <Button variant="secondary-muted">再出 3 版</Button>
           <Button variant="secondary-muted">换个风格</Button>
         </div>
-        <MessageFeedback text="主视觉和视频都生成好了。" traceId="trace-8f3a21" />
+        <MessageFeedback text="主视觉和视频都生成好了。" traceId="trace-8f3a21" onRegenerate={() => {}} />
           </>
         )}
       </div>

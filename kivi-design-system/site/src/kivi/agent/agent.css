@@ -105,7 +105,7 @@
 }
 
 /* ---------- MessageFeedback：消息反馈条 ----------
-   一排 IconButton · 无底灰；点踩后下面用 Collapse 往下推出原因输入：Textarea 撑满，提交在框里右下角 */
+   最前面可选「重新生成」（Button 次要灰 32，和后面的图标按钮隔 8），后面一排 IconButton · 无底灰；点踩后下面用 Collapse 往下推出原因输入：Textarea 撑满，提交在框里右下角 */
 .kv-message-feedback {
   display: flex;
   flex-direction: column;
@@ -115,6 +115,10 @@
 
 .kv-message-feedback__bar {
   display: flex;
+}
+
+.kv-message-feedback__regenerate {
+  margin-right: var(--spacing-8);
 }
 
 .kv-message-feedback__reason {

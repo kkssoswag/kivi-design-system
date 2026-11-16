@@ -242,12 +242,20 @@
   min-height: 0;
 }
 
-/* 记录流和输入框同宽，最宽 1040，居中（照 Figma「主站首页 · 创作」） */
+/* 记录和输入框同宽，最宽 1024，居中（11-16 用户定，照即梦对话页：记录外框 1024，输入框和记录对齐）。
+   记录流左右各有 24 内边距，所以它的外框是 1024 + 24 × 2 */
 .tpl-ms__column,
 .tpl-ms__composer > * {
   box-sizing: border-box;
-  max-width: 1040px;
   margin: 0 auto;
+}
+
+.tpl-ms__column {
+  max-width: calc(1024px + var(--spacing-24) * 2);
+}
+
+.tpl-ms__composer > * {
+  max-width: 1024px;
 }
 
 .tpl-ms__column {
@@ -278,7 +286,7 @@
 
 /* 右上角：猕猴桃余额 + 头像。离边 16、内边距 4 / 12、间距 8、头像 24；玻璃（和菜单一样：glass + 模糊 80 + 描边 border-subtle），11-03 用户定 */
 /* 右上角：和页面内容的右边对齐（11-11 用户定）：内容最宽 1600 的页（创作首页、探索、我的资产）离右边至少 32、屏幕再宽跟着内容往里收；
-   对话页跟记录流（最宽 1040、左右 24）；AI 工具没有最大宽度，离右边 24。
+   对话页跟记录流（最宽 1024、左右 24）；AI 工具没有最大宽度，离右边 24。
    上下和侧栏 Logo 行中线对齐（中线离顶 32，所以离顶 16，照 LibTV）。叠在页面那一格上，只有余额和头像能点 */
 .tpl-ms__wallet {
   --tpl-wallet-right: max(var(--spacing-32), calc((100% - 1600px) / 2));
@@ -298,7 +306,7 @@
 }
 
 .tpl-ms[data-page="chat"] > .tpl-ms__wallet {
-  --tpl-wallet-right: calc(max(0px, (100% - 1040px) / 2) + var(--spacing-24));
+  --tpl-wallet-right: calc(max(0px, (100% - 1024px - var(--spacing-24) * 2) / 2) + var(--spacing-24));
 }
 
 .tpl-ms[data-page="tools"] > .tpl-ms__wallet {
@@ -1329,7 +1337,36 @@
   height: 100%;
 }
 
+/* 输入框后面的背景（Pixel Blast 像素云，见 pixel-blast.tsx）：铺满页面宽，从顶到输入框下面 52（组件量出来写 height），下面 38% 渐隐；
+   跟着页面滚走。白色，整层再压透明度（Figma 没变量，按效果定） */
+.tpl-home__page {
+  position: relative;
+}
+
+.tpl-home__atmosphere {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(180deg, #000 0, #000 62%, transparent);
+  mask-image: linear-gradient(180deg, #000 0, #000 62%, transparent);
+}
+
+.tpl-home__pixel-blast {
+  position: absolute;
+  inset: 0;
+  opacity: 0.1; /* 16% 用户嫌太明显 */
+}
+
+.tpl-home__pixel-blast > canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .tpl-home__inner {
+  position: relative; /* 压在点阵氛围上面 */
   box-sizing: content-box;
   max-width: 1600px;
   margin: 0 auto;
@@ -1356,6 +1393,14 @@
 
 .tpl-home__mode {
   width: 240px;
+}
+
+/* 分段下面垫的玻璃：圆角跟分段一样 12，玻璃底 + 玻璃模糊，挡住后面的点阵；分段自己的白 10% 叠在上面 */
+.tpl-home__mode-glass {
+  border-radius: var(--border-radius-12);
+  background: var(--color-bg-fill-glass);
+  -webkit-backdrop-filter: blur(var(--effect-glass-blur));
+  backdrop-filter: blur(var(--effect-glass-blur));
 }
 
 .tpl-home__composer {

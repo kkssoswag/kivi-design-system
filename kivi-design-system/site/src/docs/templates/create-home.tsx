@@ -18,6 +18,7 @@ import {
 } from '@kivi';
 import { RATIO, SKILLS, WORKS, flowsOf, type ExploreTab } from './explore.demos';
 import { AgentComposer } from './composer';
+import { PixelBlast } from './pixel-blast';
 import { Composer } from './main-site.demos';
 
 type HomeMode = 'generate' | 'canvas';
@@ -85,6 +86,9 @@ const MOTION = {
   grainOverlay: 0,
 };
 
+/** 输入框流动底先关掉看看（11-16 用户：背景已经有像素云了），要恢复改成 true */
+const SHOW_COMPOSER_MOTION = false;
+
 function ComposerMotion() {
   const [reduce, setReduce] = useState(() => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);
   const [ready, setReady] = useState(false);
@@ -105,6 +109,34 @@ function ComposerMotion() {
   return (
     <div className="tpl-home__motion" data-ready={ready || undefined} aria-hidden>
       <MeshGradient className="tpl-home__motion-shader" {...MOTION} />
+    </div>
+  );
+}
+
+/**
+ * 输入框后面的背景（11-16 用户定）：先照美图设计室做过一版点阵，后来换成 React Bits 的 Pixel Blast（像素云，白色、不要开场动画），
+ * 代码在 pixel-blast.tsx。铺满页面宽，从顶到输入框下面 52，底部渐隐，跟着页面滚走
+ */
+const ATMOSPHERE_BELOW = 52;
+
+function HomeAtmosphere({ targetRef }: { targetRef: React.RefObject<HTMLElement | null> }) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState<number>();
+  useLayoutEffect(() => {
+    const wrap = wrapRef.current;
+    const page = wrap?.parentElement;
+    const target = targetRef.current;
+    if (!wrap || !page || !target) return;
+    const measure = () => setHeight(Math.max(1, target.getBoundingClientRect().bottom - page.getBoundingClientRect().top + ATMOSPHERE_BELOW));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(page);
+    ro.observe(target);
+    return () => ro.disconnect();
+  }, [targetRef]);
+  return (
+    <div ref={wrapRef} className="tpl-home__atmosphere" style={height != null ? { height } : undefined} aria-hidden>
+      {height != null && <PixelBlast className="tpl-home__pixel-blast" />}
     </div>
   );
 }
@@ -215,6 +247,8 @@ export function CreateHome({
   const [mode, setMode] = useState<HomeMode>('generate');
   // 外壳高度跟着显示的那套走：两套高度不一样时（画布里加了附件），切换时高度做动画，下面的内容跟着挪
   const generateBox = useRef<HTMLDivElement>(null);
+  /** 点阵氛围画到输入框下面 52，要量它 */
+  const composerRef = useRef<HTMLDivElement>(null);
   const canvasBox = useRef<HTMLDivElement>(null);
   // 画布那套至少和生成那套一样高：什么都没加时两套一样高，切换时外壳高度不动；画布里加了附件才比生成高
   const [generateHeight, setGenerateHeight] = useState<number>();
@@ -325,21 +359,26 @@ export function CreateHome({
   return (
     <main className="tpl-home">
       <ScrollArea className="tpl-home__scroll">
+        <div className="tpl-home__page">
+        <HomeAtmosphere targetRef={composerRef} />
         <div className="tpl-home__inner">
           <div className="tpl-home__intro">
             <h1>今天想在 KIVI 创作什么？</h1>
-            <Tabs variant="segment" size={36} value={mode} onChange={(v) => setMode(v as HomeMode)} aria-label="创作方式" className="tpl-home__mode">
-              <TabItem value="generate">生成</TabItem>
-              <TabItem value="canvas">画布</TabItem>
-            </Tabs>
+            {/* 分段自己的底是白 10%，压在点阵上会透出来，外面垫一层玻璃（11-16 用户定），不改分段本身 */}
+            <div className="tpl-home__mode-glass">
+              <Tabs variant="segment" size={36} value={mode} onChange={(v) => setMode(v as HomeMode)} aria-label="创作方式" className="tpl-home__mode">
+                <TabItem value="generate">生成</TabItem>
+                <TabItem value="canvas">画布</TabItem>
+              </Tabs>
+            </div>
           </div>
 
           {/* 生成：主站提示词框，提交进对话页；画布：画布里 Agent 的输入框，发送新建画布。两个一样大、一样的渐变底，内容各是各的 */}
           {/* 外壳只有一个（渐变底、描边、圆角）不动；两套内容叠在同一格里都挂着，切换时交叉淡化，框的大小位置不变、打的字也还在。
               一格的高度取两套里高的那个，所以两个一样高 */}
-          <div className="tpl-home__composer">
+          <div ref={composerRef} className="tpl-home__composer">
             <div className="tpl-home__shell" data-ready={shellReady || undefined} style={shellHeight != null ? { height: shellHeight } : undefined}>
-              <ComposerMotion />
+              {SHOW_COMPOSER_MOTION && <ComposerMotion />}
               <div ref={generateBox} className="tpl-home__box" data-active={mode === 'generate' || undefined}>
                 <Composer placement="bottom-start" onSubmit={onSubmit} />
               </div>
@@ -354,6 +393,7 @@ export function CreateHome({
           {/* 两套都挂着，只显示当前的（hidden）：不卸载，图片加载过的不用再从占位图重新加载，选项卡等状态也还在 */}
           <div hidden={mode !== 'generate'}>{swapContent('generate')}</div>
           <div hidden={mode !== 'canvas'}>{swapContent('canvas')}</div>
+        </div>
         </div>
       </ScrollArea>
     </main>

@@ -828,7 +828,7 @@ export function CreatePage() {
                   <ProcessGroup steps={AGENT_STEPS} />
                   <div className="tpl-text">参考图是冷色宇宙背景加漂浮的猕猴桃切片，下面按这个风格生成 4 张竖版海报。</div>
                   <div className="tpl-grid">{AGENT_RESULTS.map((src, i) => tile({ src }, i, '9:16', 1))}</div>
-                  <MessageFeedback text="参考图是冷色宇宙背景加漂浮的猕猴桃切片，下面按这个风格生成 4 张竖版海报。" traceId="trace-4c9d07" />
+                  <MessageFeedback text="参考图是冷色宇宙背景加漂浮的猕猴桃切片，下面按这个风格生成 4 张竖版海报。" traceId="trace-4c9d07" onRegenerate={() => {}} />
                 </div>
               ) : (
                 <div key={r.id} className="tpl-record">
@@ -836,10 +836,15 @@ export function CreatePage() {
                   <div className="tpl-grid" data-cols={gridOf(r.ratio, r.tiles.length).cols === 3 ? '3' : undefined}>
                     {r.tiles.map((t, i) => tile(t, i, r.ratio, gridOf(r.ratio, r.tiles.length).span, r.id))}
                   </div>
+                  {/* 照即梦：常用的两个是带图标的次要灰按钮，删除收进「⋯」（11-16 用户定）。只能看，点了不生成、不删 */}
                   <div className="tpl-row">
-                    <Button variant="secondary-muted">重新编辑</Button>
-                    <Button variant="secondary-muted">再次生成</Button>
-                    <Button variant="secondary-muted">删除整组</Button>
+                    <Button variant="secondary-muted" leftIcon="Rename">重新编辑</Button>
+                    <Button variant="secondary-muted" leftIcon="Reset">再次生成</Button>
+                    <Dropdown placement="bottom-start" trigger={<IconButton icon="More" label="更多" tooltip={false} variant="ghost-muted" />}>
+                      <Menu aria-label="这组记录的更多操作">
+                        <MenuItem icon="Delete" variant="danger">删除整组</MenuItem>
+                      </Menu>
+                    </Dropdown>
                   </div>
                 </div>
               ),
