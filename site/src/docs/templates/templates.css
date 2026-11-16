@@ -1364,7 +1364,7 @@
 }
 
 /* 输入框外壳：只有一个、切换时不动。最宽 1040、圆角 24、描边 border-subtle（画在里面，不占位置）、渐变玻璃底 + 模糊（和主站输入框一样）。
-   里面两套内容叠在同一格（生成：主站提示词框；画布：画布 Agent 输入框），格子高度取高的那个，所以两个一样高 */
+   里面两套内容叠在同一格（生成：主站提示词框；画布：画布 Agent 输入框），外壳高度由页面按显示的那套量出来（两套高度不一样时切换有高度动画） */
 .tpl-home__shell {
   position: relative;
   display: grid;
@@ -1374,6 +1374,12 @@
   background: var(--color-bg-fill-glass-gradient);
   -webkit-backdrop-filter: blur(var(--effect-glass-blur));
   backdrop-filter: blur(var(--effect-glass-blur));
+  overflow: clip; /* 高度在动的时候，里面的内容不露出外壳 */
+}
+
+/* 切模式两套高度不一样：外壳高度 200ms ease-in-out，和两套内容的交叉淡化同时长；第一次出现不动 */
+.tpl-home__shell[data-ready] {
+  transition: height var(--motion-duration-200) var(--motion-ease-in-out);
 }
 
 /* 流动底（MeshGradient，照即梦）：铺满输入框外壳、在内容下面，跟着圆角裁掉；着色器画上了才淡入（400ms ease-out）。
@@ -1416,6 +1422,7 @@
   z-index: 1;
   display: flex;
   grid-area: 1 / 1;
+  align-self: start; /* 各取自己的高度，外壳高度由页面按显示的那套量出来 */
   min-width: 0;
   opacity: 0;
   visibility: hidden;

@@ -541,13 +541,14 @@ export function Composer({
   const pool: PlaceholderImageName[] = ['ip-peek', 'bunny-gouache', 'monstera-dots', 'kivi-future', 'ip-gouache'];
   const add = () =>
     setItems((list) => [...list, { id: `c${Date.now()}`, type: 'image', name: referenceName(list, 'image'), src: img(pool[list.length % pool.length], '1:1') }]);
-  // 把文件拖到输入框上：加进参考区（缩略图用占位图，图片用本地预览）
+  // 把文件拖到输入框上：加进参考区（图片、音频用本地文件，视频缩略图用占位图）
   const dropFiles = (files: File[]) =>
     setItems((list) => {
       let next = list;
       files.forEach((f, i) => {
         const type: ReferenceType = f.type.startsWith('video') ? 'video' : f.type.startsWith('audio') ? 'audio' : 'image';
-        const src = type === 'image' ? URL.createObjectURL(f) : type === 'video' ? img(pool[(next.length + i) % pool.length], '1:1') : undefined;
+        // 音频传本地文件地址，悬停预览里能播；视频缩略图用占位图
+        const src = type === 'image' || type === 'audio' ? URL.createObjectURL(f) : img(pool[(next.length + i) % pool.length], '1:1');
         next = [...next, { id: `c${Date.now()}-${i}`, type, name: referenceName(next, type), src, duration: type === 'video' ? '5s' : type === 'audio' ? '15s' : undefined }];
       });
       return next;
