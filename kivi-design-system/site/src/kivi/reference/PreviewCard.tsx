@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useRef, type CSSProperties, type HTMLAttributes, type KeyboardEvent, type ReactElement, type ReactNode } from 'react';
-import { Icon } from '../Icon';
+import { IconButton } from '../button';
 import { usePointerDrag, useAudioPlayer } from '../hooks';
 import { Popover } from '../tooltip';
 import { AssetThumb } from '../tags-avatar';
@@ -87,8 +87,8 @@ const clock = (sec: number) => {
 type AudioRowProps = Omit<PreviewCardProps, 'type' | 'ext' | 'box' | 'video'> & { src: string };
 
 /**
- * 音频预览卡：照线上（ai-chat AudioHoverCard）能播。56 缩略图就是播放按钮：平时音符，悬停、播放中换成播放 / 暂停；
- * 第二行一直是「已播 / 总长」（没播是 0:00），播完回到开头（照线上）；下面一条细进度条，点、拖跳到那里，方向键前后 5 秒。
+ * 音频预览卡：照线上（ai-chat AudioHoverCard）能播。上面 56 缩略图 + 名字（和说明），下面一行：播放 / 暂停按钮、「已播 / 总长」（没播是 0:00）、进度条；
+ * 播完回到开头（照线上），进度条点、拖跳到那里，方向键前后 5 秒。
  * 同一时间只播一个（useAudioPlayer 走 exclusivePlayback），卡片收起（卸载）就停。
  */
 const AudioRow = forwardRef<HTMLDivElement, AudioRowProps>(function AudioRow(
@@ -105,7 +105,6 @@ const AudioRow = forwardRef<HTMLDivElement, AudioRowProps>(function AudioRow(
   }, [audioRef]);
 
   const failed = status === 'error';
-  const started = playing || currentTime > 0;
   const total = duration > 0 ? clock(duration) : durationText;
   const ratio = duration > 0 ? Math.min(1, currentTime / duration) : 0;
   const drag = usePointerDrag({ disabled: !(duration > 0), onMove: (r) => seek(r * duration) });
@@ -120,25 +119,29 @@ const AudioRow = forwardRef<HTMLDivElement, AudioRowProps>(function AudioRow(
   const label = typeof name === 'string' ? name : '音频';
 
   return (
-    <div ref={ref} className={cx('kv-preview-card', 'kv-preview-card--row', className)} {...rest}>
+    <div ref={ref} className={cx('kv-preview-card', 'kv-preview-card--audio', className)} {...rest}>
       <audio ref={audioRef} {...audioProps} />
-      <button
-        type="button"
-        className="kv-preview-card__play"
-        aria-label={playing ? `暂停 ${label}` : `播放 ${label}`}
-        aria-pressed={playing}
-        disabled={failed}
-        data-active={started || undefined}
-        onClick={toggle}
-      >
+      <div className="kv-preview-card__head">
         <AssetThumb size={56} type="icon" icon="Music" />
-        <span className="kv-preview-card__play-icon" aria-hidden="true">
-          {playing && status === 'loading' ? <Icon name="Loading" className="kv-icon--spin" /> : <Icon name={playing ? 'Pause' : 'Play'} />}
-        </span>
-      </button>
-      <div className="kv-preview-card__text kv-preview-card__text--audio">
-        {name != null && <div className="kv-preview-card__name">{name}</div>}
-        <div className="kv-preview-card__meta">{failed ? '加载失败' : `${clock(currentTime)} / ${total ?? '—'}`}</div>
+        {(name != null || description != null) && (
+          <div className="kv-preview-card__text">
+            {name != null && <div className="kv-preview-card__name">{name}</div>}
+            {description != null && <div className="kv-preview-card__description">{description}</div>}
+          </div>
+        )}
+      </div>
+      <div className="kv-preview-card__player">
+        <IconButton
+          icon={playing ? 'Pause' : 'Play'}
+          label={playing ? `暂停 ${label}` : `播放 ${label}`}
+          tooltip={false}
+          variant="ghost"
+          size={28}
+          loading={playing && status === 'loading'}
+          disabled={failed}
+          onClick={toggle}
+        />
+        <span className="kv-preview-card__meta">{failed ? '加载失败' : `${clock(currentTime)} / ${total ?? '—'}`}</span>
         <div
           className="kv-preview-card__progress"
           role="slider"
@@ -157,7 +160,6 @@ const AudioRow = forwardRef<HTMLDivElement, AudioRowProps>(function AudioRow(
             <span className="kv-preview-card__played" />
           </span>
         </div>
-        {description != null && <div className="kv-preview-card__description">{description}</div>}
       </div>
     </div>
   );
