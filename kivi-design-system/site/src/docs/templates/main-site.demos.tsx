@@ -42,6 +42,7 @@ import {
   type ResultTileAction,
   type ResultTileStatus,
   ScrollArea,
+  SendButton,
 } from '@kivi';
 import { SKILL_CATEGORIES, SKILL_ITEMS } from '../business/skill-data';
 import { demoCost } from '../business/gen-demo-cost';
@@ -572,11 +573,15 @@ export function Composer({
         </>
       }
       actions={
-        // 主站一律用猕猴桃生成按钮（圆形发送按钮只给画布 Agent）。音频没有张数，换成字数 / 上限。只能看，点了不生成
-        <>
-          {task === 'audio' ? <AudioCharCount count={text.length} model={audioModel} /> : <CountSelect placement={placement} />}
-          <GenerateButton cost={demoCost(task, models[task])} onClick={submit} />
-        </>
+        // Agent 没有张数和消耗，直接是发送按钮（和画布 Agent 输入框一样）；其他任务用猕猴桃生成按钮。音频没有张数，换成字数 / 上限。只能看，点了不生成
+        task === 'agent' ? (
+          <SendButton disabled={!text.trim()} onClick={submit} />
+        ) : (
+          <>
+            {task === 'audio' ? <AudioCharCount count={text.length} model={audioModel} /> : <CountSelect placement={placement} />}
+            <GenerateButton cost={demoCost(task, models[task])} onClick={submit} />
+          </>
+        )
       }
     />
   );
