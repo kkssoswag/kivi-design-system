@@ -29,6 +29,8 @@ export function KiviApp({ page, onNavigate }: { page: AppPage; onNavigate: (page
   const [selected, setSelected] = useState(NONE);
   // 进探索页停在哪个选项卡：创作首页「查看全部」带过来
   const [exploreTab, setExploreTab] = useState<ExploreTab>('discover');
+  // 创作首页广场的搜索框里填的字，进探索页时带过去
+  const [exploreKeyword, setExploreKeyword] = useState('');
   // 进画布页时带着的技能：探索页技能点「使用」新建画布，Agent 输入框带上技能引用
   const [skill, setSkill] = useState<string | undefined>();
 
@@ -43,7 +45,10 @@ export function KiviApp({ page, onNavigate }: { page: AppPage; onNavigate: (page
   const navigate = (next: AppPage) => {
     setSelected(NONE);
     setSkill(undefined);
-    if (next === 'explore') setExploreTab('discover');
+    if (next === 'explore') {
+      setExploreTab('discover');
+      setExploreKeyword('');
+    }
     onNavigate(next);
   };
   const openCanvas = () => {
@@ -83,8 +88,9 @@ export function KiviApp({ page, onNavigate }: { page: AppPage; onNavigate: (page
               // 演示：提交后进一段新对话（侧栏不选中哪条）
               onSubmit={() => setSelected({ kind: 'chat', id: 'chat-new' })}
               onOpenCanvas={openCanvas}
-              onExplore={(tab) => {
+              onExplore={(tab, keyword = '') => {
                 setExploreTab(tab);
+                setExploreKeyword(keyword);
                 onNavigate('explore');
               }}
               onAllCanvases={() => navigate('assets')}
@@ -92,8 +98,9 @@ export function KiviApp({ page, onNavigate }: { page: AppPage; onNavigate: (page
           ))}
         {page === 'explore' && (
           <ExplorePage
-            key={exploreTab}
+            key={`${exploreTab}:${exploreKeyword}`}
             initialTab={exploreTab}
+            initialKeyword={exploreKeyword}
             onUseSkill={(name) => {
               setSelected(NONE);
               setSkill(name);

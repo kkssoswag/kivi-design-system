@@ -6,6 +6,7 @@ import {
   Dialog,
   ExploreCard,
   IconButton,
+  Input,
   Masonry,
   ProjectCard,
   ScrollArea,
@@ -57,6 +58,8 @@ const SQUARE_TABS: { value: Exclude<ExploreTab, 'discover'>; label: string }[] =
   { value: 'skill', label: '技能' },
   { value: 'workflow', label: '工作流' },
 ];
+/** 搜索框占位里的名词，跟探索页各选项卡的搜索框一致 */
+const SQUARE_NOUN: Record<Exclude<ExploreTab, 'discover'>, string> = { featured: '案例', skill: '技能', workflow: '工作流' };
 /** 首页的广场是探索页同一类内容的前几条 */
 const HOME_COUNT = 8;
 const FEATURED = flowsOf('featured').slice(0, HOME_COUNT);
@@ -106,13 +109,36 @@ function ComposerMotion() {
   );
 }
 
-function HomeHead({ title, onMore, children }: { title?: string; onMore: () => void; children?: React.ReactNode }) {
+/** 广场标题行右边的搜索框：回车带着关键词去探索页对应选项卡，在那边搜（11-16 用户定） */
+function HomeSearch({ placeholder, onSearch }: { placeholder: string; onSearch: (keyword: string) => void }) {
+  const [keyword, setKeyword] = useState('');
+  return (
+    <Input
+      leftIcon="Search"
+      clearable
+      placeholder={placeholder}
+      aria-label={placeholder}
+      className="tpl-home__search"
+      value={keyword}
+      onChange={(e) => setKeyword(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' && !e.nativeEvent.isComposing) onSearch(keyword.trim());
+      }}
+    />
+  );
+}
+
+function HomeHead({ title, onMore, search, children }: { title?: string; onMore: () => void; search?: { placeholder: string; onSearch: (keyword: string) => void }; children?: React.ReactNode }) {
   return (
     <header className="tpl-home__head">
       {title ? <h2>{title}</h2> : children}
-      <Button size={32} variant="ghost" rightIcon="RightArrowSmall" onClick={onMore}>
-        查看全部
-      </Button>
+      {search ? (
+        <HomeSearch {...search} />
+      ) : (
+        <Button size={32} variant="ghost-muted" rightIcon="RightArrowSmall" onClick={onMore}>
+          查看全部
+        </Button>
+      )}
     </header>
   );
 }
@@ -150,8 +176,8 @@ function RecentUpdates() {
         <h2>最近更新</h2>
         {!(edges.start && edges.end) && (
           <span className="tpl-home__pager">
-            <IconButton icon="LeftArrowSmall" label="上一组" variant="secondary" size={28} disabled={edges.start} onClick={() => page(-1)} />
-            <IconButton icon="RightArrowSmall" label="下一组" variant="secondary" size={28} disabled={edges.end} onClick={() => page(1)} />
+            <IconButton icon="LeftArrowSmall" label="上一组" variant="ghost-muted" size={28} disabled={edges.start} onClick={() => page(-1)} />
+            <IconButton icon="RightArrowSmall" label="下一组" variant="ghost-muted" size={28} disabled={edges.end} onClick={() => page(1)} />
           </span>
         )}
       </header>
@@ -181,8 +207,8 @@ export function CreateHome({
   onSubmit: () => void;
   /** 画布：新建画布、打开最近项目、提交想法，都进画布页 */
   onOpenCanvas: () => void;
-  /** 广场「查看全部」、点作品：去探索页对应选项卡 */
-  onExplore: (tab: ExploreTab) => void;
+  /** 广场搜索框回车（带着关键词）、点作品：去探索页对应选项卡 */
+  onExplore: (tab: ExploreTab, keyword?: string) => void;
   /** 最近项目「查看全部」：去我的资产看全部画布 */
   onAllCanvases: () => void;
 }) {
@@ -237,7 +263,7 @@ export function CreateHome({
             <section className="tpl-home__section" aria-label={mode === 'canvas' ? '画布推荐内容' : '生成推荐内容'}>
               {mode === 'generate' ? (
                 <>
-                  <HomeHead title="发现" onMore={() => onExplore('discover')} />
+                  <HomeHead title="发现" onMore={() => onExplore('discover')} search={{ placeholder: '搜索提示词、模型、作者', onSearch: (k) => onExplore('discover', k) }} />
                   <Masonry columns={{ default: 4, 1100: 3, 700: 2, 500: 1 }} gap={2} ratios={HOME_WORKS.map((w) => RATIO[w.ratio])}>
                     {HOME_WORKS.map((w) => (
                       <WorkCard
@@ -256,7 +282,10 @@ export function CreateHome({
                 </>
               ) : (
                 <>
-                  <HomeHead onMore={() => onExplore(square)}>
+                  <HomeHead
+                    onMore={() => onExplore(square)}
+                    search={{ placeholder: `搜索${SQUARE_NOUN[square]}`, onSearch: (k) => onExplore(square, k) }}
+                  >
                     <Tabs size={36} value={square} onChange={(v) => setSquare(v as typeof square)} aria-label="画布内容分类">
                       {SQUARE_TABS.map((t) => (
                         <TabItem key={t.value} value={t.value}>
