@@ -36,6 +36,9 @@ export interface ReferenceStackItem {
   progress?: number;
 }
 
+/** 鼠标移开参考区后等多久才收起（毫秒） */
+const LEAVE_GRACE = 150;
+
 const TYPE_NAME: Record<ReferenceType, string> = { image: '图片', video: '视频', audio: '音频' };
 
 /** 给新素材起名：按类型分别编号，已有「图片1、图片2」的话下一个是「图片3」 */
@@ -252,12 +255,23 @@ export const ReferenceStack = forwardRef<HTMLDivElement, ReferenceStackProps>(fu
   }, [open]);
 
   // 悬停、键盘聚焦展开，移开马上收起。手机没有悬停：点一下展开，再点一下收起
-  const enter = () => setExpanded(true);
-  const leave = () => setExpanded(false);
+  // 鼠标移开后等一小会儿才收：从卡片挪到上面的预览卡，中间隔着 8 的缝，路上离开参考区就收的话，预览卡跟着关、永远挪不进去。
+  // 预览卡是 React 子节点（Portal），鼠标进了它算还在参考区里，会取消这次收起；等的时间和预览卡自己的离开等待一样（Popover 的 LEAVE_MS）
+  const leaveTimer = useRef(0);
+  useEffect(() => () => window.clearTimeout(leaveTimer.current), []);
+  const enter = () => {
+    window.clearTimeout(leaveTimer.current);
+    setExpanded(true);
+  };
+  const leave = () => {
+    window.clearTimeout(leaveTimer.current);
+    setExpanded(false);
+  };
   // 鼠标移开时，键盘焦点（:focus-visible）还在参考区里就不收，免得删除按钮藏起来、焦点却还在上面
   const mouseLeave = () => {
     if (rootRef.current?.querySelector(':focus-visible')) return;
-    leave();
+    window.clearTimeout(leaveTimer.current);
+    leaveTimer.current = window.setTimeout(() => setExpanded(false), LEAVE_GRACE);
   };
 
   // 删掉的卡片先留着，播完消失动画再卸掉

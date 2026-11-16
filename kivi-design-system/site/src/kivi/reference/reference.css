@@ -538,6 +538,8 @@
   height: 72px;
   overflow: hidden;
   border-radius: var(--border-radius-8);
+  /* 实色底：音频、文件这类本身半透明的格子叠放时，下面的卡片会透上来。surface 和输入框玻璃的底差不多，单张摆平时看不出差别 */
+  background: var(--color-bg-fill-surface);
   /* 序号角标、时长带背景模糊，卡片旋转时只靠 overflow 裁不住圆角，再用 clip-path 裁一次 */
   clip-path: inset(0 round var(--border-radius-8));
   transform-origin: 50% 50%;
