@@ -216,6 +216,17 @@ export function CreateHome({
   // 外壳高度跟着显示的那套走：两套高度不一样时（画布里加了附件），切换时高度做动画，下面的内容跟着挪
   const generateBox = useRef<HTMLDivElement>(null);
   const canvasBox = useRef<HTMLDivElement>(null);
+  // 画布那套至少和生成那套一样高：什么都没加时两套一样高，切换时外壳高度不动；画布里加了附件才比生成高
+  const [generateHeight, setGenerateHeight] = useState<number>();
+  useLayoutEffect(() => {
+    const el = generateBox.current;
+    if (!el) return;
+    const measure = () => setGenerateHeight(el.offsetHeight);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const [shellHeight, setShellHeight] = useState<number>();
   const [shellReady, setShellReady] = useState(false);
   useLayoutEffect(() => {
@@ -235,6 +246,81 @@ export function CreateHome({
   }, [shellHeight != null]);
   const [square, setSquare] = useState<Exclude<ExploreTab, 'discover'>>('featured');
 
+
+  // 中间一块（最近更新 / 最近项目）和广场，按模式出内容
+  const swapContent = (m: HomeMode) => (
+    <>
+      {m === 'generate' ? (
+        <RecentUpdates />
+      ) : (
+        <section className="tpl-home__section" aria-label="最近项目">
+          <HomeHead title="最近项目" onMore={onAllCanvases} />
+          <div className="tpl-home__project-grid" data-create-span={Math.max(1, PROJECT_COLS - RECENT.length)}>
+            {/* 一排 5 格：新建画布占掉最近项目没占的格子，一个画布都没有时铺满整排（11-10 用户定，照即梦） */}
+<CreateCard variant="canvas" label="新建画布" onClick={onOpenCanvas} />
+            {RECENT.map((c) => (
+              <ProjectCard key={c.id} name={c.name} covers={c.covers} updatedAt={c.updatedAt} onOpen={onOpenCanvas} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="tpl-home__section" aria-label={m === 'canvas' ? '画布推荐内容' : '生成推荐内容'}>
+        {m === 'generate' ? (
+          <>
+            <HomeHead title="发现" onMore={() => onExplore('discover')} search={{ placeholder: '搜索提示词、模型、作者', onSearch: (k) => onExplore('discover', k) }} />
+            <Masonry columns={{ default: 4, 1100: 3, 700: 2, 500: 1 }} gap={2} ratios={HOME_WORKS.map((w) => RATIO[w.ratio])}>
+              {HOME_WORKS.map((w) => (
+                <WorkCard
+                  key={w.id}
+                  type={w.video ? 'video' : 'image'}
+                  src={w.src}
+                  poster={w.poster}
+                  ratio={w.ratio}
+                  title={w.prompt}
+                  author={w.author}
+                  likes={w.likes}
+                  onOpen={() => onExplore('discover')}
+                />
+              ))}
+            </Masonry>
+          </>
+        ) : (
+          <>
+            <HomeHead
+              onMore={() => onExplore(square)}
+              search={{ placeholder: `搜索${SQUARE_NOUN[square]}`, onSearch: (k) => onExplore(square, k) }}
+            >
+              <Tabs size={36} value={square} onChange={(v) => setSquare(v as typeof square)} aria-label="画布内容分类">
+                {SQUARE_TABS.map((t) => (
+                  <TabItem key={t.value} value={t.value}>
+                    {t.label}
+                  </TabItem>
+                ))}
+              </Tabs>
+            </HomeHead>
+            <div className="tpl-ex__grid">
+              {square === 'skill'
+                ? HOME_SKILLS.map((s) => (
+                    <ExploreCard
+                      key={s.id}
+                      name={s.title}
+                      description={s.description}
+                      cover={s.poster ?? placeholderImageSrc(s.cover, '16:9')}
+                      video={s.video}
+                      author={s.author ?? { name: 'KIVI' }}
+                      onOpen={() => onExplore('skill')}
+                    />
+                  ))
+                : (square === 'featured' ? FEATURED : WORKFLOWS).map((f) => (
+                    <ExploreCard key={f.id} name={f.name} cover={f.cover} video={f.video} showTime author={f.author} onOpen={() => onExplore(square)} />
+                  ))}
+            </div>
+          </>
+        )}
+      </section>
+    </>
+  );
 
   return (
     <main className="tpl-home">
@@ -257,84 +343,17 @@ export function CreateHome({
               <div ref={generateBox} className="tpl-home__box" data-active={mode === 'generate' || undefined}>
                 <Composer placement="bottom-start" onSubmit={onSubmit} />
               </div>
-              <div ref={canvasBox} className="tpl-home__box" data-active={mode === 'canvas' || undefined}>
+              <div ref={canvasBox} className="tpl-home__box" data-active={mode === 'canvas' || undefined} style={generateHeight != null ? { minHeight: generateHeight } : undefined}>
                 <AgentComposer className="tpl-home__agent" placement="bottom-start" onSend={onOpenCanvas} />
               </div>
             </div>
           </div>
 
           {/* 切模式：中间一块和广场换掉，淡入 */}
-          <div key={`swap-${mode}`} className="tpl-home__swap">
-            {mode === 'generate' ? (
-              <RecentUpdates />
-            ) : (
-              <section className="tpl-home__section" aria-label="最近项目">
-                <HomeHead title="最近项目" onMore={onAllCanvases} />
-                <div className="tpl-home__project-grid" data-create-span={Math.max(1, PROJECT_COLS - RECENT.length)}>
-                  {/* 一排 5 格：新建画布占掉最近项目没占的格子，一个画布都没有时铺满整排（11-10 用户定，照即梦） */}
-<CreateCard variant="canvas" label="新建画布" onClick={onOpenCanvas} />
-                  {RECENT.map((c) => (
-                    <ProjectCard key={c.id} name={c.name} covers={c.covers} updatedAt={c.updatedAt} onOpen={onOpenCanvas} />
-                  ))}
-                </div>
-              </section>
-            )}
-
-            <section className="tpl-home__section" aria-label={mode === 'canvas' ? '画布推荐内容' : '生成推荐内容'}>
-              {mode === 'generate' ? (
-                <>
-                  <HomeHead title="发现" onMore={() => onExplore('discover')} search={{ placeholder: '搜索提示词、模型、作者', onSearch: (k) => onExplore('discover', k) }} />
-                  <Masonry columns={{ default: 4, 1100: 3, 700: 2, 500: 1 }} gap={2} ratios={HOME_WORKS.map((w) => RATIO[w.ratio])}>
-                    {HOME_WORKS.map((w) => (
-                      <WorkCard
-                        key={w.id}
-                        type={w.video ? 'video' : 'image'}
-                        src={w.src}
-                        poster={w.poster}
-                        ratio={w.ratio}
-                        title={w.prompt}
-                        author={w.author}
-                        likes={w.likes}
-                        onOpen={() => onExplore('discover')}
-                      />
-                    ))}
-                  </Masonry>
-                </>
-              ) : (
-                <>
-                  <HomeHead
-                    onMore={() => onExplore(square)}
-                    search={{ placeholder: `搜索${SQUARE_NOUN[square]}`, onSearch: (k) => onExplore(square, k) }}
-                  >
-                    <Tabs size={36} value={square} onChange={(v) => setSquare(v as typeof square)} aria-label="画布内容分类">
-                      {SQUARE_TABS.map((t) => (
-                        <TabItem key={t.value} value={t.value}>
-                          {t.label}
-                        </TabItem>
-                      ))}
-                    </Tabs>
-                  </HomeHead>
-                  <div className="tpl-ex__grid">
-                    {square === 'skill'
-                      ? HOME_SKILLS.map((s) => (
-                          <ExploreCard
-                            key={s.id}
-                            name={s.title}
-                            description={s.description}
-                            cover={s.poster ?? placeholderImageSrc(s.cover, '16:9')}
-                            video={s.video}
-                            author={s.author ?? { name: 'KIVI' }}
-                            onOpen={() => onExplore('skill')}
-                          />
-                        ))
-                      : (square === 'featured' ? FEATURED : WORKFLOWS).map((f) => (
-                          <ExploreCard key={f.id} name={f.name} cover={f.cover} video={f.video} showTime author={f.author} onOpen={() => onExplore(square)} />
-                        ))}
-                  </div>
-                </>
-              )}
-            </section>
-          </div>
+          {/* 切模式：中间一块和广场直接换，不做淡入淡出（淡入要从全透明起，中间会空一帧、页面闪） */}
+          {/* 两套都挂着，只显示当前的（hidden）：不卸载，图片加载过的不用再从占位图重新加载，选项卡等状态也还在 */}
+          <div hidden={mode !== 'generate'}>{swapContent('generate')}</div>
+          <div hidden={mode !== 'canvas'}>{swapContent('canvas')}</div>
         </div>
       </ScrollArea>
     </main>
