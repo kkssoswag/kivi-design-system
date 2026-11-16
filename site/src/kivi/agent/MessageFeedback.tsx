@@ -25,15 +25,17 @@ export interface MessageFeedbackProps extends Omit<HTMLAttributes<HTMLDivElement
   onSubmitReason?: (reason: string) => void;
   /** 复制成功后触发，参数是复制的文字 */
   onCopied?: (text: string) => void;
+  /** 点了「重新生成」：把这条回复对应的用户消息重新发给 Agent。传了才有这个按钮，排在最前 */
+  onRegenerate?: () => void;
 }
 
 /**
- * 助手消息底部的反馈条：复制、复制 TraceID、赞、踩，四个都是 IconButton · 无底灰。
+ * 助手消息底部的反馈条：重新生成（Button · 次要灰，带图标，传了 onRegenerate 才有）、复制、复制 TraceID、赞、踩，后四个都是 IconButton · 无底灰。
  * 复制成功图标换对勾 1.5 秒；赞、踩选中换实心图标，互斥。点踩后下面往下推出原因输入：Textarea，提交按钮在框里右下角，回车提交、Esc 收起；
  * 点赞、再点踩、提交、Esc 都会收起。生成中不显示这一条（调用方控制）。交互照线上。
  */
 export const MessageFeedback = forwardRef<HTMLDivElement, MessageFeedbackProps>(function MessageFeedback(
-  { text, traceId, value: valueProp, defaultValue = null, onChange, reason = true, onSubmitReason, onCopied, className, ...rest },
+  { text, traceId, value: valueProp, defaultValue = null, onChange, reason = true, onSubmitReason, onCopied, onRegenerate, className, ...rest },
   ref,
 ) {
   const [value, setValue] = useControllable<MessageFeedbackValue>(valueProp, defaultValue, onChange);
@@ -64,6 +66,11 @@ export const MessageFeedback = forwardRef<HTMLDivElement, MessageFeedbackProps>(
   return (
     <div ref={ref} className={cx('kv-message-feedback', className)} {...rest}>
       <div className="kv-message-feedback__bar">
+        {onRegenerate && (
+          <Button className="kv-message-feedback__regenerate" variant="secondary-muted" leftIcon="Reset" onClick={onRegenerate}>
+            重新生成
+          </Button>
+        )}
         {text != null && (
           <IconButton
               icon={textCopy.copied ? 'CheckSmall' : 'Copy'}
