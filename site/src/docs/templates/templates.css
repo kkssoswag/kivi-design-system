@@ -1529,6 +1529,19 @@
   min-width: 0;
 }
 
+/* 首页发现：最高约两屏（高度 JS 量了写在 style 上），多的截掉；「更多」压在底部正中，离底 24 */
+.tpl-home__discover {
+  position: relative;
+  overflow: hidden;
+}
+
+.tpl-home__discover-more {
+  position: absolute;
+  left: 50%;
+  bottom: var(--spacing-24);
+  transform: translateX(-50%);
+}
+
 .tpl-home__pager {
   display: flex;
   gap: var(--spacing-4);

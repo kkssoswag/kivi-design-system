@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react';
-import { Button, Collapse, Divider, List, ListItem, Masonry, Menu, MenuItem, ScrollArea, placeholderImageSrc, type CollapseGap, type PlaceholderImageName, type PlaceholderImageRatio, type ScrollAreaOrientation } from '@kivi';
+import type { CSSProperties, ReactNode } from 'react';
+import { Button, Collapse, Divider, Dropdown, List, ListItem, Masonry, Menu, MenuItem, ScrollArea, Select, Tree, treeAncestors, type TreeNode, placeholderImageSrc, type CollapseGap, type PlaceholderImageName, type PlaceholderImageRatio, type ScrollAreaOrientation } from '@kivi';
 import { Playground } from '@shell';
 
 // 布局页的属性面板。参数表在 layout.mdx
@@ -65,6 +65,57 @@ export function ListPlayground() {
           </List>
         );
       }}
+    />
+  );
+}
+
+// ---------- Tree ----------
+
+const TREE_ITEMS: TreeNode[] = [
+  { id: 'SKILL.md', name: 'SKILL.md' },
+  {
+    id: 'references',
+    name: 'references',
+    children: [
+      { id: 'references/风格指南.md', name: '风格指南.md' },
+      { id: 'references/palette', name: 'palette', children: [{ id: 'references/palette/brand.json', name: 'brand.json' }] },
+    ],
+  },
+  { id: 'examples', name: 'examples', children: [{ id: 'examples/示例.md', name: '示例.md' }, { id: 'examples/poster.pdf', name: 'poster.pdf' }] },
+  { id: 'assets', name: 'assets', children: [] },
+];
+
+type TreeState = { open: boolean; file: string };
+
+/** 弹出类的演示：触发器放在台子下面、浮层往上弹，默认展开 */
+const TREE_STAGE: CSSProperties = { minHeight: 360, display: 'flex', alignItems: 'flex-end' };
+
+export function TreePlayground() {
+  return (
+    <Playground<TreeState>
+      controls={[
+        { key: 'open', label: '展开', type: 'toggle', value: true },
+        { key: 'file', label: '选中', type: 'segment', value: 'references/风格指南.md', options: [['SKILL.md', 'SKILL.md'], ['references/风格指南.md', '风格指南.md'], ['examples/poster.pdf', 'poster.pdf']] },
+      ]}
+      render={(s, update) => (
+        <div style={TREE_STAGE}>
+          <Dropdown
+            haspopup="tree"
+            placement="top-start"
+            open={s.open}
+            onOpenChange={(open) => update({ open })}
+            trigger={
+              <Select variant="plain" leftIcon="File" aria-label="切换文件">
+                {s.file}
+              </Select>
+            }
+          >
+            <Menu role="none">
+              <Tree aria-label="技能文件" items={TREE_ITEMS} selected={s.file} onSelectedChange={(file) => update({ file })} defaultExpanded={['references', ...treeAncestors(TREE_ITEMS, s.file)]} />
+            </Menu>
+          </Dropdown>
+        </div>
+      )}
     />
   );
 }
