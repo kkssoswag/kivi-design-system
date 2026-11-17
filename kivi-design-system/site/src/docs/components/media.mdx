@@ -1,5 +1,5 @@
 import { Demo, PageHeader } from '@shell';
-import { AssetThumbPlayground, ImagePlayground, PreviewHost, VideoPlayerPlayground } from './media.demos';
+import { AssetThumbPlayground, ImageLoadDemo, ImagePlayground, PreviewHost, VideoPlayerPlayground } from './media.demos';
 
 <PageHeader
   eyebrow="展示"
@@ -15,6 +15,10 @@ import { AssetThumbPlayground, ImagePlayground, PreviewHost, VideoPlayerPlaygrou
 图片：展示用户作品图。
 
 <ImagePlayground />
+
+### 加载过程
+
+<Demo noCode scope={{ ImageLoadDemo }} code={`<ImageLoadDemo />`} />
 
 ### 图片网格里的失败和重试
 

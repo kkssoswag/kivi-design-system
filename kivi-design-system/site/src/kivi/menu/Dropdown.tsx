@@ -47,9 +47,10 @@ export interface DropdownProps extends Omit<HTMLAttributes<HTMLSpanElement>, 'ch
   /**
    * 弹出的是菜单还是单选列表，写在触发器的 aria-haspopup 上，默认 menu。
    * 下拉选择用 listbox：打开时滚到选中的那一项（键盘打开的焦点也落在它上面），不和触发器一样宽时列表不比触发器窄。
-   * 弹出的是一块带输入的面板（时间筛选、参数）用 dialog：Tab 在面板里正常走，走出面板才关闭
+   * 弹出的是一块带输入的面板（时间筛选、参数）用 dialog：Tab 在面板里正常走，走出面板才关闭。
+   * 弹出的是一棵树（文件选择器）用 tree：打开时焦点落在选中的文件上（没有就第一行），点了文件关闭，方向键由 Tree 自己管
    */
-  haspopup?: 'menu' | 'listbox' | 'dialog';
+  haspopup?: 'menu' | 'listbox' | 'dialog' | 'tree';
   /**
    * 悬停打开：子菜单用，一般不直接写，用 MenuSub。鼠标移上触发器就打开，移出触发器和菜单 150ms 后关；
    * 键盘右方向键打开、左方向键关掉回到触发器；点了里面的项，连外层菜单一起关
@@ -66,6 +67,9 @@ const SUB_INSET = 4;
 
 const ITEMS = '.kv-menu-item:not(:disabled):not([aria-disabled="true"])';
 const SELECTABLE = `${ITEMS}:not([aria-haspopup])`;
+/** 树（haspopup="tree"）：能 Tab 到的那一行（选中的文件，或第一行）；点了文件（没有 aria-expanded 的行）关闭 */
+const TREE_CURRENT = '[role="treeitem"][tabindex="0"]';
+const TREE_FILE = '[role="treeitem"]:not([aria-expanded])';
 /** 方向键能走到的：菜单项，加上分组标题右边的按钮（比如「新建画布」） */
 const NAVIGABLE = `${ITEMS}, .kv-menu-label__action button:not(:disabled)`;
 const EXIT_MS = 150;
@@ -148,7 +152,12 @@ export const Dropdown = forwardRef<HTMLSpanElement, DropdownProps>(function Drop
     const el = popupRef.current;
     if (!el) return;
     // 单选列表有选中的：落在选中的那一项，长列表先滚到它
-    const current = haspopup === 'listbox' ? el.querySelector<HTMLElement>(`${ITEMS}[aria-selected="true"]`) : null;
+    const current =
+      haspopup === 'listbox'
+        ? el.querySelector<HTMLElement>(`${ITEMS}[aria-selected="true"]`)
+        : haspopup === 'tree'
+          ? el.querySelector<HTMLElement>(TREE_CURRENT)
+          : null;
     current?.scrollIntoView({ block: 'nearest' });
     const first = current ?? el.querySelector<HTMLElement>(ITEMS);
     // 悬停打开的子菜单不抢焦点，焦点留在外层菜单
@@ -183,7 +192,7 @@ export const Dropdown = forwardRef<HTMLSpanElement, DropdownProps>(function Drop
 
   const onPopupClick = (e: MouseEvent<HTMLDivElement>) => {
     if (!closeOnSelect) return;
-    const item = (e.target as HTMLElement).closest(SELECTABLE);
+    const item = (e.target as HTMLElement).closest(haspopup === 'tree' ? TREE_FILE : SELECTABLE);
     if (!item || !e.currentTarget.contains(item)) return;
     close(true);
     if (openOnHover) parentClose?.();
@@ -228,6 +237,14 @@ export const Dropdown = forwardRef<HTMLSpanElement, DropdownProps>(function Drop
       if (atEnd) {
         e.preventDefault();
         close(true);
+      }
+      return;
+    }
+    // 树：方向键由 Tree 自己管；鼠标打开时焦点在面板上，按上下键先进到当前那一行
+    if (haspopup === 'tree') {
+      if (e.target === e.currentTarget && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+        e.preventDefault();
+        e.currentTarget.querySelector<HTMLElement>(TREE_CURRENT)?.focus();
       }
       return;
     }

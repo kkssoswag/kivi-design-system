@@ -71,7 +71,41 @@
 /* 品牌 Logo 是 54×24，按高度缩放 */
 .kv-icon[data-icon="Logo"] { width: auto; aspect-ratio: 54 / 24; }
 
-/* 加载：Loading 图标 1 秒一圈，匀速 */
+/* 加载转圈（11-17 用户定）：不用图标，代码画，是图标线宽规则的唯一例外。
+   一个圆环，粗细 = 尺寸的 1/8（16 → 2、20 → 2.5、24 → 3、40 → 5），离边 1/16；
+   顺时针从尾巴到头越来越实，头是圆头。颜色跟文字走，尺寸和别的图标一样由 size 或组件定 */
+.kv-icon[data-spinner] {
+  container-type: size;
+  position: relative;
+  background-color: transparent;
+  -webkit-mask: none;
+  mask: none;
+}
+
+/* 环：锥形渐变从透明到实，再用径向蒙版挖成环 */
+.kv-icon[data-spinner]::before {
+  content: "";
+  position: absolute;
+  inset: 6.25%;
+  border-radius: 50%;
+  background: conic-gradient(transparent, currentColor);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 12.5cqmin - 0.5px), #000 calc(100% - 12.5cqmin)); /* 遮罩只看透明度，Figma 没变量 */
+  mask: radial-gradient(farthest-side, transparent calc(100% - 12.5cqmin - 0.5px), #000 calc(100% - 12.5cqmin)); /* 遮罩只看透明度，Figma 没变量 */
+}
+
+/* 圆头：正上方一个和环一样粗的圆点，盖住渐变首尾接缝 */
+.kv-icon[data-spinner]::after {
+  content: "";
+  position: absolute;
+  top: 6.25cqmin;
+  left: calc(50% - 6.25cqmin);
+  width: 12.5cqmin;
+  height: 12.5cqmin;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* 加载：1 秒一圈，匀速 */
 .kv-icon--spin {
   animation: kv-spin 1s linear infinite;
 }

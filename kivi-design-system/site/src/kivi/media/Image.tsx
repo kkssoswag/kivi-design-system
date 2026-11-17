@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useLayoutEffect, useRef, useState, type ImgHTMLAttributes, type ReactNode, type SyntheticEvent } from 'react';
+import { forwardRef, useCallback, useEffect, useLayoutEffect, useRef, useState, type ImgHTMLAttributes, type ReactNode, type SyntheticEvent, type TransitionEvent } from 'react';
 import { cx } from '../utils';
 import { composeHandlers, useMergedRef } from '../hooks';
 import { EMPTY_STATE_IMAGES } from '../feedback/EmptyState';
@@ -40,18 +40,22 @@ const MAX_ILLUSTRATION = 120;
 const MIN_ILLUSTRATION = 32;
 /** 短边到这么大才在失败图下面写「重试」 */
 const LABEL_MIN_SIDE = 160;
+/** 淡入时长，和 media.css 里 --motion-duration-200 一致；只用来兜底撤骨架屏 */
+const FADE_MS = 200;
 
 /**
- * 图片：加载中是骨架屏扫光，加载完淡入，失败是深色底 + 居中的 IP 失败插图。
+ * 图片：加载中是骨架屏扫光，加载完在骨架屏上面淡入（淡完再撤骨架屏；已缓存的直接显示），失败是深色底 + 居中的 IP 失败插图。
  * 状态写在根元素 `data-status`（loading / loaded / failed）。外面定宽（再配 `ratio`），或者定宽高。
  * 传了 `onRetry`，失败时整块是一个按钮，点了重新加载。
  * className、style 给外层；ref 和其余 `<img>` 属性（`loading`、`crossOrigin`、`srcSet`…）给里面的 `<img>`。
  */
 export const Image = forwardRef<HTMLImageElement, ImageProps>(function Image(
-  { src, alt = '', ratio, fit = 'cover', onRetry, fallback, onLoad, onError, className, style, ...rest },
+  { src, alt = '', ratio, fit = 'cover', onRetry, fallback, onLoad, onError, onTransitionEnd, className, style, ...rest },
   ref,
 ) {
   const [status, setStatus] = useState<ImageStatus>('loading');
+  // 刚加载完、图片正在骨架屏上面淡入：这期间骨架屏留在下面，淡入结束再撤，不露出一下深底（11-17）
+  const [fading, setFading] = useState(false);
   // 重试一次加一，地址后面带上它避开缓存
   const [attempt, setAttempt] = useState(0);
   const [side, setSide] = useState(0);
@@ -65,11 +69,20 @@ export const Image = forwardRef<HTMLImageElement, ImageProps>(function Image(
 
   // 换地址、重试：回到加载中；没有地址（结果还没出来）一直是加载中。
   // 图片已经在缓存里时，浏览器可能不再触发 load，所以挂上后看一眼 complete
+  // 已经在缓存里的图在画出来之前就判成已加载，直接显示、不淡入（切页回来不闪）
   useLayoutEffect(() => {
     setStatus('loading');
+    setFading(false);
     const el = imgRef.current;
     if (url && el?.complete) setStatus(el.naturalWidth > 0 ? 'loaded' : 'failed');
   }, [url, attempt]);
+
+  // 淡入结束撤骨架屏。transitionend 在减少动态效果、切走标签页时可能不来，按淡入时长兜底
+  useEffect(() => {
+    if (!fading) return;
+    const t = window.setTimeout(() => setFading(false), FADE_MS + 100);
+    return () => window.clearTimeout(t);
+  }, [fading]);
 
   // 量短边：失败插图的大小、要不要写「重试」都看它
   useEffect(() => {
@@ -111,12 +124,18 @@ export const Image = forwardRef<HTMLImageElement, ImageProps>(function Image(
           className="kv-image__img"
           src={url}
           alt={alt}
-          onLoad={composeHandlers(onLoad, () => setStatus('loaded'))}
+          onLoad={composeHandlers(onLoad, () => {
+            setStatus('loaded');
+            setFading(true);
+          })}
           onError={composeHandlers(onError, () => setStatus('failed'))}
+          onTransitionEnd={composeHandlers(onTransitionEnd, (e: TransitionEvent<HTMLImageElement>) => {
+            if (e.propertyName === 'opacity') setFading(false);
+          })}
           {...rest}
         />
       )}
-      {status === 'loading' && <Skeleton className="kv-image__skeleton" aria-hidden="true" />}
+      {(status === 'loading' || fading) && <Skeleton className="kv-image__skeleton" aria-hidden="true" />}
       {failed &&
         (onRetry ? (
           <button type="button" className="kv-image__error" aria-label={`${alt ? `${alt}，` : ''}加载失败，点击重试`} onClick={retry}>

@@ -59,14 +59,15 @@ const SQUARE_TABS: { value: Exclude<ExploreTab, 'discover'>; label: string }[] =
   { value: 'skill', label: '技能' },
   { value: 'workflow', label: '工作流' },
 ];
-/** 搜索框占位里的名词，跟探索页各选项卡的搜索框一致 */
-const SQUARE_NOUN: Record<Exclude<ExploreTab, 'discover'>, string> = { featured: '案例', skill: '技能', workflow: '工作流' };
 /** 首页的广场是探索页同一类内容的前几条 */
 const HOME_COUNT = 8;
 const FEATURED = flowsOf('featured').slice(0, HOME_COUNT);
 const WORKFLOWS = flowsOf('workflow').slice(0, HOME_COUNT);
 const HOME_SKILLS = SKILLS.slice(0, HOME_COUNT);
-const HOME_WORKS = WORKS.slice(0, 16);
+/** 发现放够两屏的量，多出来的截掉 */
+const HOME_WORKS = WORKS.slice(0, 40);
+/** 发现最高几屏（屏 = 首页滚动区的可见高度） */
+const DISCOVER_SCREENS = 2;
 
 /**
  * 输入框的流动底（11-11 用户要看效果，照即梦首页输入框里那层；扩到整屏试过，效果不好撤回了）：Paper Shaders 的 MeshGradient（Apache-2.0），参数照即梦深色那套（颜色换成品牌绿色调），
@@ -279,6 +280,18 @@ export function CreateHome({
     return () => window.clearTimeout(id);
   }, [shellHeight != null]);
   const [square, setSquare] = useState<Exclude<ExploreTab, 'discover'>>('featured');
+  // 一屏多高：量首页滚动区的可见高度，发现最高两屏
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [screen, setScreen] = useState<number>();
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const measure = () => setScreen(el.clientHeight);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
 
   // 中间一块（最近更新 / 最近项目）和广场，按模式出内容
@@ -303,28 +316,32 @@ export function CreateHome({
         {m === 'generate' ? (
           <>
             <HomeHead title="发现" onMore={() => onExplore('discover')} search={{ placeholder: '搜索提示词、模型、作者', onSearch: (k) => onExplore('discover', k) }} />
-            <Masonry columns={{ default: 4, 1100: 3, 700: 2, 500: 1 }} gap={2} ratios={HOME_WORKS.map((w) => RATIO[w.ratio])}>
-              {HOME_WORKS.map((w) => (
-                <WorkCard
-                  key={w.id}
-                  type={w.video ? 'video' : 'image'}
-                  src={w.src}
-                  poster={w.poster}
-                  ratio={w.ratio}
-                  title={w.prompt}
-                  author={w.author}
-                  likes={w.likes}
-                  onOpen={() => onExplore('discover')}
-                />
-              ))}
-            </Masonry>
+            {/* 最高约两屏，下面压着的截掉，底部正中「更多」去探索页发现（11-17 用户定） */}
+            <div className="tpl-home__discover" style={screen ? { maxHeight: screen * DISCOVER_SCREENS } : undefined}>
+              <Masonry columns={{ default: 4, 1100: 3, 700: 2, 500: 1 }} gap={2} ratios={HOME_WORKS.map((w) => RATIO[w.ratio])}>
+                {HOME_WORKS.map((w) => (
+                  <WorkCard
+                    key={w.id}
+                    type={w.video ? 'video' : 'image'}
+                    src={w.src}
+                    poster={w.poster}
+                    ratio={w.ratio}
+                    title={w.prompt}
+                    author={w.author}
+                    likes={w.likes}
+                    onOpen={() => onExplore('discover')}
+                  />
+                ))}
+              </Masonry>
+              <Button size={36} variant="on-media" rightIcon="RightArrowSmall" className="tpl-home__discover-more" onClick={() => onExplore('discover')}>
+                更多
+              </Button>
+            </div>
           </>
         ) : (
           <>
-            <HomeHead
-              onMore={() => onExplore(square)}
-              search={{ placeholder: `搜索${SQUARE_NOUN[square]}`, onSearch: (k) => onExplore(square, k) }}
-            >
+            {/* 右边回到「查看全部」（11-17 用户定，11-16 换过搜索框），去探索页对应选项卡 */}
+            <HomeHead onMore={() => onExplore(square)}>
               <Tabs size={36} value={square} onChange={(v) => setSquare(v as typeof square)} aria-label="画布内容分类">
                 {SQUARE_TABS.map((t) => (
                   <TabItem key={t.value} value={t.value}>
@@ -358,7 +375,7 @@ export function CreateHome({
 
   return (
     <main className="tpl-home">
-      <ScrollArea className="tpl-home__scroll">
+      <ScrollArea className="tpl-home__scroll" viewportRef={scrollRef}>
         <div className="tpl-home__page">
         <HomeAtmosphere targetRef={composerRef} />
         <div className="tpl-home__inner">
