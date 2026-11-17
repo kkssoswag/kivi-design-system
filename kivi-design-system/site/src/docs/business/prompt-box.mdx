@@ -114,7 +114,8 @@ import { GenerateButtonPlayground, PromptBoxLab, PromptBoxPlayground, PromptInpu
 | `cost` | `number` `string` | — | 这次生成消耗的猕猴桃数，必填，写在图标右边 |
 | `size` | `28` `32` `36` | `32` | 同按钮：高 28 / 32 / 36 |
 | `loading` | `boolean` | `false` | 点了等结果时用：猕猴桃换成转圈，数字和宽度不变，不能点 |
-| `disabled` | `boolean` | `false` | 参数不全或正在生成时用 |
+| `disabledReason` | `ReactNode` | — | 现在不能生成的原因，比如「请输入画面描述」「请至少上传 1 个视频」。传了按钮置灰、点了不触发，悬停、键盘聚焦时上方出 Popover（提示）写这句；用 `aria-disabled`，不用 `disabled`，好收到悬停 |
+| `disabled` | `boolean` | `false` | 不用说原因的禁用；条件不满足要说原因的用 `disabledReason` |
 | `aria-label` | `string` | `"生成，消耗 N 个猕猴桃"` | 读屏用，N 是 `cost` |
 
 ### PromptInput

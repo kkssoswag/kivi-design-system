@@ -1,10 +1,13 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactElement, type ReactNode } from 'react';
 import {
   Button,
   DEFAULT_MODEL,
   GenerateButton,
   PromptBox,
   ReferenceStack,
+  ReferenceFramePair,
+  RefModeSelect,
+  VIDEO_FIRST_LAST_ONLY,
   Switch,
   referenceName,
   type ButtonSize,
@@ -63,29 +66,33 @@ const UP = 'top-start' as const;
 // ---------- 工具条 ----------
 // 下拉、参数面板都用 generation.tsx 里共用的那一份，和画布生成面板一样：选项、顺序、图标、展开方向都一致
 
-// model 和 onModelChange：输入框演示按模型算生成按钮的消耗，别处不传就是各自管各自的
-const TOOLBARS: Record<string, (model?: string, onModelChange?: (m: string) => void) => JSX.Element> = {
-  agent: () => (
+// model 和 onModelChange：输入框演示按模型算生成按钮的消耗，别处不传就是各自管各自的。
+// more：属性面板传，任务类型、参考方式切了要真的变（11-17 用户定，不能是假状态）
+type ToolbarMore = { onTaskChange?: (task: string) => void; refMode?: ReactNode };
+const task = (value: string, more?: ToolbarMore) =>
+  more?.onTaskChange ? <TaskSelect placement={UP} value={value} onChange={more.onTaskChange} /> : <TaskSelect placement={UP} defaultValue={value} />;
+const TOOLBARS: Record<string, (model?: string, onModelChange?: (m: string) => void, more?: ToolbarMore) => JSX.Element> = {
+  agent: (_m, _c, more) => (
     <>
-      <TaskSelect placement={UP} defaultValue="agent" />
+      {task('agent', more)}
       <AgentControls placement={UP} skills={SKILL_ITEMS} skillCategories={SKILL_CATEGORIES} />
     </>
   ),
-  image: (model, onModelChange) => (
+  image: (model, onModelChange, more) => (
     <>
-      <TaskSelect placement={UP} defaultValue="image" />
+      {task('image', more)}
       <ImageModelControls placement={UP} model={model} onModelChange={onModelChange} />
     </>
   ),
-  video: (model, onModelChange) => (
+  video: (model, onModelChange, more) => (
     <>
-      <TaskSelect placement={UP} defaultValue="video" />
-      <VideoModelControls placement={UP} model={model} onModelChange={onModelChange} />
+      {task('video', more)}
+      <VideoModelControls placement={UP} model={model} onModelChange={onModelChange} refMode={more?.refMode} />
     </>
   ),
-  audio: (model, onModelChange) => (
+  audio: (model, onModelChange, more) => (
     <>
-      <TaskSelect placement={UP} defaultValue="audio" />
+      {task('audio', more)}
       <AudioModelControls placement={UP} model={model} onModelChange={onModelChange} />
     </>
   ),
@@ -112,6 +119,10 @@ const modelOf = (s: BoxState): string => {
   return typeof picked === 'string' ? picked : (DEFAULT_MODEL as Record<string, string>)[s.mode] ?? '';
 };
 
+// 参考方式（面板上没有，记在 update 里）：首尾帧、或只有首尾帧的模型，参考区换成首尾帧两格
+const refModeOf = (s: BoxState): string => String((s as Record<string, unknown>).refMode ?? 'omni');
+const framesOf = (s: BoxState) => s.mode === 'video' && (refModeOf(s) === 'frames' || VIDEO_FIRST_LAST_ONLY.includes(modelOf(s)));
+
 export function PromptBoxPlayground() {
   return (
     <Playground<BoxState>
@@ -128,8 +139,18 @@ export function PromptBoxPlayground() {
           placeholder={PLACEHOLDER[s.mode]}
           value={s.text === 'custom' ? String((s as Record<string, unknown>).custom ?? '') : TEXT[s.text]}
           onChange={(v) => update(v ? { text: 'custom', custom: v } : { text: 'empty' })}
-          references={s.refs ? <ReferenceStack items={SAMPLE.slice(0, 6)} onAdd={noop} onRemove={noop} /> : undefined}
-          toolbar={TOOLBARS[s.mode](modelOf(s), (m) => update({ [`model-${s.mode}`]: m }))}
+          references={
+            !s.refs ? undefined : framesOf(s) ? (
+              <ReferenceFramePair size={72} first={{ src: SAMPLE[0].src }} last={{ src: SAMPLE[1].src }} />
+            ) : (
+              <ReferenceStack items={SAMPLE.slice(0, 6)} onAdd={noop} onRemove={noop} />
+            )
+          }
+          // 换模型时参考方式回到全能参考（照线上）
+          toolbar={TOOLBARS[s.mode](modelOf(s), (m) => update({ [`model-${s.mode}`]: m, refMode: 'omni' }), {
+            onTaskChange: (m) => update({ mode: m }),
+            refMode: <RefModeSelect placement={UP} value={refModeOf(s)} onChange={(m) => update({ refMode: m })} />,
+          })}
           actions={
             // 音频没有张数，换成字数 / 上限（照线上）
             <>

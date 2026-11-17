@@ -159,6 +159,7 @@
 - 滚动条统一（11-13，用户发火：自己做了 ScrollArea 自己不用）：组件库、模板、网站外壳的原生滚动全换成 ScrollArea（菜单、弹窗、思考块、工具调用、画布切换、附件条、Lora、技能面板、侧栏、AI 工具两栏、主站记录流、目录、代码块、表格、搜索）；`base.css` 全局兜底细条；设计规则「布局」加一条；`npm run check` 拦直接写的 `overflow: auto / scroll`，例外（textarea、contenteditable、藏了滚动条的、网站演示台 shell-demo-preview）在那一行注释「原生滚动：原因」。
 - 按钮类型改名（11-13，用户定）：一个类型一个语义、不另加开关拼组合，Button 和 IconButton 同一套名字：主要 / 次要 / 次要灰 / 无底 / 无底灰 / 危险 / 浮层 / 浮层无底（文字 → 无底 `ghost`，Button 轻 → 次要灰 `secondary-muted`，IconButton 轻 → 无底灰 `ghost-muted`）；Button 新加无底灰（侧栏「全部」用）。规则在「设计规则 · 按钮」，映射在旧名对照，Figma 待改已记。
 - 树 Tree（11-17，用户要的，起因 shadcn file-tree）：通用组件「展示 · 布局」`kivi/tree`，先做文件选择器（`Dropdown haspopup="tree"` + 无底 Select + `Menu role="none"` + Tree），探索页技能详情换上；行照菜单项 36、每层缩进 16，样子是我定的、等用户看。技能编辑的目录树（新建、重命名、删除、拖动）还没做。Figma 没有，已记待同步。
+- AI 工具页工具栏（11-17，用户定）：左边照美图设计室改成竖排图标导航，Tabs 加「选项卡竖排」（`layout="vertical"`，整组竖排、↑↓ 切、图标在 40 方块里、选中只垫方块），栏宽 72，图片 / 视频中间短线；左右两栏通到顶、去掉顶上横线，余额和头像并进右栏顶上（Wallet 只在 AI 工具页不放右上角）。记录在 `page-notes/ai-tools.md`，Figma 没跟。
 - 发布时把网站编译打进 skill（双击能看需单文件打包，或 `npm run preview`），10-29 讨论，没定。
 
 ## 协作方式

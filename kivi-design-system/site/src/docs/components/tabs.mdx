@@ -47,7 +47,7 @@ import { TabItemPlayground } from './tabs.demos';
 | `children` | `ReactNode` | — | 文字。字重常规 400，选中也不加粗。分段被压窄、放不下时末尾省略号、内边距不让，悬停出 Tooltip 看全文 |
 | `value` | `string` | — | 这一项的值，放在 `Tabs` 里时必填 |
 | `variant` | `"tab"` `"segment"` | `"tab"` | 选项卡（切换下面整块内容）/ 分段（在底槽里选一个参数值）。放在 `Tabs` 里跟着 `Tabs` |
-| `layout` | `"horizontal"` `"vertical"` | `"horizontal"` | 竖排只有分段、32：图标 20 在上，12 号字在下，间距 4，56 × 56，必须传 `icon` |
+| `layout` | `"horizontal"` `"vertical"` | `"horizontal"` | 竖排图标 20 在上，12 号字在下，间距 4，必须传 `icon`。分段竖排 56 × 56，选中整格垫底。选项卡竖排给侧边工具栏（AI 工具）：宽跟着栏铺满（最窄 56），上下内边距 4，图标放在 40 的方块里（圆角 8），选中只给方块垫底白 10%，悬停只有字和图标变白 |
 | `size` | `32` `36` | `32` | 高 32 / 36，左右内边距 12 / 16（`--spacing-12` · `--spacing-16`），字 13 / 14，圆角 8（`--border-radius-8`），图标和文字间距 6。竖排不分尺寸 |
 | `icon` | `IconName` | — | 左图标 16，只有选项卡横排有，分段横排没有 |
 | `selected` | `boolean` | — | 选中。放在 `Tabs` 里由 `Tabs` 管，单独摆放才传 |
@@ -59,12 +59,12 @@ import { TabItemPlayground } from './tabs.demos';
 
 ### Tabs
 
-把一组 `TabItem` 管起来：同一时间只有一个选中，方向键移动选中（← →，分段 ↑ ↓ 也行；跳过禁用项，到头绕回），Home、End 到头尾。
+把一组 `TabItem` 管起来：同一时间只有一个选中，方向键移动选中（← →，分段 ↑ ↓ 也行，选项卡竖排只认 ↑ ↓；跳过禁用项，到头绕回），Home、End 到头尾。
 
 | 属性 | 类型 | 默认 | 说明 |
 |---|---|---|---|
 | `variant` | `"tab"` `"segment"` | `"tab"` | 里面的 `TabItem` 都跟着它。选项卡是 `role="tablist"`，没有底槽，选项间距 4。分段是 `radiogroup`，带底槽：内边距 4（`--spacing-4`），圆角 12（`--border-radius-12`），底白 10%，选项等宽平分 |
-| `layout` | `"horizontal"` `"vertical"` | `"horizontal"` | 同 `TabItem`。不影响方向键：竖排只是每项上图标下文字，整组仍横排 |
+| `layout` | `"horizontal"` `"vertical"` | `"horizontal"` | 同 `TabItem`。选项卡竖排整组竖着排（`aria-orientation="vertical"`），项间距 4，方向键换成 ↑ ↓；两组之间用 `Divider` 隔开，线的长短、上下间距由用的地方定（AI 工具 40 宽、上下 8）。分段竖排只是每项上图标下文字，整组仍横排 |
 | `columns` | `number` | — | 只有分段：一排最多几个，多了折到下一排，格子一样宽（图片参数的比例 11 个，一排 6 个）。不传就一排放下全部 |
 | `size` | `32` `36` | `32` | 同 `TabItem`。分段底槽比选项高 8：32 的 40，36 的 44，竖排 64 |
 | `value` | `string` | — | 选中的值（受控），和 `onChange` 一起用 |

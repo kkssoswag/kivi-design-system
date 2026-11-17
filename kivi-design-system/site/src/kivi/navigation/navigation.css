@@ -60,7 +60,8 @@
     color var(--motion-duration-100) var(--motion-ease-in-out);
 }
 
-.kv-tab-item > .kv-icon {
+.kv-tab-item > .kv-icon,
+.kv-tab-item__icon > .kv-icon {
   flex: none;
   width: var(--kv-tab-icon-size);
   height: var(--kv-tab-icon-size);
@@ -118,6 +119,34 @@
   font-size: var(--font-size-12);
 }
 
+/* 布局：选项卡竖排（侧边工具栏，11-17）：整项不铺底，图标 20 放在 40 的方块里，下面 12 号字，间距 4；
+   宽度跟着栏铺满，最窄 56。悬停和横排选项卡一样只有字和图标变白，选中只给图标方块垫底（白 10%） */
+.kv-tab-item--tab.kv-tab-item--vertical {
+  width: 100%;
+  min-width: 56px;
+  height: auto;
+  padding: var(--spacing-4) 0;
+}
+
+.kv-tab-item__icon {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--border-radius-8);
+  transition: background-color var(--motion-duration-100) var(--motion-ease-in-out);
+}
+
+.kv-tab-item--tab.kv-tab-item--vertical:is([aria-selected="true"], :disabled) {
+  background: transparent;
+}
+
+.kv-tab-item--tab.kv-tab-item--vertical[aria-selected="true"] > .kv-tab-item__icon {
+  background: var(--kv-tab-fill-selected);
+}
+
 /* 状态：悬停 */
 .kv-tab-item:where(:hover, .is-hover):not(:disabled, [aria-selected="true"], [aria-checked="true"]) {
   background: var(--kv-tab-fill-hover);
@@ -143,6 +172,12 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-4);
+}
+
+/* 选项卡竖排：整组竖着排，项宽铺满，间距 4 */
+.kv-tab-group--vertical {
+  flex-direction: column;
+  align-items: stretch;
 }
 
 /*

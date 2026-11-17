@@ -397,7 +397,7 @@ export function CreateHome({
             <div className="tpl-home__shell" data-ready={shellReady || undefined} style={shellHeight != null ? { height: shellHeight } : undefined}>
               {SHOW_COMPOSER_MOTION && <ComposerMotion />}
               <div ref={generateBox} className="tpl-home__box" data-active={mode === 'generate' || undefined}>
-                <Composer placement="bottom-start" onSubmit={onSubmit} />
+                <Composer placement="bottom-start" onSubmit={onSubmit} defaultReferences={[]} />
               </div>
               <div ref={canvasBox} className="tpl-home__box" data-active={mode === 'canvas' || undefined} style={generateHeight != null ? { minHeight: generateHeight } : undefined}>
                 <AgentComposer className="tpl-home__agent" placement="bottom-start" onSend={onOpenCanvas} />
