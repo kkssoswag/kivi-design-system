@@ -1,0 +1,119 @@
+/*
+  KIVI · 树
+  依赖 tokens.css。Figma 还没有。
+
+  写法（React，见 Tree.tsx）
+    <Tree aria-label="技能文件" items={[{ id: 'SKILL.md', name: 'SKILL.md' }, { id: 'references', name: 'references', children: […] }]}
+      selected={file} onSelectedChange={setFile} defaultExpanded={treeAncestors(items, file)} />
+  文件选择器（技能详情）：Dropdown haspopup="tree" + Select（无底）当触发器 + Menu role="none" 当玻璃面板 + Tree
+  渲染出来的结构
+    <div class="kv-tree" role="tree">
+      <div class="kv-tree__list">
+        <div class="kv-tree__node" role="none">
+          <div class="kv-tree__item" role="treeitem" aria-level="1" aria-expanded="true">   文件夹有 aria-expanded，文件有 aria-selected
+            <span class="kv-tree__arrow"><Icon RightArrowSmall/></span>              文件这里是空的，占位对齐
+            <Icon Folder/> <span class="kv-tree__name">references</span>
+          </div>
+          <div class="kv-collapse kv-tree__group" role="group">…下一层的 kv-tree__list…</div>
+        </div>
+      </div>
+    </div>
+
+  行和菜单项一个节奏：高 36、圆角 8、13 号字、图标 16、行间距 4，右内边距 12；
+  左内边距 12 + 每深一层 16（--kv-tree-level）。箭头 16、离图标 4，图标离名字 8。
+  悬停、键盘焦点 Light 1 hover；选中（只有文件）Light 1 常驻底色，选中再悬停 hover、按下 pressed。
+  展开收起用 Collapse（往下推、淡入），箭头同时转 90°，同一个时长，ease-in-out。
+*/
+
+.kv-tree {
+  font-family: var(--font-family);
+}
+
+.kv-tree__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+.kv-tree__node {
+  display: flex;
+  flex-direction: column;
+}
+
+.kv-tree__item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-8);
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  padding: 0 var(--spacing-12) 0 calc(var(--spacing-12) + var(--kv-tree-level, 0) * var(--spacing-16));
+  border-radius: var(--border-radius-8);
+  outline: none;
+  color: var(--color-text-fill-primary);
+  font-size: var(--font-size-13);
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--motion-duration-100) var(--motion-ease-in-out);
+}
+
+.kv-tree__item > .kv-icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+/* 箭头：16 的格子，离图标 4（行的间距 8 往回收 4）；文件也占这个格子 */
+.kv-tree__arrow {
+  display: inline-flex;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-right: calc(var(--spacing-4) * -1);
+  color: var(--color-text-fill-tertiary);
+}
+
+.kv-tree__arrow > .kv-icon {
+  width: 16px;
+  height: 16px;
+  transition: transform var(--kv-tree-duration, var(--motion-duration-200)) var(--motion-ease-in-out);
+}
+
+.kv-tree__item[aria-expanded="true"] > .kv-tree__arrow > .kv-icon {
+  transform: rotate(90deg);
+}
+
+.kv-tree__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 悬停、键盘焦点：树放在玻璃、base 这类深底上，用 Light 1 hover */
+.kv-tree__item:where(:hover, :focus-visible, .is-hover) {
+  background: var(--color-bg-fill-container-light-1-hover);
+}
+
+/* 选中：常驻底色 Light 1 默认；再悬停亮一档，按下 pressed */
+.kv-tree__item[aria-selected="true"] {
+  background: var(--color-bg-fill-container-light-1);
+}
+
+.kv-tree__item[aria-selected="true"]:where(:hover, :focus-visible, .is-hover) {
+  background: var(--color-bg-fill-container-light-1-hover);
+}
+
+.kv-tree__item[aria-selected="true"]:active {
+  background: var(--color-bg-fill-container-light-1-pressed);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kv-tree__arrow > .kv-icon {
+    transition: none;
+  }
+}

@@ -155,8 +155,10 @@
 - 账号菜单（11-12，用户定）：主站右上角点头像出菜单（顶栏原来的复制用户 Key、教程、意见反馈、语言都收进来，余额胶囊留外面）；切换类的项照即梦带箭头、悬停往一边甩，为此菜单加了通用子菜单 `MenuSub`（Dropdown `openOnHover`）。退出登录线上没有、没加。记录在 `page-notes/main-site.md`，Figma 没跟。
 - 弹窗顶图（11-12，用户定）：新功能公告照即梦 4.0 那种（上图、下面标题 + 说明 + 分点 + 一个按钮），不另做组件，Dialog 加 `media`（离边 8、圆角 8、16:9，关闭挪到图上 on-media）；弹窗超高时描述和内容区一起滚、顶图标题栏底栏不动。单按钮靠右、分点用 Prose 是我先定的，用户没回；功能引导气泡 Coachmark 和出现规则讨论过没做。记录在 `page-notes/dialog.md`。
 - Figma 同步顺序（11-13，用户定）：先同步组件库（变量、图标、通用和业务组件），模板和新整页（创作首页、探索、AI 工具等）以后统一做设计稿，全部从组件库引用实例。待同步只看 `page-notes/figma-sync-pending.md` 顶上「现在还没同步」一节。
+- 加载转圈和图片淡入（11-17，用户定）：Loading 不再用图标，代码画圆环（粗细 = 尺寸 1/8、渐淡尾巴、圆头），是线宽规则唯一例外，写进设计规则；Image 加载完图片在骨架屏上面 200ms 淡入、淡完再撤骨架屏，图片页有「加载过程」演示。还没做：全站直接写 `<img>` 的内容图换成 Image、`npm run check` 拦 `<img>`（组件库只有 ExploreCover 在用 Image）。
 - 滚动条统一（11-13，用户发火：自己做了 ScrollArea 自己不用）：组件库、模板、网站外壳的原生滚动全换成 ScrollArea（菜单、弹窗、思考块、工具调用、画布切换、附件条、Lora、技能面板、侧栏、AI 工具两栏、主站记录流、目录、代码块、表格、搜索）；`base.css` 全局兜底细条；设计规则「布局」加一条；`npm run check` 拦直接写的 `overflow: auto / scroll`，例外（textarea、contenteditable、藏了滚动条的、网站演示台 shell-demo-preview）在那一行注释「原生滚动：原因」。
 - 按钮类型改名（11-13，用户定）：一个类型一个语义、不另加开关拼组合，Button 和 IconButton 同一套名字：主要 / 次要 / 次要灰 / 无底 / 无底灰 / 危险 / 浮层 / 浮层无底（文字 → 无底 `ghost`，Button 轻 → 次要灰 `secondary-muted`，IconButton 轻 → 无底灰 `ghost-muted`）；Button 新加无底灰（侧栏「全部」用）。规则在「设计规则 · 按钮」，映射在旧名对照，Figma 待改已记。
+- 树 Tree（11-17，用户要的，起因 shadcn file-tree）：通用组件「展示 · 布局」`kivi/tree`，先做文件选择器（`Dropdown haspopup="tree"` + 无底 Select + `Menu role="none"` + Tree），探索页技能详情换上；行照菜单项 36、每层缩进 16，样子是我定的、等用户看。技能编辑的目录树（新建、重命名、删除、拖动）还没做。Figma 没有，已记待同步。
 - 发布时把网站编译打进 skill（双击能看需单文件打包，或 `npm run preview`），10-29 讨论，没定。
 
 ## 协作方式

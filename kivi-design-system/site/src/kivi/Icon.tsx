@@ -17,7 +17,7 @@ export interface IconProps extends HTMLAttributes<HTMLSpanElement> {
   name: IconName;
   /** 尺寸，照 Figma Icon 组件，默认 16。放进按钮这类组件里时由组件定，不用传 */
   size?: IconSize;
-  /** 转圈：Loading 图标 1 秒一圈，匀速 */
+  /** 转圈：只给 Loading，1 秒一圈，匀速 */
   spin?: boolean;
 }
 
@@ -42,6 +42,10 @@ function maskOf(set: IconSet, name: IconName, body: string) {
 export const Icon = forwardRef<HTMLSpanElement, IconProps>(function Icon({ name, size, spin, className, style, ...rest }, ref) {
   const set = useContext(IconSetContext);
   const cls = cx('kv-icon', size && size !== 16 && `kv-icon--${size}`, spin && 'kv-icon--spin', className);
+  // 加载转圈不是图标，代码画（11-17 用户定，唯一例外）：图标线宽 1.6 转起来太细，字体也画不出渐淡的尾巴。样子在 base.css
+  if (name === 'Loading') {
+    return <span ref={ref} className={cls} data-icon={name} data-spinner="" aria-hidden="true" style={style} {...rest} />;
+  }
   // V3 默认走 Iconfont 字体（11-05），和前端同一份；字体里没有的（Logo、Kiwi）往下走 SVG
   if (set === 'v3' && ICONFONT_NAMES.has(name)) {
     ensureIconfont();

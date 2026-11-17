@@ -186,7 +186,7 @@ import { DropdownPlayground, MenuItemPlayground, MenuPlayground, PlainMenuPlaygr
 | `matchTriggerWidth` | `boolean` | `false` | 菜单和触发器一样宽，下拉选择的列表用 |
 | `anchorPoint` | `{ x: number; y: number }` | — | 右键菜单：出现在这个屏幕坐标（`clientX`、`clientY`），自己控制 `open` |
 | `closeOnSelect` | `boolean` | `true` | 点菜单项后关闭。多选菜单要保持展开时关掉 |
-| `haspopup` | `"menu"` `"listbox"` `"dialog"` | `"menu"` | 触发器的 `aria-haspopup`，下拉选择用 `"listbox"`：打开时滚到选中项（键盘打开的焦点也落在它上面），不写 `matchTriggerWidth` 时列表不比触发器窄。带输入控件的面板（时间筛选、参数）用 `"dialog"`。菜单、列表里按 Tab 关闭并回到触发器；面板里 Tab 在控件之间正常走，走出面板才关闭 |
+| `haspopup` | `"menu"` `"listbox"` `"dialog"` `"tree"` | `"menu"` | 触发器的 `aria-haspopup`，下拉选择用 `"listbox"`：打开时滚到选中项（键盘打开的焦点也落在它上面），不写 `matchTriggerWidth` 时列表不比触发器窄。带输入控件的面板（时间筛选、参数）用 `"dialog"`。文件选择器（里面是 Tree）用 `"tree"`：打开时焦点落在选中的文件上，方向键由 Tree 管，点了文件关闭、点文件夹不关。菜单、列表里按 Tab 关闭并回到触发器；面板里 Tab 在控件之间正常走，走出面板才关闭 |
 
 其余原生 `<span>` 属性都能传。
 

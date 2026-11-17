@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   AssetThumb,
+  Button,
   Dialog,
   VideoPlayer,
   type VideoPlayerVariant,
@@ -105,6 +106,25 @@ export function ImagePlayground() {
         />
       )}
     />
+  );
+}
+
+// 加载过程：面板上切状态看不到淡入（本地图已在缓存里，直接显示）。这里点「重新加载」先空 1.2 秒（骨架屏），
+// 再换一个带时间戳的地址真去加载，看骨架屏到图片的淡入
+export function ImageLoadDemo() {
+  const [src, setSrc] = useState<string>();
+  const reload = () => {
+    setSrc(undefined);
+    window.setTimeout(() => setSrc(`${placeholderImageSrc('ip-gouache', '1:1')}?t=${Date.now()}`), 1200);
+  };
+  useEffect(reload, []);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--spacing-16)' }}>
+      <Image src={src} alt="示例图片" ratio="1:1" style={{ width: 256 }} />
+      <Button variant="secondary-muted" size={32} leftIcon="Reset" onClick={reload}>
+        重新加载
+      </Button>
+    </div>
   );
 }
 

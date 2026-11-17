@@ -18,6 +18,7 @@ export * from './button';
 export * from './divider';
 export * from './collapse';
 export * from './list';
+export * from './tree';
 export * from './masonry';
 export * from './menu';
 export * from './navigation';

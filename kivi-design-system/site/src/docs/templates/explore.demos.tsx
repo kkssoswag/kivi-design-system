@@ -26,11 +26,14 @@ import {
   WorkCard,
   placeholderImageSrc,
   toast,
+  Tree,
+  treeAncestors,
   type AttachmentItem,
   type MasonryColumns,
   type PlaceholderImageName,
   type PlaceholderImageRatio,
   type SkillItem,
+  type TreeNode,
 } from '@kivi';
 import { MiniCanvas } from '../business/canvas.demos';
 import { VIDEO } from '../components/media.demos';
@@ -584,8 +587,18 @@ export const SKILLS = Array.from({ length: SKILL_SEED.length * SKILL_VARIANTS.le
 type ExploreSkill = (typeof SKILLS)[number];
 const SKILL_PAGE = 12;
 
-/** 技能包里的文件：默认看 SKILL.md，有别的文件可以切过去看（需求「公共技能 · 技能详情」） */
+/** 技能包里的文件：默认看 SKILL.md，有别的文件可以切过去看（需求「公共技能 · 技能详情」）。切文件是一棵文件树（照线上） */
 const SKILL_FILES = ['SKILL.md', 'references/风格指南.md', 'examples/示例.md'];
+const SKILL_TREE: TreeNode[] = [
+  { id: 'SKILL.md', name: 'SKILL.md' },
+  { id: 'references', name: 'references', children: [{ id: 'references/风格指南.md', name: '风格指南.md' }] },
+  { id: 'examples', name: 'examples', children: [{ id: 'examples/示例.md', name: '示例.md' }] },
+];
+/** 打开时展开哪些文件夹：照线上，第一个文件夹 + 当前文件的上层 */
+const skillTreeExpanded = (file: string) => {
+  const first = SKILL_TREE.find((n) => n.children)?.id;
+  return Array.from(new Set([...(first ? [first] : []), ...treeAncestors(SKILL_TREE, file)]));
+};
 
 function skillFile(s: SkillItem, file: string): ReactNode {
   if (file === 'SKILL.md')
@@ -695,7 +708,7 @@ function Skills({ onUse, moreRef, initialKeyword = '' }: { onUse: (s: SkillItem)
               <div className="tpl-ex__skill-files">
                 <h4>技能内容</h4>
                 <Dropdown
-                  haspopup="listbox"
+                  haspopup="tree"
                   placement="bottom-end"
                   trigger={
                     <Select variant="plain" leftIcon="File" aria-label="切换文件">
@@ -703,12 +716,8 @@ function Skills({ onUse, moreRef, initialKeyword = '' }: { onUse: (s: SkillItem)
                     </Select>
                   }
                 >
-                  <Menu role="listbox" aria-label="技能文件">
-                    {SKILL_FILES.map((f) => (
-                      <MenuItem key={f} icon="File" selected={f === file} onClick={() => setFile(f)}>
-                        {f}
-                      </MenuItem>
-                    ))}
+                  <Menu role="none">
+                    <Tree aria-label="技能文件" items={SKILL_TREE} selected={file} onSelectedChange={setFile} defaultExpanded={skillTreeExpanded(file)} />
                   </Menu>
                 </Dropdown>
               </div>

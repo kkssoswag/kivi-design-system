@@ -1,11 +1,11 @@
 import { Demo, PageHeader } from '@shell';
-import { CollapsePlayground, DividerPlayground, ListPlayground, MasonryPlayground, ScrollAreaPlayground } from './layout.demos';
+import { CollapsePlayground, DividerPlayground, ListPlayground, MasonryPlayground, ScrollAreaPlayground, TreePlayground } from './layout.demos';
 
 <PageHeader
   eyebrow="展示"
   title="布局"
   figma={['布局', '1083:7751']}
-  code="kivi/divider、kivi/list、kivi/masonry、kivi/collapse、kivi/scroll-area"
+  code="kivi/divider、kivi/list、kivi/tree、kivi/masonry、kivi/collapse、kivi/scroll-area"
 />
 
 ## Divider
@@ -19,6 +19,12 @@ import { CollapsePlayground, DividerPlayground, ListPlayground, MasonryPlaygroun
 列表：一条一条的记录，比如记忆管理。
 
 <ListPlayground />
+
+## Tree
+
+树：一层一层能展开的列表，比如技能详情里切换文件。
+
+<TreePlayground />
 
 ## Masonry
 
@@ -102,6 +108,24 @@ import { CollapsePlayground, DividerPlayground, ListPlayground, MasonryPlaygroun
 | `onSave` | `(text: string) => void` | — | 保存，传去掉首尾空格的内容。回车或点「保存」保存，Shift + 回车换行；空的不能保存；Esc 或「取消」退出不保存，不连外层弹窗一起关 |
 
 上下内边距 12，小标题、正文、说明之间 4，「⋯」离正文 8、上下居中。没有悬停底色。`<li>`，其余原生属性都能传。
+
+### Tree
+
+| 属性 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| `items` | `TreeNode[]` | — | 数据，按给的顺序排。`TreeNode`：`id`（唯一，文件用路径）、`name`（一行省略）、`children`（写了就是文件夹，空数组也算）、`icon`（不写时文件夹 Folder，文件按扩展名，和参考格同一份对照，认不出的用 File） |
+| `selected` | `string` `null` | — | 选中的文件 id（受控）。只有文件能选中，文件夹点了是展开收起 |
+| `defaultSelected` | `string` `null` | `null` | 默认选中（非受控） |
+| `onSelectedChange` | `(id: string) => void` | — | 点文件、回车、空格 |
+| `expanded` | `string[]` | — | 展开的文件夹 id（受控） |
+| `defaultExpanded` | `string[]` | `[]` | 默认展开（非受控）。技能详情照线上：第一个文件夹 + 选中文件的上层，上层用 `treeAncestors(items, id)` 算 |
+| `onExpandedChange` | `(ids: string[]) => void` | — | 展开收起变化 |
+
+行和菜单项一个节奏：高 36、圆角 8、13 号字、图标 16、行间距 4；左内边距 12，每深一层多 16；文件夹前面是箭头 16（tertiary，离图标 4），文件没有箭头、空出同样宽，图标和同层文件夹对齐；图标离名字 8，右内边距 12。悬停、键盘焦点 Light 1 hover；选中 Light 1 默认，再悬停 hover、按下 pressed。展开用 Collapse（往下推、淡入），箭头同时转 90°，同一个时长（100 以内 200ms，再长 300ms），ease-in-out。
+
+键盘：上下换行、Home / End 到头尾；右键展开、已展开时进第一个子项；左键收起、已收起时回上一层；回车、空格选中文件或开关文件夹。只有一行能 Tab 进来（选中的文件，没有就第一行）。`role="tree"`，其余原生 `<div>` 属性都能传，要写 `aria-label`。
+
+文件选择器：`Dropdown haspopup="tree"` + 无底 `Select`（左图标 File，写当前文件）当触发器，`Menu role="none"` 当玻璃面板，里面放 Tree。打开时焦点落在选中的文件上，点了文件关闭，点文件夹不关。
 
 ### Masonry
 
