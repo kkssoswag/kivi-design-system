@@ -87,7 +87,7 @@ import { ButtonGroupPlayground, ButtonPlayground, IconButtonPlayground, SendButt
 | `label` | `string` | — | 说明，必填，读屏和自带提示用 |
 | `round` | `boolean` | `false` | 圆形。只在特殊情况下用：只给「设计规则 · 按钮」名单里的专用按钮（SendButton 等），别的按钮一律方的 |
 | `tooltip` | `boolean` `{ content?, shortcut?, placement? }` | `true` | 自带的提示，内容是 `label`，悬停 500ms 出现、离 8。通用符号（关闭、更多、播放器、翻页箭头、搜索、清除）写 `false`；要换内容、带快捷键、换方向（收起的侧栏用 `right`）传对象。名单见「设计规则 · 提示」 |
-| `size` | `28` `32` `36` | `32` | 图标 16 / 20 / 20。无底灰没有 36。28：贴在图片、视频上的按钮条（ButtonGroup 32 里默认 28），列表行里的「⋯」、新建，小浮层、卡片里的关闭、复制、翻页。32：默认，工具条、标题行，ButtonGroup 44 / 56 里。36：发送按钮 SendButton |
+| `size` | `28` `32` `36` | `32` | 图标 16 / 20 / 20。无底灰没有 36。28：贴在图片、视频上的按钮条（ButtonGroup 32 里默认 28），列表行里的「⋯」、新建，小浮层、卡片里的关闭、复制、翻页。32：默认，工具条、标题行，ButtonGroup 44 / 56 里，发送按钮 SendButton。36：看大图顶栏的关闭、下载 |
 | `variant` | `"primary"` `"secondary"` `"ghost"` `"ghost-muted"` `"on-media"` `"on-media-ghost"` | `"ghost"` | 主要 / 次要 / 无底 / 无底灰 / 浮层 / 浮层无底，和 Button 同一套名字。无底：平时没有底，悬停出白 14% 底（深底 Light 1 hover；放在带底的行里是 Light 2 hover 10%）。无底灰：没有底，图标 50%，悬停出底、图标回到 100%。浮层无底：平时没有底、不模糊，悬停黑 40%、按下黑 60%，盖在图上的控制条（播放器）用 |
 | `selected` | `boolean` | `false` | 选中：有开关的工具用，比如加粗。选中是常驻底色：深底上白 10%（`--color-bg-fill-container-light-1`），悬停 14%、按下 18% 照常，图标白，不变绿。主要没有。无底灰选中不换色，靠换实心图标表示（点赞、点踩），`aria-pressed` 照写。收藏按钮另加 `data-collected`，收藏了图标品牌绿 |
 | `loading` | `boolean` | `false` | 加载中：图标换成转圈（`Loading`），不响应悬停；鼠标和键盘（Enter、Space）都不再触发 `onClick`，也不提交表单。外观不变灰。比如下载、收藏点了之后等结果。无底灰没有 |
@@ -108,7 +108,7 @@ import { ButtonGroupPlayground, ButtonPlayground, IconButtonPlayground, SendButt
 
 ### SendButton
 
-就是 IconButton 主要 · 36 · 圆形（`round`，圆形只给专用按钮），悬停、按下、禁用都跟按钮体系走：默认品牌渐变底（gradient-1 → gradient-2，从左到右），`Send` 图标 20，on-brand；悬停叠一层白 14% 变亮；按下透明度 0.8。放在输入框工具条最右，是工具条里唯一实心的；左边的按钮用 IconButton 32 · 无底（平时无底，悬停才出底），间距 4 `--spacing-4`。其余原生 `<button>` 属性都能传。
+就是 IconButton 主要 · 32 · 圆形（和生成按钮、工具条一样高）（`round`，圆形只给专用按钮），悬停、按下、禁用都跟按钮体系走：默认品牌渐变底（gradient-1 → gradient-2，从左到右），`Send` 图标 20，on-brand；悬停叠一层白 14% 变亮；按下透明度 0.8。放在输入框工具条最右，是工具条里唯一实心的；左边的按钮用 IconButton 32 · 无底（平时无底，悬停才出底），间距 4 `--spacing-4`。其余原生 `<button>` 属性都能传。
 
 | 属性 | 类型 | 默认 | 说明 |
 |---|---|---|---|

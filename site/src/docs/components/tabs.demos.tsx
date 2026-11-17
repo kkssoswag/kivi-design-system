@@ -19,8 +19,8 @@ const picked = (s: TabState) => {
 // 面板「状态」说的是第一项；点了别的项，记在面板上不显示的 picked 里
 function renderTabs(s: TabState, update: (patch: Partial<PlaygroundState>) => void) {
   const segment = s.style === 'segment';
-  const vertical = segment && s.layout === 'vertical';
-  const icons = vertical ? RATIO_ICONS : TAB_ICONS;
+  const vertical = s.layout === 'vertical';
+  const icons = segment && vertical ? RATIO_ICONS : TAB_ICONS;
   const texts = [s.text, '选项 2', '选项 3'];
   const values = ['a', 'b', 'c'];
   const showIcon = vertical || (!segment && s.left);
@@ -33,6 +33,8 @@ function renderTabs(s: TabState, update: (patch: Partial<PlaygroundState>) => vo
       value={s.state === 'selected' ? 'a' : (picked(s) ?? 'b')}
       onChange={(v) => update(v === 'a' ? { state: 'selected', picked: v } : { state: s.state === 'selected' ? 'default' : s.state, picked: v })}
       aria-label="选项"
+      // 选项卡竖排是侧边工具栏，宽度跟着栏走：摆成 72 宽的栏（左右 8）
+      style={!segment && vertical ? { width: 72, padding: '0 var(--spacing-8)', boxSizing: 'border-box' } : undefined}
     >
       {values.map((v, i) => (
         <TabItem
@@ -60,14 +62,13 @@ export function TabItemPlayground() {
         { key: 'left', label: '左图标', type: 'toggle', value: false },
         { key: 'text', label: '文字', type: 'text', value: '选项' },
       ]}
-      // 布局只有分段有；竖排只有中号、自带图标；分段横排没有左图标
+      // 竖排不分尺寸、自带图标；分段横排没有左图标
       rules={(s) => {
         const segment = s.style === 'segment';
-        const vertical = segment && s.layout === 'vertical';
+        const vertical = s.layout === 'vertical';
         return {
-          ...(segment ? {} : { layout: true }),
           ...(vertical ? { size: true } : {}),
-          ...(segment ? { left: true } : {}),
+          ...(segment || vertical ? { left: true } : {}),
         };
       }}
       render={renderTabs}

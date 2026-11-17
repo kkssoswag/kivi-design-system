@@ -410,7 +410,7 @@
 }
 
 /* ---------- SendButton：发送按钮 ----------
-   样子全用按钮体系：IconButton 主要 · 36 · 圆形（kv-icon-button--primary / --36 / --round），悬停、按下、禁用都跟按钮走。
+   样子全用按钮体系：IconButton 主要 · 32 · 圆形（kv-icon-button--primary / --32 / --round），悬停、按下、禁用都跟按钮走。
    这里只管停止方块 */
 .kv-send-button {
   flex: none;

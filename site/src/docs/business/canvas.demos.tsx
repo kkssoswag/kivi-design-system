@@ -28,6 +28,8 @@ import {
   ImageModelControls,
   ModelSelect,
   RefModeSelect,
+  DEFAULT_MODEL,
+  VIDEO_FIRST_LAST_ONLY,
   VideoModelControls,
   type AttachmentItem,
   type ConnectorDotStatus,
@@ -351,18 +353,30 @@ function panelOf(def: NodeDef, inputs: NodeDef[], onGenerate: () => void, busy: 
   }
 }
 
-/** 视频生成面板：参考方式在底栏模型后面，和主站输入框是同一个下拉；切到「首尾帧」时参考区换成首尾帧（两格 + 中间互换） */
+/** 视频生成面板：参考方式在底栏模型后面，和主站输入框是同一个下拉；切到「首尾帧」、或选了只有首尾帧的模型时，参考区换成首尾帧（两格 + 中间互换） */
 function VideoPanel({ refRow, bar }: { refRow: ReactElement | false; bar: (left: ReactElement) => ReactElement }) {
   const [mode, setMode] = useState('omni');
+  const [model, setModel] = useState(DEFAULT_MODEL.video);
+  // 只有首尾帧的模型（Veo、Sora…）没有参考方式下拉，参考区也是首尾帧；换模型时参考方式回到默认（照线上）
+  const frames = mode === 'frames' || VIDEO_FIRST_LAST_ONLY.includes(model);
   return (
     <NodePanel expand>
-      {mode === 'frames' ? (
+      {frames ? (
         <ReferenceFramePair first={{ src: `${IMG}kivi-future-1x1.webp` }} last={{ src: `${IMG}kiwi-light-1x1.webp` }} />
       ) : (
         refRow
       )}
       <PromptInput placeholder="描述任何你想要生成的内容" />
-      {bar(<VideoModelControls refMode={<RefModeSelect value={mode} onChange={setMode} />} />)}
+      {bar(
+        <VideoModelControls
+          model={model}
+          onModelChange={(m) => {
+            setModel(m);
+            setMode('omni');
+          }}
+          refMode={<RefModeSelect value={mode} onChange={setMode} />}
+        />,
+      )}
     </NodePanel>
   );
 }

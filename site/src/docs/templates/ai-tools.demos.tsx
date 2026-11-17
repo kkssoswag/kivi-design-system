@@ -14,7 +14,6 @@ import {
   EmptyState,
   IconButton,
   Menu,
-  MenuLabel,
   MenuItem,
   NodePanel,
   NodePanelBar,
@@ -690,7 +689,8 @@ export function ToolWorkbench({ tool, source, onUpload, onGenerate, hidden, prom
   );
 }
 
-export function ToolsPage() {
+/** account：右栏顶上的余额和头像（主站外壳传进来） */
+export function ToolsPage({ account }: { account?: ReactNode }) {
   const [tool, setTool] = useState<ToolId>('expand');
   const media = toolOf(tool).media;
   // 每个工具一张原图，切走再切回来还在
@@ -758,21 +758,20 @@ export function ToolsPage() {
 
   return (
     <div className="tpl-at" {...bind}>
+      {/* 工具栏：选项卡竖排（图标在上、字在下），图片、视频两组中间一条短线（11-17 用户定，照美图设计室） */}
       <ScrollArea className="tpl-at__tools">
-        <nav className="tpl-at__tools-body">
-          <Menu variant="plain" aria-label="AI 工具">
-            {(['image', 'video'] as const).map((m) => (
-              <Fragment key={m}>
-                <MenuLabel>{m === 'image' ? '图片工具' : '视频工具'}</MenuLabel>
-                {TOOLS.filter((t) => t.media === m).map((t) => (
-                  <MenuItem key={t.id} icon={t.icon} selected={t.id === tool || undefined} onClick={() => setTool(t.id)}>
-                    {t.name}
-                  </MenuItem>
-                ))}
-              </Fragment>
-            ))}
-          </Menu>
-        </nav>
+        <Tabs layout="vertical" value={tool} onChange={(v) => setTool(v as ToolId)} aria-label="AI 工具" className="tpl-at__tools-body">
+          {(['image', 'video'] as const).map((m) => (
+            <Fragment key={m}>
+              {m === 'video' && <Divider />}
+              {TOOLS.filter((t) => t.media === m).map((t) => (
+                <TabItem key={t.id} value={t.id} icon={t.icon}>
+                  {t.name}
+                </TabItem>
+              ))}
+            </Fragment>
+          ))}
+        </Tabs>
       </ScrollArea>
 
       <div className="tpl-at__main">
@@ -800,6 +799,9 @@ export function ToolsPage() {
         />
       </div>
 
+      {/* 右栏通到顶：上面是余额和头像（11-17 用户定，从公共的头并进来），下面是历史 */}
+      <div className="tpl-at__side">
+      {account}
       <ScrollArea className="tpl-at__history">
         <aside className="tpl-at__history-body" aria-label="历史记录">
           <div className="tpl-at__history-head">
@@ -852,6 +854,7 @@ export function ToolsPage() {
           })}
         </aside>
       </ScrollArea>
+      </div>
 
       {/* 历史的右键菜单 */}
       <Dropdown anchorPoint={menu ?? undefined} open={menu !== null} onOpenChange={(v) => !v && setMenu(null)}>

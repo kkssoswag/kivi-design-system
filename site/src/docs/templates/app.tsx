@@ -109,10 +109,10 @@ export function KiviApp({ page, onNavigate }: { page: AppPage; onNavigate: (page
             onOpenCanvas={openCanvas}
           />
         )}
-        {page === 'tools' && <ToolsPage />}
+        {page === 'tools' && <ToolsPage account={<Wallet className="tpl-at__wallet" />} />}
         {page === 'assets' && <AssetsPage />}
-        {/* 公共的头：右上角余额和头像，每一页一样的位置（中线离顶 32，和侧栏 Logo 对齐），换页不动 */}
-        <Wallet />
+        {/* 公共的头：右上角余额和头像，每一页一样的位置（中线离顶 32，和侧栏 Logo 对齐），换页不动。AI 工具页的放进右栏顶上 */}
+        {page !== 'tools' && <Wallet />}
       </div>
       {page === 'canvas' && <CanvasPage key={skill ?? 'canvas'} skill={skill} onHome={() => navigate('create')} />}
     </>
