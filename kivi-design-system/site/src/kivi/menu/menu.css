@@ -261,11 +261,11 @@
 }
 
 /* 状态：悬停。键盘焦点暂用同一个底色 */
-.kv-menu-item:where(:hover, :focus-visible, .is-hover, [aria-haspopup][aria-expanded="true"]):not(:disabled, [aria-disabled="true"]) {
+.kv-menu-item:where(:hover, :focus-visible, .is-hover, [data-highlighted], [aria-haspopup][aria-expanded="true"]):not(:disabled, [aria-disabled="true"]) {
   background: var(--color-bg-fill-container-light-1-hover); /* 菜单在玻璃、侧栏在 base 上，都是深底：悬停用 Light 1 hover 12% */
 }
 
-.kv-menu-item--danger:where(:hover, :focus-visible, .is-hover):not(:disabled, [aria-disabled="true"]) {
+.kv-menu-item--danger:where(:hover, :focus-visible, .is-hover, [data-highlighted]):not(:disabled, [aria-disabled="true"]) {
   background: var(--color-status-danger-subtle);
 }
 
@@ -275,7 +275,7 @@
 }
 
 /* 选中项悬停、键盘聚焦、按下：比选中亮一档（hover / pressed），选择器比上面选中那条更具体 */
-.kv-menu-item[aria-selected="true"]:where(:hover, :focus-visible, .is-hover):not(:disabled, [aria-disabled="true"], [data-editing]) {
+.kv-menu-item[aria-selected="true"]:where(:hover, :focus-visible, .is-hover, [data-highlighted]):not(:disabled, [aria-disabled="true"], [data-editing]) {
   background: var(--color-bg-fill-container-light-1-hover);
 }
 

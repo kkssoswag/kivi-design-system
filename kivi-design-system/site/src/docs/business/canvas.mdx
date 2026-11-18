@@ -191,10 +191,27 @@ import { AudioWavePlayground, CanvasHeaderPlayground, ConnectorPlayground, NodeP
 
 ### NodePanel
 
-生成面板的外框，选中生成节点后出现在节点下方；竖排三块：`AttachmentStrip`（参考图；首尾帧时换成 `ReferenceFramePair`）、`PromptInput`（提示词）、`NodePanelBar`（模型选择栏）。
+生成面板，选中生成节点后出现在节点下方；竖排三块：参考素材（`AttachmentStrip`；首尾帧时换成 `ReferenceFramePair`）、`PromptInput`（提示词）、`NodePanelBar`（模型选择栏）。传 `type` 就是完整的生成面板，状态都在组件里，用的地方只传状态；规则（各类型的模型和参数、参考方式和首尾帧、不能生成的原因、消耗）和主站 `PromptBox` 共用一份。不传 `type` 只是外框，工具面板（抠图、高清…）往里放自己的内容。
 
 | 属性 | 类型 | 默认 | 说明 |
 |---|---|---|---|
+| `type` | `'text'` `'image'` `'video'` `'audio'` | — | 生成节点的类型。传了出完整的生成面板：文字只有模型和生成按钮；图片、视频是张数 + 生成；音频是字数 / 上限 + 生成 |
+| `references` | `AttachmentItem[]` | `[]` | 参考素材：连进来的上游节点，按连接顺序排，右上角自动写「图片1、视频1」（每种类型各自编号，不分组），点缩略图把它 @ 进提示词（照线上），断开连线时提示词里的 @ 跟着删。文字节点不显示。首尾帧时前两张图片按顺序当首帧、尾帧。附件条里不能删（连线才是来源），首尾帧里能删 |
+| `onRemoveReference` | `(id: string) => void` | — | 首尾帧里点了删除，参数是那张图的 `id`（上游节点）：断开这条连线。不传就没有删除 |
+| `onAddReference` | `(slot: 'first' \| 'last') => void` | — | 首尾帧里点了空格的添加格，参数是哪一格：上传一张图，新建图片节点连进来（照线上） |
+| `onReorderReference` | `(id: string, targetId: string) => void` | — | 参考图拖着排序：参数是挪的那张和挪到哪张的位置（都是上游节点 `id`），改连进来的顺序，名字（图片1…）和提示词里的 @ 跟着变。不分类型，随便换（11-18 用户定）。不传就不能拖 |
+| `defaultValue` | `ReactNode` | — | 开头的提示词，只在第一次渲染时用 |
+| `onChange` | `(text: string) => void` | — | 提示词变了 |
+| `model` | `string` | — | 模型（值）。传了就是受控；不传用这个类型的默认模型 |
+| `defaultModel` | `string` | — | 非受控时一开始的模型 |
+| `onModelChange` | `(model) => void` | — | 换了模型 |
+| `refMode` | `'omni'` `'frames'` `'edit'` `'extend'` | — | 视频的参考方式，同 `PromptBox`。只有首尾帧的模型没有这个下拉，参考区也是首尾帧；换模型时回到全能参考 |
+| `defaultRefMode` | 同上 | `'omni'` | 非受控时一开始的参考方式 |
+| `onRefModeChange` | `(mode) => void` | — | 换了参考方式 |
+| `onGenerate` | `() => void` | — | 点了生成。不能生成时（按钮置灰、悬停说原因）不触发 |
+| `generating` | `boolean` | `false` | 正在生成：生成按钮置灰 |
+| `cost` | `number` | — | 消耗的猕猴桃数。不传按类型和模型取示例数字 |
+| `placeholder` | `string` | `"描述任何你想要生成的内容"` | 没输入时的占位文字 |
 | `expand` | `boolean` | `false` | 右上角的全屏按钮：`IconButton` 32 · 无底灰（`FullScreen`，白 50%，悬停 100%），离边 12 |
 | `onExpand` | `() => void` | — | 点全屏按钮 |
 

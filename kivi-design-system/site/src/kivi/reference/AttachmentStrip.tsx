@@ -1,10 +1,12 @@
-import { forwardRef, type HTMLAttributes, type ReactNode } from 'react';
+import { forwardRef, useRef, type CSSProperties, type HTMLAttributes, type ReactNode } from 'react';
 import { Icon } from '../Icon';
 import { UploadRing } from '../upload/UploadRing';
 import { PreviewPopover } from './PreviewCard';
 import { ReferenceItem } from './ReferenceItem';
 import { ScrollArea } from '../scroll-area';
 import { cx } from '../utils';
+import { useSortable } from '../hooks';
+import { referenceLabels } from './ReferenceStack';
 import './reference.css';
 
 export type AttachmentType = 'image' | 'video' | 'audio' | 'file';
@@ -24,7 +26,7 @@ export interface AttachmentItem {
   duration?: string;
   /** 文件扩展名，文件用，比如「PDF」 */
   ext?: string;
-  /** 右上角序号，比如「1」：画布生成面板里的参考图按连进来的顺序写。不传就没有；悬停出删除时序号被盖住（没传 `onRemove` 没有删除，序号不隐藏） */
+  /** 右上角角标。不传就没有；附件条传了 `labels` 时不用传，自动写「图片1」。悬停出删除时角标被盖住（没传 `onRemove` 没有删除，角标不隐藏） */
   badge?: ReactNode;
   /** 上传进度 0–100。不传是已经上传完；传了盖一层暗色加进度环，没有悬停预览 */
   progress?: number;
@@ -37,20 +39,44 @@ export interface AttachmentStripProps extends Omit<HTMLAttributes<HTMLDivElement
   onRemove?: (id: string) => void;
   /** 点缩略图时触发，预览大图用。传了缩略图能键盘聚焦 */
   onItemClick?: (item: AttachmentItem) => void;
+  /** 拖着排序：按住一格左右拖，别的格子滑开让位，松手触发，参数是从第几格挪到第几格（从 0 起），在这里重排 items。
+   *  上下拖出去超过 32 或按 Esc 回原位；键盘聚焦一格按 Alt + ← / → 换位置。不传就不能拖 */
+  onReorder?: (from: number, to: number) => void;
+  /** 右上角自动写名字：每种类型按排列顺序各自编号（图片1、视频1、图片2…），拖的时候跟着变，和 @ 出来的一致。画布生成面板用。默认 false，用每一项自己的 `badge` */
+  labels?: boolean;
+  /** 快捷引用（照线上）：鼠标移到缩略图上右下角出「@」，点缩略图触发，把它以 @ 引用插进提示词。传了它点缩略图就是引用，不再触发 `onItemClick` */
+  onQuote?: (item: AttachmentItem) => void;
 }
 
 /**
  * 附件条：输入框上方一排平铺的附件缩略图，画布 Agent 输入框用；主站输入框的参考区（ReferenceStack）是同一套图标、颜色、悬停预览。
  * 缩略图固定用 56 的 ReferenceItem（图片、视频封面、音频、文件四种），间距 4（11-04 用户定：72、间距 8 都没地方用，删了）；视频、音频左下角写时长，文件写扩展名；
  * 鼠标移上去：右上角出删除（传了 `onRemove` 才有），同时出预览卡（PreviewCard）：图片、视频看大图，音频、文件看名字和类型。超出一排时横向滚动，滚动条细。
+ * 传了 `onReorder` 能拖着排序（11-18 用户要的）：被拖的那格跟手，别的格子滑开让位，拖到两头自动滚。
  */
 export const AttachmentStrip = forwardRef<HTMLDivElement, AttachmentStripProps>(function AttachmentStrip(
-  { items, onRemove, onItemClick, className, style, ...rest },
+  { items, onRemove, onItemClick: onItemClickProp, onReorder, labels = false, onQuote, className, style, ...rest },
   ref,
 ) {
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const sortable = useSortable({
+    count: items.length,
+    getItems: () => Array.from(viewportRef.current?.querySelectorAll<HTMLElement>('.kv-attachment-strip__item') ?? []),
+    scrollerRef: viewportRef,
+    onMove: (from, to) => onReorder?.(from, to),
+    disabled: !onReorder,
+  });
+  const onItemClick = onQuote ?? onItemClickProp;
+  // 自动角标：拖的时候按排好以后的顺序先变
+  const sortedTypes: string[] = [];
+  items.forEach((item, i) => {
+    sortedTypes[sortable.order(i)] = item.type;
+  });
+  const names = referenceLabels(sortedTypes);
   return (
     <ScrollArea
       ref={ref}
+      viewportRef={viewportRef}
       orientation="horizontal"
       className={cx('kv-attachment-strip', className)}
       style={style}
@@ -58,14 +84,16 @@ export const AttachmentStrip = forwardRef<HTMLDivElement, AttachmentStripProps>(
       aria-label="附件"
       {...rest}
     >
-      <div className="kv-attachment-strip__items">
-        {items.map((item) => {
+      <div className="kv-attachment-strip__items" data-sorting={sortable.sorting ? '' : undefined}>
+        {items.map((item, index) => {
+          const sortProps = onReorder ? sortable.itemProps(index) : undefined;
+          const dx = sortable.offset(index);
           const uploading = item.progress != null && item.progress < 100;
           const previewable = !uploading && (item.type === 'audio' || item.type === 'file' || Boolean(item.src));
           return (
             <PreviewPopover
               key={item.id}
-              disabled={!previewable}
+              disabled={!previewable || sortable.sorting}
               preview={{
                 type: item.type,
                 src: item.src,
@@ -80,17 +108,37 @@ export const AttachmentStrip = forwardRef<HTMLDivElement, AttachmentStripProps>(
                 data-uploading={uploading ? '' : undefined}
                 data-clickable={onItemClick ? '' : undefined}
                 data-removable={onRemove ? '' : undefined}
+                data-draggable={sortProps ? '' : undefined}
+                data-dragging={sortable.drag?.from === index ? '' : undefined}
+                data-instant={sortable.instant(index) ? '' : undefined}
+                style={dx ? ({ transform: `translateX(${dx}px)` } as CSSProperties) : undefined}
                 role="group"
                 aria-label={item.name}
-                tabIndex={onItemClick ? 0 : undefined}
+                tabIndex={onItemClick || sortProps ? 0 : undefined}
                 onClick={() => onItemClick?.(item)}
+                onPointerDown={sortProps?.onPointerDown}
+                onDragStart={sortProps?.onDragStart}
+                aria-keyshortcuts={sortProps?.['aria-keyshortcuts']}
                 onKeyDown={(e) => {
-                  if (!onItemClick || e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
+                  sortProps?.onKeyDown(e);
+                  if (e.defaultPrevented || !onItemClick || e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
                   e.preventDefault();
                   onItemClick(item);
                 }}
               >
-                <ReferenceItem size={56} type={item.type} src={item.src} duration={item.duration} ext={item.ext} badge={item.badge} />
+                <ReferenceItem
+                  size={56}
+                  type={item.type}
+                  src={item.src}
+                  duration={item.duration}
+                  ext={item.ext}
+                  badge={labels ? names[sortable.order(index)] : item.badge}
+                />
+                {onQuote && !uploading && (
+                  <span className="kv-attachment-strip__quote" aria-hidden="true">
+                    @
+                  </span>
+                )}
                 {uploading && (
                   <div className="kv-attachment-strip__upload">
                     <UploadRing progress={item.progress} aria-label={`${item.name}上传中`} />

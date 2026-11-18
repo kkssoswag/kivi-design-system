@@ -40,8 +40,11 @@ export interface DropdownProps extends Omit<HTMLAttributes<HTMLSpanElement>, 'ch
   offset?: number;
   /** 菜单和触发器一样宽：下拉选择展开的列表用 */
   matchTriggerWidth?: boolean;
-  /** 右键菜单：不用触发器，菜单出现在这个屏幕坐标（clientX、clientY）。要自己控制 open */
-  anchorPoint?: { x: number; y: number };
+  /** 右键菜单：不用触发器，菜单出现在这个屏幕坐标（clientX、clientY）。要自己控制 open。
+   *  `top` 可选：锚点是一行字时写这行的上边（y 写下边），往上翻时贴着上边，不盖住这行字（@ 引用菜单） */
+  anchorPoint?: { x: number; y: number; top?: number };
+  /** 打开时把焦点放进菜单，默认开。@ 引用菜单这类焦点要留在输入框里、方向键由输入框管的关掉 */
+  autoFocus?: boolean;
   /** 点了菜单项就关闭，默认开。多选菜单要保持展开时关掉 */
   closeOnSelect?: boolean;
   /**
@@ -96,6 +99,7 @@ export const Dropdown = forwardRef<HTMLSpanElement, DropdownProps>(function Drop
     matchTriggerWidth,
     anchorPoint,
     closeOnSelect = true,
+    autoFocus = true,
     haspopup = 'menu',
     openOnHover = false,
     className,
@@ -134,14 +138,14 @@ export const Dropdown = forwardRef<HTMLSpanElement, DropdownProps>(function Drop
     mounted,
     popupRef,
     () => {
-      if (anchorPoint) return pointRect(anchorPoint.x, anchorPoint.y);
+      if (anchorPoint) return { ...pointRect(anchorPoint.x, anchorPoint.y), top: anchorPoint.top ?? anchorPoint.y };
       if (!anchorRef.current) return null;
       const a = rectOf(anchorRef.current);
       if (!openOnHover) return a;
       return { ...a, left: a.left - SUB_INSET, right: a.right + SUB_INSET, top: a.top - SUB_INSET, bottom: a.bottom + SUB_INSET, width: a.width + SUB_INSET * 2 };
     },
     placement,
-    anchorPoint ? 0 : offset,
+    anchorPoint && anchorPoint.top == null ? 0 : offset,
     match,
     anchorPoint && `${anchorPoint.x},${anchorPoint.y}`,
   );
@@ -160,8 +164,8 @@ export const Dropdown = forwardRef<HTMLSpanElement, DropdownProps>(function Drop
           : null;
     current?.scrollIntoView({ block: 'nearest' });
     const first = current ?? el.querySelector<HTMLElement>(ITEMS);
-    // 悬停打开的子菜单不抢焦点，焦点留在外层菜单
-    if (!viaHover.current) (viaKeyboard.current && first ? first : el).focus({ preventScroll: true });
+    // 悬停打开的子菜单不抢焦点，焦点留在外层菜单；关了 autoFocus 的焦点留在原处
+    if (!viaHover.current && autoFocus) (viaKeyboard.current && first ? first : el).focus({ preventScroll: true });
     viaKeyboard.current = false;
     viaHover.current = false;
   }, [open, anchorPoint?.x, anchorPoint?.y]);

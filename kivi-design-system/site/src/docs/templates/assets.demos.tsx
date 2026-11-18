@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import {
   Button,
-  Divider,
   EmptyState,
   FolderCard,
   GenPrompt,
@@ -21,6 +20,8 @@ import {
   type PlaceholderImageName,
   type SelectOption,
   ScrollArea,
+  DateRangeFilter,
+  type DateRange,
 } from '@kivi';
 import { VIDEO } from '../components/media.demos';
 import { MediaViewer, ViewerAuthor, ViewerSection, useLastShown } from './media-viewer';
@@ -68,18 +69,22 @@ const CANVASES = [
 ];
 
 type Source = '会话' | '工具' | '画布';
-type History = { id: string; name: string; video: boolean; source: Source; group: string; time: string; src: string };
+type History = { id: string; name: string; video: boolean; source: Source; group: string; date: Date; time: string; src: string };
 
 const SOURCES: Source[] = ['会话', '工具', '画布'];
 const GROUPS = ['今天', '昨天', '更早'];
+const TODAY = new Date(new Date().setHours(0, 0, 0, 0));
 const HISTORY: History[] = Array.from({ length: 72 }, (_, i) => {
   const video = i % 4 === 1;
+  // 哪天生成的：今天 28 条、昨天 18 条，更早的往前铺到约 4 个月前，时间筛选的预设都能筛出东西
+  const daysAgo = i < 28 ? 0 : i < 46 ? 1 : 2 + (i - 46) * 5;
   return {
     id: `h${i}`,
     name: `${video ? '视频' : '图片'}生成 ${String(i + 1).padStart(2, '0')}`,
     video,
     source: SOURCES[i % 3],
     group: GROUPS[i < 28 ? 0 : i < 46 ? 1 : 2],
+    date: new Date(TODAY.getFullYear(), TODAY.getMonth(), TODAY.getDate() - daysAgo),
     time: ['14:32', '13:18', '11:46', '10:05'][i % 4],
     src: pic(i),
   };
@@ -128,6 +133,7 @@ export function AssetsPage() {
   const [type, setType] = useState('all');
   const [onlyCollected, setOnlyCollected] = useState(false);
   const [keyword, setKeyword] = useState('');
+  const [range, setRange] = useState<DateRange>({ start: null, end: null });
   const [collected, setCollected] = useState<string[]>(['h2', 'h7']);
   // 看大图：全站共用的查看大图（media-viewer.tsx），信息栏写名字、来源和时间
   const [view, setView] = useState<History | null>(null);
@@ -139,6 +145,8 @@ export function AssetsPage() {
       (source === 'all' || h.source === source) &&
       (type === 'all' || (type === 'video') === h.video) &&
       (!onlyCollected || collected.includes(h.id)) &&
+      (!range.start || h.date >= range.start) &&
+      (!range.end || h.date <= range.end) &&
       (!k || h.name.includes(k)),
   );
   const reset = () => {
@@ -146,6 +154,7 @@ export function AssetsPage() {
     setType('all');
     setOnlyCollected(false);
     setKeyword('');
+    setRange({ start: null, end: null });
   };
   // 置顶的排最前面
   const pin = (id: string, pinned: boolean) =>
@@ -216,8 +225,11 @@ export function AssetsPage() {
             <TabItem value="image">图片</TabItem>
             <TabItem value="video">视频</TabItem>
           </Tabs>
-          <Divider orientation="vertical" />
+          <span className="tpl-as__label">时间</span>
+          <DateRangeFilter value={range} onChange={setRange} placeholder="全部" aria-label="生成历史时间" />
+          {/* 收藏是开关，不是「类型」那组选项卡里的一项：和前面的筛选隔 16，不用分割线（11-18 用户定） */}
           <TabItem
+            className="tpl-as__collect"
             icon={onlyCollected ? 'CollectSolid' : 'Collect'}
             selected={onlyCollected}
             role="checkbox"

@@ -18,3 +18,4 @@ export * from './useFileDrop';
 export * from './useCopy';
 export * from './useTruncated';
 export * from './useJustExpanded';
+export * from './useSortable';

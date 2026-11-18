@@ -136,6 +136,7 @@ import { DropdownPlayground, MenuItemPlayground, MenuPlayground, PlainMenuPlaygr
 | `submenu` | `boolean` | `false` | 子菜单箭头 `RightArrowSmall`，16，tertiary；同时加 `aria-haspopup="menu"` |
 | `selected` | `boolean` | — | 选中：白 10% 底（常驻底色，Light 1 默认；悬停 14%，按下 18%），不打勾，单选标当前项。自动是 `role="option"`，外层 Menu 要写 `role="listbox"`；非当前项传 `false` |
 | `checked` | `boolean` | — | 勾选：右边 `CheckSmall`，16，`--color-brand-solid`，只给多选。自动是 `role="menuitemcheckbox"`；没勾的传 `false` |
+| `highlighted` | `boolean` | `false` | 高亮，样子同悬停：焦点留在别处、用方向键挑选项时标出当前这一项（打 @ 弹出的素材菜单，焦点在输入框里） |
 | `disabled` | `boolean` | `false` | 禁用，文字、图标、快捷键 disabled，不响应悬停和点击；带 `more` 时「⋯」也禁用 |
 | `more` | `ReactNode` | — | 右边悬停、选中、菜单开着时才出现的「⋯」（IconButton 28 · 无底灰，`More` 图标）：写了就出，点开弹出这里的菜单，一般是一个 Menu，由 Dropdown 管开关。写了之后外层改用 `<div>`（里面有按钮）。「⋯」离右边 6，里面的图标离边 12 |
 | `actions` | `ReactNode` | — | 「⋯」左边的按钮（IconButton 28 · 无底灰），比如侧栏画布的「在新标签页打开」（`NewWindow`）：和「⋯」一起悬停、选中时才出现，间距 4；收起、重命名时不显示，点它不触发条目的点击。写了之后外层也改用 `<div>` |
@@ -184,8 +185,9 @@ import { DropdownPlayground, MenuItemPlayground, MenuPlayground, PlainMenuPlaygr
 | `placement` | `"bottom-start"` `"bottom"` `"bottom-end"` `"top-start"` `"top"` `"top-end"` | `"bottom-start"` | 方向和对齐。放不下翻到另一边，左右不超出屏幕。往左右出的只给子菜单，用 MenuSub |
 | `offset` | `number` | `4` | 离触发器的距离 |
 | `matchTriggerWidth` | `boolean` | `false` | 菜单和触发器一样宽，下拉选择的列表用 |
-| `anchorPoint` | `{ x: number; y: number }` | — | 右键菜单：出现在这个屏幕坐标（`clientX`、`clientY`），自己控制 `open` |
+| `anchorPoint` | `{ x: number; y: number; top?: number }` | — | 右键菜单：出现在这个屏幕坐标（`clientX`、`clientY`），自己控制 `open`。锚点是一行字时 `y` 写下边、`top` 写上边，离 4 出在下面，放不下翻到上面也不盖住这行（打 @ 弹出的素材菜单） |
 | `closeOnSelect` | `boolean` | `true` | 点菜单项后关闭。多选菜单要保持展开时关掉 |
+| `autoFocus` | `boolean` | `true` | 打开时把焦点放进菜单。焦点要留在输入框里、方向键由输入框管的关掉（打 @ 弹出的素材菜单） |
 | `haspopup` | `"menu"` `"listbox"` `"dialog"` `"tree"` | `"menu"` | 触发器的 `aria-haspopup`，下拉选择用 `"listbox"`：打开时滚到选中项（键盘打开的焦点也落在它上面），不写 `matchTriggerWidth` 时列表不比触发器窄。带输入控件的面板（时间筛选、参数）用 `"dialog"`。文件选择器（里面是 Tree）用 `"tree"`：打开时焦点落在选中的文件上，方向键由 Tree 管，点了文件关闭、点文件夹不关。菜单、列表里按 Tab 关闭并回到触发器；面板里 Tab 在控件之间正常走，走出面板才关闭 |
 
 其余原生 `<span>` 属性都能传。
