@@ -101,7 +101,7 @@ GenPrompt 参数里的参考区：缩略图 + 参考方式文字。高 24，圆�
 | 属性 | 类型 | 默认 | 说明 |
 |---|---|---|---|
 | `type` | `"image"` `"video"` | `"image"` | 图片 / 视频。视频就是播放器 VideoPlayer 卡片（见「图片和视频」页），时长、悬停播放、控制条都在里面 |
-| `status` | `"done"` `"generating"` `"failed"` | `"done"` | 完成 / 生成中 / 失败。生成中分两种：第一次生成（没有原素材）只有 `GeneratingDots` 铺满，没有遮罩；重新生成（传了 `src`）原素材 + 遮罩 `--color-bg-fill-container-dark`（黑 40%）+ 背景模糊 16（`--effect-mask-blur`），上面叠 `GeneratingDots` 和角标；失败：EmptyState 小 · 生成失败，居中，右上操作和 children 照常渲染（失败的格子还能删除）。悬停由鼠标触发 |
+| `status` | `"done"` `"generating"` `"failed"` | `"done"` | 完成 / 生成中 / 失败。生成中分两种：第一次生成（没有原素材）只有 `GeneratingDots` 铺满，没有遮罩；重新生成（传了 `src`）原素材 + 遮罩 `--color-bg-fill-container-dark`（黑 40%）+ 背景模糊 16（`--effect-mask-blur`），上面叠 `GeneratingDots` 和角标；失败：EmptyState 小 · 生成失败，居中，右上操作和 children 照常渲染（失败的格子还能删除）。完成的图片用 Image：加载中骨架屏，加载完淡入。从生成中变成完成时，生成中那层留在上面，图加载好后淡出（300ms ease-in），不跳变。悬停由鼠标触发 |
 | `src` | `string` | — | 图片是图片地址，视频是视频文件。生成中传了就是「有原素材」的样子（见 `status`） |
 | `poster` | `string` | — | 视频封面，没播时显示；不传是首帧 |
 | `fit` | `boolean` | `false` | 比例和格子不一致时画面完整显示，留底色；默认铺满，居中裁切 |

@@ -383,7 +383,10 @@ export const ReferenceStack = forwardRef<HTMLDivElement, ReferenceStackProps>(fu
         style={{ width: trayWidth }}
         onMouseEnter={enter}
         onMouseLeave={mouseLeave}
-        onFocus={enter}
+        // 只有键盘聚焦才展开：点了添加格开文件窗口，窗口关掉后浏览器把焦点还给添加格，这时鼠标早不在这里了，不能再展开（展开了就收不回去，要鼠标再碰一下）
+        onFocus={(e) => {
+          if ((e.target as HTMLElement).matches(':focus-visible')) enter();
+        }}
         onBlur={(e) => {
           if (!e.currentTarget.contains(e.relatedTarget as Node | null)) leave();
         }}

@@ -1,6 +1,6 @@
 import { ScrollArea, SkillPanel } from '@kivi';
 import { SKILL_CATEGORIES, SKILL_ITEMS } from '../business/skill-data';
-import { AgentComposer } from './composer';
+import { AgentComposer } from '../../app/parts/agent-composer';
 import { TemplateFrame } from './frame';
 
 /** Agent 输入框 + 技能按钮弹出的面板（一进来先开着）：点技能在输入框里插技能胶囊，点外面、按 Esc 关上。只能看 */

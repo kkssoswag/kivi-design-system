@@ -25,7 +25,9 @@
       </div>
       <div class="kv-gen-prompt__params">…</div>
     </div>
-    <div class="kv-result-tile"><img class="kv-result-tile__media" src="…" alt=""></div>
+    <div class="kv-result-tile"><div class="kv-image kv-result-tile__media">…</div>（图片用 Image：骨架屏 → 淡入）
+      <div class="kv-result-tile__leaving" data-out>…</div>   生成刚完成时才有：生成中那层盖着，图加载好淡出
+    </div>
     参考区 GenPromptRefs
     <div class="kv-gen-prompt-refs">
       <span class="kv-gen-prompt-refs__thumbs">…</span>参考方式文字
@@ -191,7 +193,9 @@
   font-family: var(--font-family);
 }
 
-.kv-result-tile__media {
+/* 两个类：盖过 Image 外层自己的 position: relative；生成完成过渡层里的原素材同样铺满 */
+.kv-result-tile > .kv-result-tile__media,
+.kv-result-tile__leaving > .kv-result-tile__media {
   position: absolute;
   inset: 0;
   display: block;
@@ -277,6 +281,21 @@
   top: var(--spacing-8);
   left: var(--spacing-8);
   display: flex;
+}
+
+/* 生成完成的过渡：生成中那层（底色 + 原素材 + 点阵）盖在结果上，结果图加载好后淡出（消失：ease-in 300），
+   下面的图同时在骨架屏上淡入，看起来是交叉淡化。不加载完不淡，避免露出空白 */
+.kv-result-tile__leaving {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  background: var(--color-bg-fill-surface);
+  pointer-events: none;
+  transition: opacity var(--motion-duration-300) var(--motion-ease-in);
+}
+.kv-result-tile__leaving[data-out] {
+  opacity: 0;
 }
 
 /* 失败：EmptyState 小，居中 */

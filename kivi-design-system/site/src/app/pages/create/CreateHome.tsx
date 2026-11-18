@@ -1,26 +1,17 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { MeshGradient } from '@paper-design/shaders-react';
-import {
-  Button,
-  CreateCard,
-  Dialog,
-  ExploreCard,
-  IconButton,
-  Input,
-  Masonry,
-  ProjectCard,
-  PromptBox,
-  ScrollArea,
-  TabItem,
-  Tabs,
-  placeholderImageSrc,
-  type PlaceholderImageName,
-  WorkCard,
-} from '@kivi';
-import { RATIO, SKILLS, WORKS, flowsOf, type ExploreTab } from './explore.demos';
-import { AgentComposer } from './composer';
-import { SKILL_CATEGORIES, SKILL_ITEMS } from '../business/skill-data';
-import { PixelBlast } from './pixel-blast';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Button, CreateCard, ExploreCard, Masonry, ProjectCard, PromptBox, ScrollArea, TabItem, Tabs, WorkCard, placeholderImageSrc, type PromptBoxSubmit } from '@kivi';
+import { SKILL_CATEGORIES, SKILL_ITEMS } from '../../../docs/business/skill-data';
+import { RATIO, SKILLS, WORKS, flowsOf } from '../../data/catalog';
+import { sendAgent } from '../../data/agent';
+import { addChatTask, createChat, deleteChat } from '../../data/chats';
+import { useDB } from '../../data/db';
+import { submitTask } from '../../data/tasks';
+import { attempt } from '../../flows/errors';
+import { AgentComposer } from '../../parts/agent-composer';
+import type { ExploreTab } from '../explore';
+import { ComposerMotion, HomeAtmosphere, SHOW_COMPOSER_MOTION } from './HomeBackdrop';
+import { HomeHead, RecentUpdates } from './HomeParts';
+import { genTaskInput } from './submit';
 
 type HomeMode = 'generate' | 'canvas';
 
@@ -28,32 +19,13 @@ type HomeMode = 'generate' | 'canvas';
   创作首页（11-10，照用户的交互原型 kivi-prototype「创作页」：结构和交互照它，样子用组件库）。
   从上到下：标题、「生成 / 画布」切换、输入框、中间一块、广场。
   输入框两种模式各是各的、一样大一样的渐变底（11-10 用户定）：生成是主站提示词框（PromptBox），提交进对话页；画布是画布里 Agent 的输入框，发送新建画布。
-  中间一块：生成是「最近更新」（运营位 Banner）；画布换成「最近项目」（新建画布 + 最近 4 个），不照原型放在输入框上面（11-10 用户定）。
+  生成提交：新建一个对话（标题取提示词前 20 字，没写字叫「新对话」）→ 在里面提交任务 → 进这个对话页。提交失败（余额不足、断网）把刚建的空对话删掉，留在首页。
+  中间一块：生成是「最近更新」（运营位 Banner）；画布换成「最近项目」（新建画布 + 最近 4 个，读 db.canvases），不照原型放在输入框上面（11-10 用户定）。
   广场：生成是「发现」瀑布流；画布是创作精选 / 技能 / 工作流。切模式时中间一块和广场淡入（150ms ease-out）。
 */
 
-const PICS: PlaceholderImageName[] = ['kivi-future', 'ip-gouache', 'kiwi-light', 'bunny-gouache', 'monstera-dots', 'ip-peek', 'ip-kiwi-pile', 'ip-future'];
-const pic = (i: number) => placeholderImageSrc(PICS[i % PICS.length], '1:1');
-const HOUR = 60 * 60_000;
 /** 最近项目一排几格（新建画布 + 最近 4 个） */
 const PROJECT_COLS = 5;
-
-/** 最近项目：最近改过的 4 块画布（和侧栏画布历史、资产页「我的画布」同一批） */
-const RECENT = [
-  { id: 'c1', name: '深林', covers: [pic(4), pic(5), pic(6), pic(7)], updatedAt: Date.now() - 5 * 60_000 },
-  { id: 'c2', name: '笑脸', covers: [pic(1), pic(2), pic(3)], updatedAt: Date.now() - 2 * HOUR },
-  { id: 'c3', name: '短剧制作流程图', covers: [pic(6), pic(7), pic(0), pic(1)], updatedAt: Date.now() - 20 * HOUR },
-  { id: 'c4', name: '新春海报', covers: [pic(2), pic(3)], updatedAt: Date.now() - 6 * 24 * HOUR },
-];
-
-/** 最近更新（运营位）：后台配置，只在生成模式。图是占位 */
-const BANNERS: { title: string; image: PlaceholderImageName }[] = [
-  { title: '精选作品 · 极繁未来', image: 'kivi-future' },
-  { title: 'KIVI 新模型上线', image: 'ip-future' },
-  { title: 'AI 创意设计大赛', image: 'kiwi-light' },
-  { title: '创作者成长计划', image: 'ip-gouache' },
-  { title: '节日海报征集', image: 'monstera-dots' },
-];
 
 const SQUARE_TABS: { value: Exclude<ExploreTab, 'discover'>; label: string }[] = [
   { value: 'featured', label: '创作精选' },
@@ -70,166 +42,6 @@ const HOME_WORKS = WORKS.slice(0, 40);
 /** 发现最高几屏（屏 = 首页滚动区的可见高度） */
 const DISCOVER_SCREENS = 2;
 
-/**
- * 输入框的流动底（11-11 用户要看效果，照即梦首页输入框里那层；扩到整屏试过，效果不好撤回了）：Paper Shaders 的 MeshGradient（Apache-2.0），参数照即梦深色那套（颜色换成品牌绿色调），
- * 记录在 page-notes/jimeng-motion-background.md。铺满输入框外壳、在内容下面，准备好了淡入；系统开了「减少动态效果」不出（底是原来的玻璃）
- */
-const MOTION = {
-  // Figma 没变量：着色器要的颜色。即梦是蓝青调（#151D21 #212A2E #263034 #0F161A），11-11 用户要带品牌绿：
-  // 每个色的 OKLCH 色相换成品牌绿 #2BFF75 的（149°）、彩度 × 1.4；用户又要渐变弱一点：四色亮度往平均值收 25%（平均亮度不变）
-  colors: ['#172018', '#202A21', '#242E25', '#121A13'],
-  // 流动也弱一点（用户定）：即梦是 distortion 0.25、swirl 0.6、speed 1.4
-  distortion: 0.2,
-  swirl: 0.5,
-  scale: 2.8,
-  speed: 1.1,
-  frame: 9062243.995, // 起始时间固定，每次打开画面一样
-  grainMixer: 0,
-  grainOverlay: 0,
-};
-
-/** 输入框流动底先关掉看看（11-16 用户：背景已经有像素云了），要恢复改成 true */
-const SHOW_COMPOSER_MOTION = false;
-
-function ComposerMotion() {
-  const [reduce, setReduce] = useState(() => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);
-  const [ready, setReady] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia?.('(prefers-reduced-motion: reduce)');
-    if (!mq) return;
-    const on = () => setReduce(mq.matches);
-    mq.addEventListener('change', on);
-    return () => mq.removeEventListener('change', on);
-  }, []);
-  // 挂上后下一帧再淡入，免得着色器还没画就露出黑块
-  useEffect(() => {
-    if (reduce) return;
-    const id = requestAnimationFrame(() => setReady(true));
-    return () => cancelAnimationFrame(id);
-  }, [reduce]);
-  if (reduce) return null;
-  return (
-    <div className="tpl-home__motion" data-ready={ready || undefined} aria-hidden>
-      <MeshGradient className="tpl-home__motion-shader" {...MOTION} />
-    </div>
-  );
-}
-
-/**
- * 输入框后面的背景（11-16 用户定）：先照美图设计室做过一版点阵，后来换成 React Bits 的 Pixel Blast（像素云，白色、不要开场动画），
- * 代码在 pixel-blast.tsx。铺满页面宽，从顶到输入框下面 52，底部渐隐，跟着页面滚走
- */
-const ATMOSPHERE_BELOW = 52;
-
-function HomeAtmosphere({ targetRef }: { targetRef: React.RefObject<HTMLElement | null> }) {
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const [height, setHeight] = useState<number>();
-  useLayoutEffect(() => {
-    const wrap = wrapRef.current;
-    const page = wrap?.parentElement;
-    const target = targetRef.current;
-    if (!wrap || !page || !target) return;
-    const measure = () => setHeight(Math.max(1, target.getBoundingClientRect().bottom - page.getBoundingClientRect().top + ATMOSPHERE_BELOW));
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(page);
-    ro.observe(target);
-    return () => ro.disconnect();
-  }, [targetRef]);
-  return (
-    <div ref={wrapRef} className="tpl-home__atmosphere" style={height != null ? { height } : undefined} aria-hidden>
-      {height != null && <PixelBlast className="tpl-home__pixel-blast" />}
-    </div>
-  );
-}
-
-/** 广场标题行右边的搜索框：回车带着关键词去探索页对应选项卡，在那边搜（11-16 用户定） */
-function HomeSearch({ placeholder, onSearch }: { placeholder: string; onSearch: (keyword: string) => void }) {
-  const [keyword, setKeyword] = useState('');
-  return (
-    <Input
-      leftIcon="Search"
-      clearable
-      placeholder={placeholder}
-      aria-label={placeholder}
-      className="tpl-home__search"
-      value={keyword}
-      onChange={(e) => setKeyword(e.target.value)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' && !e.nativeEvent.isComposing) onSearch(keyword.trim());
-      }}
-    />
-  );
-}
-
-function HomeHead({ title, onMore, search, children }: { title?: string; onMore: () => void; search?: { placeholder: string; onSearch: (keyword: string) => void }; children?: React.ReactNode }) {
-  return (
-    <header className="tpl-home__head">
-      {title ? <h2>{title}</h2> : children}
-      {search ? (
-        <HomeSearch {...search} />
-      ) : (
-        <Button size={32} variant="ghost-muted" rightIcon="RightArrowSmall" onClick={onMore}>
-          查看全部
-        </Button>
-      )}
-    </header>
-  );
-}
-
-/** 最近更新：横排 Banner，一排 4 张，放不下左右翻（翻一屏），到头那边的按钮禁用；都放得下就不出按钮 */
-function RecentUpdates() {
-  const rail = useRef<HTMLDivElement>(null);
-  const [edges, setEdges] = useState({ start: true, end: true });
-  const [open, setOpen] = useState<(typeof BANNERS)[number] | null>(null);
-
-  useLayoutEffect(() => {
-    const el = rail.current;
-    if (!el) return;
-    const update = () => setEdges({ start: el.scrollLeft <= 1, end: el.scrollLeft + el.clientWidth >= el.scrollWidth - 1 });
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    el.addEventListener('scroll', update, { passive: true });
-    return () => {
-      ro.disconnect();
-      el.removeEventListener('scroll', update);
-    };
-  }, []);
-
-  const page = (dir: number) => {
-    const el = rail.current;
-    if (!el) return;
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    el.scrollBy({ left: dir * el.clientWidth, behavior: reduce ? 'auto' : 'smooth' });
-  };
-
-  return (
-    <section className="tpl-home__section" aria-label="最近更新">
-      <header className="tpl-home__head">
-        <h2>最近更新</h2>
-        {!(edges.start && edges.end) && (
-          <span className="tpl-home__pager">
-            <IconButton icon="LeftArrowSmall" label="上一组" variant="ghost-muted" size={28} disabled={edges.start} onClick={() => page(-1)} />
-            <IconButton icon="RightArrowSmall" label="下一组" variant="ghost-muted" size={28} disabled={edges.end} onClick={() => page(1)} />
-          </span>
-        )}
-      </header>
-      <ScrollArea orientation="horizontal" className="tpl-home__rail" viewportRef={rail} viewportProps={{ className: 'tpl-home__rail-viewport' }}>
-        <div className="tpl-home__rail-track">
-          {BANNERS.map((b) => (
-            <button key={b.title} type="button" className="tpl-home__banner" aria-label={`查看：${b.title}`} onClick={() => setOpen(b)}>
-              <img src={placeholderImageSrc(b.image, '16:9')} alt="" draggable={false} />
-            </button>
-          ))}
-        </div>
-      </ScrollArea>
-      <Dialog size={800} title={open?.title} open={open !== null} onOpenChange={(v) => !v && setOpen(null)}>
-        {open && <img className="tpl-home__banner-preview" src={placeholderImageSrc(open.image, '16:9')} alt={open.title} />}
-      </Dialog>
-    </section>
-  );
-}
 
 export function CreateHome({
   onSubmit,
@@ -237,8 +49,8 @@ export function CreateHome({
   onExplore,
   onAllCanvases,
 }: {
-  /** 生成：提交进对话页 */
-  onSubmit: () => void;
+  /** 生成：对话建好、任务提交后，进这个对话页（参数是新对话的 id） */
+  onSubmit: (chatId: string) => void;
   /** 画布：新建画布、打开最近项目、提交想法，都进画布页 */
   onOpenCanvas: () => void;
   /** 广场搜索框回车（带着关键词）、点作品：去探索页对应选项卡 */
@@ -247,6 +59,43 @@ export function CreateHome({
   onAllCanvases: () => void;
 }) {
   const [mode, setMode] = useState<HomeMode>('generate');
+  // 最近项目：最近改过的 4 块画布（和侧栏画布历史、资产页「我的画布」同一批）
+  const canvases = useDB((s) => s.canvases);
+  const recent = useMemo(() => [...canvases].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, PROJECT_COLS - 1), [canvases]);
+  // 提交中不重复提交（新建对话和提交任务各有一次请求的延迟）
+  const submitting = useRef(false);
+  const submit = async (s: PromptBoxSubmit) => {
+    if (submitting.current) return;
+    submitting.current = true;
+    try {
+      const chat = await attempt(() => createChat(s.text.trim().slice(0, 20) || '新对话'));
+      if (!chat) return;
+      // Agent：把这句话（连同参考区的素材）发出去，进对话页看它回复
+      if (s.task === 'agent') {
+        const sent = await attempt(() =>
+          sendAgent(chat.id, { text: s.text, refs: s.references.map((r) => ({ type: r.type, src: r.src ?? '', name: r.name, duration: r.duration })) }),
+        );
+        if (!sent) {
+          await attempt(() => deleteChat(chat.id));
+          return;
+        }
+        onSubmit(chat.id);
+        return;
+      }
+      const input = genTaskInput(s, { page: 'create', chatId: chat.id });
+      if (input) {
+        const task = await attempt(() => submitTask(input));
+        if (!task) {
+          await attempt(() => deleteChat(chat.id));
+          return;
+        }
+        addChatTask(chat.id, task.id);
+      }
+      onSubmit(chat.id);
+    } finally {
+      submitting.current = false;
+    }
+  };
   // 外壳高度跟着显示的那套走：两套高度不一样时（画布里加了附件），切换时高度做动画，下面的内容跟着挪
   const generateBox = useRef<HTMLDivElement>(null);
   /** 点阵氛围画到输入框下面 52，要量它 */
@@ -303,10 +152,10 @@ export function CreateHome({
       ) : (
         <section className="tpl-home__section" aria-label="最近项目">
           <HomeHead title="最近项目" onMore={onAllCanvases} />
-          <div className="tpl-home__project-grid" data-create-span={Math.max(1, PROJECT_COLS - RECENT.length)}>
+          <div className="tpl-home__project-grid" data-create-span={Math.max(1, PROJECT_COLS - recent.length)}>
             {/* 一排 5 格：新建画布占掉最近项目没占的格子，一个画布都没有时铺满整排（11-10 用户定，照即梦） */}
 <CreateCard variant="canvas" label="新建画布" onClick={onOpenCanvas} />
-            {RECENT.map((c) => (
+            {recent.map((c) => (
               <ProjectCard key={c.id} name={c.name} covers={c.covers} updatedAt={c.updatedAt} onOpen={onOpenCanvas} />
             ))}
           </div>
@@ -398,7 +247,7 @@ export function CreateHome({
             <div className="tpl-home__shell" data-ready={shellReady || undefined} style={shellHeight != null ? { height: shellHeight } : undefined}>
               {SHOW_COMPOSER_MOTION && <ComposerMotion />}
               <div ref={generateBox} className="tpl-home__box" data-active={mode === 'generate' || undefined}>
-                <PromptBox placement="bottom-start" onSubmit={onSubmit} skills={SKILL_ITEMS} skillCategories={SKILL_CATEGORIES} />
+                <PromptBox placement="bottom-start" onSubmit={submit} skills={SKILL_ITEMS} skillCategories={SKILL_CATEGORIES} />
               </div>
               <div ref={canvasBox} className="tpl-home__box" data-active={mode === 'canvas' || undefined} style={generateHeight != null ? { minHeight: generateHeight } : undefined}>
                 <AgentComposer className="tpl-home__agent" placement="bottom-start" onSend={onOpenCanvas} />
