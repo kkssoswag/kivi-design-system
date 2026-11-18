@@ -1,0 +1,36 @@
+/*
+  演示站自己的少量样式（类名 app-）。页面的样式暂时还在 docs/templates/templates.css（tpl-），搬页面时不动它，免得样子变。
+  只用 tokens.css 里的变量，不写死数值。
+*/
+
+/* 演示开关：贴右边、竖向居中，不压输入框和右上角的余额 */
+.app-demo {
+  position: absolute;
+  right: var(--spacing-8);
+  top: 50%;
+  z-index: 10;
+  transform: translateY(-50%);
+}
+.app-demo__panel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--spacing-12);
+}
+
+/* 余额不足弹窗里的两行数字 */
+.app-balance {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--spacing-8) var(--spacing-12);
+  margin: 0;
+  color: var(--color-text-fill-secondary);
+  font-size: var(--font-size-14);
+}
+.app-balance dd {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-4);
+  margin: 0;
+  color: var(--color-text-fill-primary);
+}

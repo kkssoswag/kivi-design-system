@@ -1,17 +1,22 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
-import { Toaster } from '@kivi';
-import { PreviewHost } from '../components/media.demos';
-import { ToolsPage } from './ai-tools.demos';
-import { AssetsPage } from './assets.demos';
-import { CanvasPage } from './canvas.demos';
-import { CreateHome } from './create-home';
-import { ExplorePage, type ExploreTab } from './explore.demos';
-import { TemplateFrame } from './frame';
-import { CreatePage, Sidebar, Wallet, type AppPage, type HistoryKind } from './main-site.demos';
-import './templates.css';
+import { Notifier, Toaster } from '@kivi';
+import { PreviewHost } from '../docs/components/media.demos';
+import { TemplateFrame } from '../docs/templates/frame';
+import '../docs/templates/templates.css';
+import { useDB } from './data/db';
+import { FlowHost } from './flows/dialogs';
+import { AssetsPage } from './pages/assets';
+import { CanvasPage } from './pages/canvas';
+import { CreateHome, CreatePage } from './pages/create';
+import { ExplorePage, type ExploreTab } from './pages/explore';
+import { ToolsPage } from './pages/tools';
+import { Sidebar, Wallet, type AppPage, type HistoryKind } from './parts/shell';
+import { DemoPanel } from './parts/DemoPanel';
+import './app.css';
 
 /*
+  演示站（app/）的外壳。结构和规矩见 kivi-design-system-workspace/page-notes/app-architecture.md。
   UI 页面预览：主站整套页面，像线上一样能互相切。
   侧栏只有一个：切页时不重新挂载，收起 / 展开、对话和画布历史都跟着用户走；只换右边主区。
   点侧栏的画布历史进画布页（没有主站侧栏，和线上一样），点画布左上角 Logo 回创作页。
@@ -33,6 +38,12 @@ export function KiviApp({ page, onNavigate }: { page: AppPage; onNavigate: (page
   const [exploreKeyword, setExploreKeyword] = useState('');
   // 进画布页时带着的技能：探索页技能点「使用」新建画布，Agent 输入框带上技能引用
   const [skill, setSkill] = useState<string | undefined>();
+
+  // 选中的对话被删掉了，回到创作首页
+  const chats = useDB((s) => s.chats);
+  useEffect(() => {
+    if (selected.kind === 'chat' && selected.id && !chats.some((c) => c.id === selected.id)) setSelected(NONE);
+  }, [chats, selected]);
 
   // 去了探索、AI 工具、资产，侧栏不再选中对话；从画布回到创作页，也不再选中那块画布
   useEffect(() => {
@@ -60,7 +71,9 @@ export function KiviApp({ page, onNavigate }: { page: AppPage; onNavigate: (page
   return (
     <>
       <Toaster />
+      <Notifier />
       <PreviewHost />
+      <FlowHost />
       {/* 画布页没有主站侧栏；侧栏藏起来不卸载，回来时收起状态、历史都还在 */}
       <div
         className="tpl-ms"
@@ -82,11 +95,11 @@ export function KiviApp({ page, onNavigate }: { page: AppPage; onNavigate: (page
         />
         {page === 'create' &&
           (selected.kind === 'chat' && selected.id ? (
-            <CreatePage key={selected.id} />
+            <CreatePage key={selected.id} chatId={selected.id} />
           ) : (
             <CreateHome
-              // 演示：提交后进一段新对话（侧栏不选中哪条）
-              onSubmit={() => setSelected({ kind: 'chat', id: 'chat-new' })}
+              // 提交后进新建的那个对话（侧栏里它排在最前）
+              onSubmit={(chatId) => setSelected({ kind: 'chat', id: chatId })}
               onOpenCanvas={openCanvas}
               onExplore={(tab, keyword = '') => {
                 setExploreTab(tab);
@@ -115,6 +128,7 @@ export function KiviApp({ page, onNavigate }: { page: AppPage; onNavigate: (page
         {page !== 'tools' && <Wallet />}
       </div>
       {page === 'canvas' && <CanvasPage key={skill ?? 'canvas'} skill={skill} onHome={() => navigate('create')} />}
+      <DemoPanel />
     </>
   );
 }

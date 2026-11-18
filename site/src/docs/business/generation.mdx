@@ -246,19 +246,23 @@ Agent 控件：Agent 模式下工具条上的模型、技能和生成模式。
 
 ### VideoParams
 
-视频参数：一个 `ParamPicker`，摘要「分辨率 · 比例 · 时长」，面板里是比例（竖排分段，带比例图标）、时长（刻度滑块 4–15 秒，右边 `NumberInput` 带单位 S）、分辨率（720P / 1080P），有 `audio` 时多一个「生成音频」分段。面板里选的值组件自己管。
+视频参数：一个 `ParamPicker`，摘要「分辨率 · 比例 · 时长」，面板里是比例（竖排分段，带比例图标）、时长（刻度滑块 4–15 秒，右边 `NumberInput` 带单位 S）、分辨率（720P / 1080P），有 `audio` 时多一个「生成音频」分段。面板里选的值不传 `values` 就组件自己管。
 
 | 属性 | 类型 | 默认 | 说明 |
 |---|---|---|---|
+| `values` | `GenParamValues` | — | 选的值（受控），`{ ratio, duration, resolution, sound }`，值都是字符串；不传组件自己存，默认 `GEN_PARAM_DEFAULTS.video`（16:9、5、720P、开） |
+| `onValuesChange` | `(values) => void` | — | 改了任何一项，参数是整组新值 |
 | `audio` | `boolean` | `false` | 有「生成音频」：Seedance、Kling V3 Omni 有。开着时摘要后面跟一个音量图标 |
 | 其余 | `ParamPickerProps` | — | 去掉 `summary`、`children`；`placement`、`open` 一套等都能传 |
 
 ### ImageParams
 
-图片参数：一个 `ParamPicker`，摘要「分辨率 · 比例」，面板里是比例（竖排分段带比例图标，11 个一排 6 个，`RATIOS`）、分辨率（1K / 2K / 4K，`SIZES`）。交互照 `VideoParams`；面板里选的值组件自己管。
+图片参数：一个 `ParamPicker`，摘要「分辨率 · 比例」，面板里是比例（竖排分段带比例图标，11 个一排 6 个，`RATIOS`）、分辨率（1K / 2K / 4K，`SIZES`）。交互照 `VideoParams`；面板里选的值不传 `values` 就组件自己管。
 
 | 属性 | 类型 | 默认 | 说明 |
 |---|---|---|---|
+| `values` | `GenParamValues` | — | 选的值（受控），`{ ratio, resolution }`；不传组件自己存，默认 1:1、2K |
+| `onValuesChange` | `(values) => void` | — | 改了任何一项，参数是整组新值 |
 | 其余 | `ParamPickerProps` | — | 去掉 `summary`、`children`；`placement`、`open` 一套等都能传 |
 
 ### AudioParams
@@ -268,6 +272,8 @@ Agent 控件：Agent 模式下工具条上的模型、技能和生成模式。
 | 属性 | 类型 | 默认 | 说明 |
 |---|---|---|---|
 | `model` | `string` | `"seed-audio-1.0"` | 音频模型的值：`minimax-speech-2.8-hd` 多「情绪」（自动、开心、悲伤、愤怒、害怕、厌恶、惊讶、中性共 8 项）、没有「生成字幕」；`eleven-v4` 多「稳定性」；Seed 和 Eleven 有「生成字幕」。面板里的控件按模型出 |
+| `values` | `GenParamValues` | — | 选的值（受控），`{ speed, pitch, emotion, stability, subtitle }`；不传组件自己存，默认 1.0、0、自动、自然、开 |
+| `onValuesChange` | `(values) => void` | — | 改了任何一项，参数是整组新值 |
 | 其余 | `ParamPickerProps` | — | 去掉 `summary`、`children` |
 
 ### VideoModelControls

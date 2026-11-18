@@ -9,7 +9,7 @@ import './shell/shell.css';
 
 const pages = PAGES.map((p) => ({ ...p, Page: lazy(p.load) }));
 // UI 页面预览单独开的 Tab：只有产品界面，不套网站外壳
-const KiviApp = lazy(() => import('./docs/templates/app'));
+const KiviApp = lazy(() => import('./app/App'));
 
 // 「浮层」类型要放在图片上看：演示区的图片底
 document.documentElement.style.setProperty(

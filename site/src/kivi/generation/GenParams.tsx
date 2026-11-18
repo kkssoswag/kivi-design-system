@@ -1,4 +1,5 @@
 import { forwardRef, useState } from 'react';
+import { useControllable } from '../hooks';
 import { NumberInput } from '../inputs';
 import { TabItem, Tabs } from '../navigation';
 import { Slider, type SelectOption, type SliderMark } from '../selection';
@@ -61,7 +62,33 @@ const ON_OFF: SelectOption[] = [
   { value: 'off', label: '关' },
 ];
 
-export interface VideoParamsProps extends Omit<ParamPickerProps, 'summary' | 'children'> {
+/** 参数面板里选的值，键见 GEN_PARAM_DEFAULTS，值一律是字符串（时长 '5'、语速 '1.0'） */
+export type GenParamValues = Record<string, string>;
+
+/** 各类参数的默认值：视频 比例 / 时长（秒）/ 分辨率 / 生成音频，图片 比例 / 分辨率，音频 语速 / 音高 / 情绪 / 稳定性 / 生成字幕 */
+export const GEN_PARAM_DEFAULTS = {
+  video: { ratio: '16:9', duration: '5', resolution: '720P', sound: 'on' },
+  image: { ratio: '1:1', resolution: '2K' },
+  audio: { speed: '1.0', pitch: '0', emotion: 'auto', stability: 'natural', subtitle: 'on' },
+} satisfies Record<'video' | 'image' | 'audio', GenParamValues>;
+
+/** 参数面板通用的受控三件套：传了 values 就听外面的 */
+interface ParamValueProps {
+  /** 选的值（受控）。不传就自己存，一开始是默认值 */
+  values?: GenParamValues;
+  /** 改了任何一项时触发，参数是整组新值 */
+  onValuesChange?: (values: GenParamValues) => void;
+}
+
+/** 整组值的受控 / 非受控，返回读一项、改一项 */
+function useParamValues(defaults: GenParamValues, values: GenParamValues | undefined, onValuesChange?: (v: GenParamValues) => void) {
+  const [all, setAll] = useControllable(values, defaults, onValuesChange);
+  const get = (k: string) => all[k] ?? defaults[k];
+  const set = (k: string) => (v: string | number) => setAll({ ...defaults, ...all, [k]: String(v) });
+  return [get, set] as const;
+}
+
+export interface VideoParamsProps extends Omit<ParamPickerProps, 'summary' | 'children'>, ParamValueProps {
   /** 有没有「生成音频」：Seedance、Kling V3 Omni 有。开着时摘要后面跟一个音量图标，默认没有 */
   audio?: boolean;
 }
@@ -73,11 +100,12 @@ const VIDEO_SEC = { min: 4, max: 15 };
  * 视频参数：Figma「模板 · 画布」页「视频参数调整」（210:1514）。比例、时长、分辨率，Seedance 多一个生成音频。
  * 摘要照 Figma 主站输入框写成「分辨率 · 比例 · 时长」；生成音频开着时，后面跟一个音量图标（Figma 画布摘要「智能 · 8s · 2K ·」后面那个）
  */
-export const VideoParams = forwardRef<HTMLSpanElement, VideoParamsProps>(function VideoParams({ audio = false, ...rest }, ref) {
-  const [ratio, setRatio] = useState('16:9');
-  const [sec, setSec] = useState(5);
-  const [res, setRes] = useState('720P');
-  const [sound, setSound] = useState('on');
+export const VideoParams = forwardRef<HTMLSpanElement, VideoParamsProps>(function VideoParams({ audio = false, values, onValuesChange, ...rest }, ref) {
+  const [get, set] = useParamValues(GEN_PARAM_DEFAULTS.video, values, onValuesChange);
+  const [ratio, setRatio] = [get('ratio'), set('ratio')];
+  const [sec, setSec] = [Number(get('duration')), set('duration')];
+  const [res, setRes] = [get('resolution'), set('resolution')];
+  const [sound, setSound] = [get('sound'), set('sound')];
   return (
     <ParamPicker
       ref={ref}
@@ -102,15 +130,16 @@ export const VideoParams = forwardRef<HTMLSpanElement, VideoParamsProps>(functio
 });
 VideoParams.displayName = 'VideoParams';
 
-export type ImageParamsProps = Omit<ParamPickerProps, 'summary' | 'children'>;
+export interface ImageParamsProps extends Omit<ParamPickerProps, 'summary' | 'children'>, ParamValueProps {}
 
 /**
  * 图片参数：比例、分辨率放进一个参数面板，交互照视频参数（11-11 用户定，原来是分辨率、比例两个下拉）。
  * 摘要写成「分辨率 · 比例」；比例 11 个，竖排分段一排 6 个
  */
-export const ImageParams = forwardRef<HTMLSpanElement, ImageParamsProps>(function ImageParams(props, ref) {
-  const [ratio, setRatio] = useState('1:1');
-  const [size, setSize] = useState('2K');
+export const ImageParams = forwardRef<HTMLSpanElement, ImageParamsProps>(function ImageParams({ values, onValuesChange, ...props }, ref) {
+  const [get, set] = useParamValues(GEN_PARAM_DEFAULTS.image, values, onValuesChange);
+  const [ratio, setRatio] = [get('ratio'), set('ratio')];
+  const [size, setSize] = [get('resolution'), set('resolution')];
   return (
     <ParamPicker ref={ref} summary={`${size} · ${ratio}`} {...props}>
       <ParamField label="选择比例">
@@ -128,7 +157,7 @@ export const ImageParams = forwardRef<HTMLSpanElement, ImageParamsProps>(functio
 });
 ImageParams.displayName = 'ImageParams';
 
-export interface AudioParamsProps extends Omit<ParamPickerProps, 'summary' | 'children'> {
+export interface AudioParamsProps extends Omit<ParamPickerProps, 'summary' | 'children'>, ParamValueProps {
   /** 音频模型的值，面板里有什么跟着它变：MiniMax 多情绪，Eleven 多稳定性，Seed 和 Eleven 有生成字幕。默认 Seed Audio */
   model?: string;
 }
@@ -137,12 +166,13 @@ export interface AudioParamsProps extends Omit<ParamPickerProps, 'summary' | 'ch
  * 音频高级设置：样子照 Figma「音频参数调整」（211:1528），内容照线上：语速、音高都有；
  * MiniMax 多情绪，Eleven 多稳定性，Seed 和 Eleven 有生成字幕。触发器写「高级设置」
  */
-export const AudioParams = forwardRef<HTMLSpanElement, AudioParamsProps>(function AudioParams({ model = DEFAULT_MODEL.audio, ...rest }, ref) {
-  const [speed, setSpeed] = useState(1);
-  const [pitch, setPitch] = useState(0);
-  const [emotion, setEmotion] = useState('auto');
-  const [stability, setStability] = useState('natural');
-  const [subtitle, setSubtitle] = useState('on');
+export const AudioParams = forwardRef<HTMLSpanElement, AudioParamsProps>(function AudioParams({ model = DEFAULT_MODEL.audio, values, onValuesChange, ...rest }, ref) {
+  const [get, set] = useParamValues(GEN_PARAM_DEFAULTS.audio, values, onValuesChange);
+  const [speed, setSpeed] = [Number(get('speed')), (v: number) => set('speed')(v.toFixed(1))];
+  const [pitch, setPitch] = [Number(get('pitch')), set('pitch')];
+  const [emotion, setEmotion] = [get('emotion'), set('emotion')];
+  const [stability, setStability] = [get('stability'), set('stability')];
+  const [subtitle, setSubtitle] = [get('subtitle'), set('subtitle')];
   return (
     <ParamPicker ref={ref} summary="高级设置" {...rest}>
       <SliderField label="语速" min={0.5} max={2} step={0.1} precision={1} value={speed} unit="x" marks={ticks(0.5, 2, 0.25, 0.5, (v) => `${v.toFixed(1)}x`)} onChange={setSpeed} />

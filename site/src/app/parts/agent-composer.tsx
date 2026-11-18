@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { AttachmentStrip, DropOverlay, GenModelPicker, IconButton, MentionChip, PromptInput, SendButton, SkillPicker, placeholderImageSrc, toast, type AttachmentItem, type IconName, type PlaceholderImageName } from '@kivi';
-import { rejectMessage, useFileDrop } from '../../kivi/hooks';
-import { SKILL_CATEGORIES, SKILL_ITEMS } from '../business/skill-data';
+import { rejectMessage, useFileDrop } from '@kivi/hooks';
+import { SKILL_CATEGORIES, SKILL_ITEMS } from '../../docs/business/skill-data';
 
 // 页面模板里 Agent 输入框的演示：画布模板、技能面板模板共用这一份。只能看：有字也发不出去
 
