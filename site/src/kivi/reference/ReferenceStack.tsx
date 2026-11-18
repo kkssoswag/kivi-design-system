@@ -11,7 +11,7 @@ import {
 import { Icon } from '../Icon';
 import { UploadRing } from '../upload/UploadRing';
 import { cx } from '../utils';
-import { useControllable, useMergedRef } from '../hooks';
+import { useControllable, useMergedRef, useSortable } from '../hooks';
 import { PreviewPopover } from './PreviewCard';
 import { ReferenceItem } from './ReferenceItem';
 import { PromptBoxContext } from '../generation/context';
@@ -24,7 +24,7 @@ export interface ReferenceStackItem {
   id: string;
   /** 类型：图片 / 视频 / 音频。视频用封面图当缩略图，音频是渐变底加音符 */
   type: ReferenceType;
-  /** 名字，比如「图片1」：提示词里 @ 引用和读屏用，要和 @ 出来的一致，用 referenceName() 按类型编号。卡片上不写名字，右上角写序号 */
+  /** 名字，比如「图片1」：提示词里 @ 引用和读屏用。按排列顺序、每种类型各自编号（relabelReferences），换了顺序跟着变；卡片右上角写的也是它 */
   name: string;
   /** 缩略图地址：图片、视频封面用；音频传音频地址，悬停预览里能播 */
   src?: string;
@@ -39,15 +39,24 @@ export interface ReferenceStackItem {
 /** 鼠标移开参考区后等多久才收起（毫秒） */
 const LEAVE_GRACE = 150;
 
-const TYPE_NAME: Record<ReferenceType, string> = { image: '图片', video: '视频', audio: '音频' };
+/** 角标、@ 引用里的类型名。英文界面写缩写 Img / Vid / Aud / File（「Image 1」在 56 的格子上放不下） */
+const TYPE_NAME: Record<string, string> = { image: '图片', video: '视频', audio: '音频', file: '文件' };
 
-/** 给新素材起名：按类型分别编号，已有「图片1、图片2」的话下一个是「图片3」 */
-export function referenceName(items: ReferenceStackItem[], type: ReferenceType): string {
-  const used = items
-    .filter((i) => i.type === type)
-    .map((i) => Number(i.name.replace(TYPE_NAME[type], '')))
-    .filter((n) => Number.isFinite(n));
-  return `${TYPE_NAME[type]}${(used.length ? Math.max(...used) : 0) + 1}`;
+/** 按排列顺序给一串素材起名：每种类型各自从 1 编号，比如 图片 视频 图片 → 图片1 视频1 图片2（11-18 用户定：不分组，角标写「图片1」） */
+export function referenceLabels(types: string[]): string[] {
+  const count: Record<string, number> = {};
+  return types.map((t) => `${TYPE_NAME[t] ?? ''}${(count[t] = (count[t] ?? 0) + 1)}`);
+}
+
+/** 按现在的顺序重新起名（换了顺序、删了一个以后用），名字没变的原样返回 */
+export function relabelReferences<T extends { type: string; name: string }>(items: T[]): T[] {
+  const labels = referenceLabels(items.map((i) => i.type));
+  return items.map((item, i) => (item.name === labels[i] ? item : { ...item, name: labels[i] }));
+}
+
+/** 给加在最后的新素材起名：同类型已经有几个就是下一个，已有「图片1、图片2」的话是「图片3」 */
+export function referenceName(items: { type: string }[], type: ReferenceType): string {
+  return `${TYPE_NAME[type]}${items.filter((i) => i.type === type).length + 1}`;
 }
 
 // ---------- 尺寸和位置（Figma「模板 · 主站」页「输入框」分区） ----------
@@ -141,6 +150,11 @@ export interface ReferenceStackProps extends Omit<HTMLAttributes<HTMLDivElement>
   maxWidth?: number;
   /** 最多放几个：放满了添加格（和右下角的小圆加号）隐藏，不能再添加。默认不限 */
   max?: number;
+  /** 拖着排序：展开后按住一张左右拖，别的卡片滑开让位，松手触发，参数是从第几张挪到第几张（从 0 起），在这里重排 items。
+   *  拖的时候参考区不收起；上下拖出去超过 32 或按 Esc 回原位。键盘聚焦一张按 Alt + ← / → 换位置。不传就不能拖 */
+  onReorder?: (from: number, to: number) => void;
+  /** 快捷引用（照线上）：展开后鼠标移到卡片上，右下角出「@」，点卡片触发，把这张素材以 @ 引用插进提示词。传了它点卡片就是引用，不再触发 `onItemClick` */
+  onQuote?: (item: ReferenceStackItem) => void;
 }
 
 interface Ghost {
@@ -168,6 +182,8 @@ export const ReferenceStack = forwardRef<HTMLDivElement, ReferenceStackProps>(fu
     onExpandedChange,
     maxWidth,
     max,
+    onReorder,
+    onQuote,
     className,
     style,
     ...rest
@@ -269,10 +285,26 @@ export const ReferenceStack = forwardRef<HTMLDivElement, ReferenceStackProps>(fu
   };
   // 鼠标移开时，键盘焦点（:focus-visible）还在参考区里就不收，免得删除按钮藏起来、焦点却还在上面
   const mouseLeave = () => {
-    if (rootRef.current?.querySelector(':focus-visible')) return;
+    if (dragging.current || rootRef.current?.querySelector(':focus-visible')) return;
     window.clearTimeout(leaveTimer.current);
     leaveTimer.current = window.setTimeout(() => setExpanded(false), LEAVE_GRACE);
   };
+
+  // 拖着排序：展开动画播完才能拖；拖的时候不收起，松手时鼠标已经在参考区外面就照常收起
+  const dragging = useRef(false);
+  const sortable = useSortable({
+    count: n,
+    getItems: () => Array.from(rootRef.current?.querySelectorAll<HTMLElement>('.kv-reference-stack__card[data-sortable]') ?? []),
+    scrollerRef,
+    onMove: (from, to) => onReorder?.(from, to),
+    onDragChange: (d, e) => {
+      dragging.current = d;
+      const tray = rootRef.current?.querySelector('.kv-reference-stack__tray');
+      const r = tray?.getBoundingClientRect();
+      if (!d && e && r && (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom)) mouseLeave();
+    },
+    disabled: !onReorder || !open || !settled,
+  });
 
   // 删掉的卡片先留着，播完消失动画再卸掉
   const lastLayouts = useRef(new Map<string, CardLayout>());
@@ -309,6 +341,13 @@ export const ReferenceStack = forwardRef<HTMLDivElement, ReferenceStackProps>(fu
     mounted.current = true;
   }, []);
 
+  // 右上角的名字：每种类型按顺序编号（图片1、视频1…）；拖的时候按排好以后的顺序先变
+  const sortedTypes: string[] = [];
+  items.forEach((item, i) => {
+    sortedTypes[sortable.order(i)] = item.type;
+  });
+  const labels = referenceLabels(sortedTypes);
+
   // 卡片按原来的顺序渲染，删掉的那张留在原位，DOM 不挪动，动画才不会断
   const entries: Array<{ item: ReferenceStackItem; layout: CardLayout; ghost: boolean; index: number }> = items.map((item, index) => ({
     item,
@@ -337,6 +376,7 @@ export const ReferenceStack = forwardRef<HTMLDivElement, ReferenceStackProps>(fu
         data-settled={open && settled ? '' : undefined}
         data-full={over ? '' : undefined}
         data-at-end={over && atEnd ? '' : undefined}
+        data-sorting={sortable.sorting ? '' : undefined}
         role="group"
         aria-label="参考素材"
         tabIndex={n > 0 ? 0 : undefined}
@@ -381,13 +421,18 @@ export const ReferenceStack = forwardRef<HTMLDivElement, ReferenceStackProps>(fu
               <ReferenceStackCard
                 key={item.id}
                 item={item}
-                index={index}
-                layout={layout}
+                label={ghost ? item.name : labels[sortable.order(index)]}
+                layout={ghost || !open ? layout : { ...layout, tx: layout.tx + sortable.offset(index), z: sortable.drag?.from === index ? 200 : layout.z }}
+                dragging={!ghost && sortable.drag?.from === index}
+                instant={!ghost && open && sortable.instant(index)}
+                sortProps={!ghost && onReorder && open ? sortable.itemProps(index) : undefined}
+                sorting={sortable.sorting}
                 ghost={ghost}
                 enter={mounted.current}
                 open={open}
                 onRemove={onRemove}
-                onItemClick={onItemClick}
+                onItemClick={onQuote ?? onItemClick}
+                quotable={!!onQuote}
               />
             ))}
           </div>
@@ -402,8 +447,8 @@ ReferenceStack.displayName = 'ReferenceStack';
 
 interface CardProps {
   item: ReferenceStackItem;
-  /** 第几张，从 0 起，右上角写 index + 1 */
-  index: number;
+  /** 右上角写的名字，比如「图片1」 */
+  label: string;
   layout: CardLayout;
   /** 删掉了，正在播消失动画 */
   ghost: boolean;
@@ -412,9 +457,19 @@ interface CardProps {
   open: boolean;
   onRemove?: (id: string) => void;
   onItemClick?: (item: ReferenceStackItem) => void;
+  /** 正被拖着 */
+  dragging?: boolean;
+  /** 这一刻不加过渡（拖着走、松手那一帧） */
+  instant?: boolean;
+  /** 有人在拖：预览卡不出 */
+  sorting?: boolean;
+  /** 点卡片是快捷引用：悬停出右下角的「@」 */
+  quotable?: boolean;
+  /** 能排序时的拖动、键盘事件 */
+  sortProps?: ReturnType<ReturnType<typeof useSortable>['itemProps']>;
 }
 
-function ReferenceStackCard({ item, index, layout, ghost, enter, open, onRemove, onItemClick }: CardProps) {
+function ReferenceStackCard({ item, label, layout, ghost, enter, open, onRemove, onItemClick, quotable, dragging, instant, sorting, sortProps }: CardProps) {
   const [entered, setEntered] = useState(!enter);
   useEffect(() => {
     if (entered) return;
@@ -448,28 +503,41 @@ function ReferenceStackCard({ item, index, layout, ghost, enter, open, onRemove,
       data-leaving={ghost ? '' : undefined}
       data-clickable={onItemClick ? '' : undefined}
       data-removable={onRemove ? '' : undefined}
+      data-sortable={ghost ? undefined : ''}
+      data-draggable={sortProps ? '' : undefined}
+      data-dragging={dragging ? '' : undefined}
+      data-instant={instant ? '' : undefined}
       style={style}
       role="group"
-      aria-label={item.name}
+      aria-label={label}
       aria-hidden={l.hidden || ghost || undefined}
-      // 有预览回调的卡片能用键盘聚焦（展开后才聚焦得到，和删除按钮一样），Enter、Space 打开预览
-      tabIndex={onItemClick && open && !ghost && !l.hidden ? 0 : undefined}
+      // 能预览、能排序的卡片能用键盘聚焦（展开后才聚焦得到，和删除按钮一样），Enter、Space 打开预览，Alt + ← / → 换位置
+      tabIndex={(onItemClick || sortProps) && open && !ghost && !l.hidden ? 0 : undefined}
       onClick={() => onItemClick?.(item)}
+      onPointerDown={sortProps?.onPointerDown}
+      onDragStart={sortProps?.onDragStart}
+      aria-keyshortcuts={sortProps?.['aria-keyshortcuts']}
       onKeyDown={(e) => {
+        sortProps?.onKeyDown(e);
         // 焦点在里面的删除按钮上时，按键留给按钮自己
-        if (!onItemClick || e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
+        if (e.defaultPrevented || !onItemClick || e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
         e.preventDefault();
         onItemClick(item);
       }}
     >
       {/* 展开后悬停出预览卡（和附件条同一个）：图片、视频看大图，音频看名字和时长；上传中、没有图的不出 */}
       <PreviewPopover
-        disabled={!open || ghost || uploading || (item.type !== 'audio' && !item.src)}
+        disabled={!open || ghost || sorting || uploading || (item.type !== 'audio' && !item.src)}
         preview={{ type: item.type, src: item.src, video: item.video, name: item.name, duration: item.duration }}
       >
-        <ReferenceItem size={72} type={item.type === 'audio' ? 'audio' : 'image'} src={item.src} badge={String(index + 1)} />
+        <ReferenceItem size={72} type={item.type === 'audio' ? 'audio' : 'image'} src={item.src} badge={label} />
       </PreviewPopover>
       {item.duration && <span className="kv-reference-stack__duration">{item.duration}</span>}
+      {quotable && !uploading && (
+        <span className="kv-reference-stack__quote" aria-hidden="true">
+          @
+        </span>
+      )}
       {uploading && (
         <div className="kv-reference-stack__upload">
           <UploadRing progress={progress} aria-label={`${item.name}上传中`} />
@@ -479,7 +547,7 @@ function ReferenceStackCard({ item, index, layout, ghost, enter, open, onRemove,
         <button
           type="button"
           className="kv-reference-stack__remove"
-          aria-label={`删除${item.name}`}
+          aria-label={`删除${label}`}
           tabIndex={open && !ghost ? 0 : -1}
           onClick={(e) => {
             e.stopPropagation();

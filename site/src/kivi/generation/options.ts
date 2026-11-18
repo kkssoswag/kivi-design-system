@@ -63,11 +63,11 @@ export const MODELS: Record<ModelType, SelectOption[]> = {
     { value: 'vidu-q3-pro', label: 'Vidu Q3 Pro', icon: 'Vidu' },
     { value: 'seedance-1.5-pro', label: 'Seedance 1.5 Pro', icon: 'Bytedance' },
   ],
-  // 音频生成线上还在分支上（feat/v3.13_gen_audio）。ElevenLabs 的 Logo 图标库还没有，先不放
+  // 音频生成线上还在分支上（feat/v3.13_gen_audio）
   audio: [
     { value: 'seed-audio-1.0', label: 'Seed Audio 1.0', icon: 'Bytedance' },
     { value: 'minimax-speech-2.8-hd', label: 'MiniMax Speech 2.8 HD', icon: 'Minimax' },
-    { value: 'eleven-v4', label: 'Eleven V4' },
+    { value: 'eleven-v4', label: 'Eleven V4', icon: 'ElevenLabs' },
   ],
 };
 

@@ -6,7 +6,6 @@ import {
   Dialog,
   GenPrompt,
   GenPromptRefs,
-  GenerateButton,
   Icon,
   IconButton,
   Menu,
@@ -19,18 +18,6 @@ import {
   ProcessGroup,
   PromptBox,
   ReferenceItem,
-  AgentControls,
-  AudioCharCount,
-  AudioModelControls,
-  CountSelect,
-  DEFAULT_MODEL,
-  ImageModelControls,
-  TaskSelect,
-  VideoModelControls,
-  ReferenceStack,
-  ReferenceFramePair,
-  RefModeSelect,
-  VIDEO_FIRST_LAST_ONLY,
   ResultTile,
   Tag,
   UserMessage,
@@ -40,15 +27,12 @@ import {
   type PlaceholderImageName,
   type PlaceholderImageRatio,
   type ProcessStep,
-  type ReferenceType,
   type ReferenceStackItem,
   type ResultTileAction,
   type ResultTileStatus,
   ScrollArea,
-  SendButton,
 } from '@kivi';
 import { SKILL_CATEGORIES, SKILL_ITEMS } from '../business/skill-data';
-import { demoCost } from '../business/gen-demo-cost';
 import { useControllable, useCopy } from '../../kivi/hooks';
 import { cx } from '../../kivi/utils';
 import { MediaViewer, ViewerAuthor, ViewerSection, useLastShown, type ViewerMedia } from './media-viewer';
@@ -488,161 +472,14 @@ export function Sidebar({
   );
 }
 
-// ---------- 输入框：能打字、加参考、选参数，点生成没反应 ----------
+// ---------- 输入框 ----------
+// 输入框就是组件库的 PromptBox（11-17 用户定：状态都在组件里，这里只传状态）。对话页贴在底部（下拉往上弹，默认）
 
-const PLACEHOLDER: Record<string, string> = {
-  agent: '输入想法、剧本或上传参考，支持「/」使用技能，@ 添加主体，和 Agent 一起创作',
-  image: '描述你想生成的图片，可以上传参考图',
-  video: '描述你想生成的视频，@ 引用参考素材',
-  audio: '描述你想生成的声音，或者输入要念的文字',
-};
-
-// 主站输入框贴在页面底部：工具条里的下拉、面板都往上弹（Dropdown 默认往下，用的地方改方向；放不下自己翻）
-const UP = 'top-start' as const;
-
-/** 任务类型后面那一组：Agent 是模型、技能、模式；图片、视频、音频是各自的模型和参数（kivi/generation 那一份） */
-type Placement = 'top-start' | 'bottom-start';
-const TOOLBAR: Record<string, (model: string, setModel: (m: string) => void, placement: Placement, refMode?: ReactNode) => JSX.Element> = {
-  agent: (_m, _s, placement) => <AgentControls placement={placement} skills={SKILL_ITEMS} skillCategories={SKILL_CATEGORIES} />,
-  image: (model, setModel, placement) => <ImageModelControls placement={placement} model={model} onModelChange={setModel} />,
-  video: (model, setModel, placement, refMode) => <VideoModelControls placement={placement} model={model} onModelChange={setModel} refMode={refMode} />,
-  audio: (model, setModel, placement) => <AudioModelControls placement={placement} model={model} onModelChange={setModel} />,
-};
-
-/**
- * 主站输入框（PromptBox）。对话页贴在底部（下拉往上弹）；创作首页在上面（下拉往下弹）。
- * 创作首页「生成」「画布」两种模式用同一个输入框、一样大（11-10 用户定，新版需求画布的输入框不变矮），只是提交去的地方不同
- */
+/** 对话页参考区一开始的两张演示图（创作页「加入参考」也往里加） */
 const COMPOSER_REFS: ReferenceStackItem[] = [
   { id: 'c1', type: 'image', name: '图片1', src: img('kiwi-glass', '1:1') },
   { id: 'c2', type: 'image', name: '图片2', src: img('kiwi-light', '1:1') },
 ];
-
-export function Composer({
-  placement = UP,
-  onSubmit,
-  references,
-  defaultReferences = COMPOSER_REFS,
-  onReferencesChange,
-}: {
-  placement?: Placement;
-  onSubmit?: () => void;
-  /** 不受控时一开始参考区里有什么：对话页默认带两张演示图，创作首页传 [] 从空的开始（11-17 用户定，要看空的样子） */
-  defaultReferences?: ReferenceStackItem[];
-  /** 参考区的素材：传了就受控（创作页「加入参考」往里加），不传自己记 */
-  references?: ReferenceStackItem[];
-  onReferencesChange?: (items: ReferenceStackItem[]) => void;
-}) {
-  const [task, setTask] = useState('agent');
-  const [text, setText] = useState('');
-  // 每种任务各记一个模型，生成按钮的消耗跟着它走
-  const [models, setModels] = useState<Record<string, string>>({ image: DEFAULT_MODEL.image, video: DEFAULT_MODEL.video, audio: DEFAULT_MODEL.audio });
-  const audioModel = models.audio;
-  const [inner, setInner] = useState<ReferenceStackItem[]>(defaultReferences);
-  const items = references ?? inner;
-  const setItems = (fn: (list: ReferenceStackItem[]) => ReferenceStackItem[]) => {
-    const next = fn(items);
-    if (references === undefined) setInner(next);
-    onReferencesChange?.(next);
-  };
-  // 视频的参考方式（11-17 用户定：面板里切了就要真的变）：首尾帧时参考区换成首帧、尾帧两格，
-  // 只有首尾帧的模型（Veo、Sora…）没有参考方式下拉，参考区也是两格；全能参考、视频编辑、视频延长照线上是同一条参考区（叠放）
-  const [refMode, setRefMode] = useState('omni');
-  const [frames, setFrames] = useState<{ first?: string; last?: string }>({});
-  const framesOf = (model: string, mode: string) => VIDEO_FIRST_LAST_ONLY.includes(model) || mode === 'frames';
-  const isFrames = task === 'video' && framesOf(models.video, refMode);
-  // 照线上主站换参考方式：进首尾帧时两格是空的，就把参考区前两张图搬进去（参考区留着）；
-  // 出首尾帧时参考区是空的，就把首尾帧的图搬回参考区。没有过渡，直接换（11-17 用户定）
-  const switchVideo = (model: string, mode: string) => {
-    const was = framesOf(models.video, refMode);
-    const now = framesOf(model, mode);
-    if (!was && now && !frames.first && !frames.last) {
-      const imgs = items.filter((i) => i.type === 'image');
-      setFrames({ first: imgs[0]?.src, last: imgs[1]?.src });
-    }
-    if (was && !now && items.length === 0) {
-      setItems(() =>
-        [frames.first, frames.last]
-          .filter((src): src is string => !!src)
-          .reduce<ReferenceStackItem[]>((list, src, i) => [...list, { id: `f${Date.now()}-${i}`, type: 'image', name: referenceName(list, 'image'), src }], []),
-      );
-    }
-    setModels((old) => ({ ...old, video: model }));
-    setRefMode(mode);
-  };
-  // 换模型时参考方式回到默认（照线上：模型支持的参考方式不一样）
-  const setModel = (m: string) => (task === 'video' ? switchVideo(m, 'omni') : setModels((old) => ({ ...old, [task]: m })));
-  const pool: PlaceholderImageName[] = ['ip-peek', 'bunny-gouache', 'monstera-dots', 'kivi-future', 'ip-gouache'];
-  const add = () =>
-    setItems((list) => [...list, { id: `c${Date.now()}`, type: 'image', name: referenceName(list, 'image'), src: img(pool[list.length % pool.length], '1:1') }]);
-  // 把文件拖到输入框上：加进参考区（图片、音频用本地文件，视频缩略图用占位图）
-  const dropFiles = (files: File[]) => {
-    // 首尾帧时拖进来的图片按顺序填空着的首帧、尾帧，其他文件不收（首尾帧只收图片）
-    if (isFrames) {
-      const srcs = files.filter((f) => f.type.startsWith('image')).map((f) => URL.createObjectURL(f));
-      setFrames((old) => {
-        const first = old.first ?? srcs.shift();
-        const last = old.last ?? srcs.shift();
-        return { first, last };
-      });
-      return;
-    }
-    setItems((list) => {
-      let next = list;
-      files.forEach((f, i) => {
-        const type: ReferenceType = f.type.startsWith('video') ? 'video' : f.type.startsWith('audio') ? 'audio' : 'image';
-        // 音频传本地文件地址，悬停预览里能播；视频缩略图用占位图
-        const src = type === 'image' || type === 'audio' ? URL.createObjectURL(f) : img(pool[(next.length + i) % pool.length], '1:1');
-        next = [...next, { id: `c${Date.now()}-${i}`, type, name: referenceName(next, type), src, duration: type === 'video' ? '5s' : type === 'audio' ? '15s' : undefined }];
-      });
-      return next;
-    });
-  };
-  // 现在不能生成的原因（11-17 用户定：置灰 + 悬停说为什么）。文案照线上的校验：先看素材够不够，再看有没有描述
-  const blockedReason = (() => {
-    if (task === 'video' && isFrames && !frames.first) return '请上传首帧图';
-    if (task === 'video' && !isFrames && (refMode === 'edit' || refMode === 'extend') && !items.some((i) => i.type === 'video')) return '请至少上传 1 个视频';
-    if (!text.trim()) return task === 'audio' ? '请输入文字' : '请输入画面描述';
-    return undefined;
-  })();
-  const submit = () => {
-    if (!onSubmit) return;
-    setText('');
-    onSubmit();
-  };
-  return (
-    <PromptBox
-      value={text}
-      onChange={setText}
-      onDropFiles={dropFiles}
-      placeholder={PLACEHOLDER[task]}
-      references={
-        isFrames ? (
-          <ReferenceFramePair size={72} first={{ src: frames.first }} last={{ src: frames.last }} onSwap={(a, b) => setFrames({ first: a.src, last: b.src })} />
-        ) : (
-          <ReferenceStack items={items} onAdd={add} onRemove={(id) => setItems((list) => list.filter((i) => i.id !== id))} />
-        )
-      }
-      toolbar={
-        <>
-          <TaskSelect placement={placement} value={task} onChange={setTask} />
-          {TOOLBAR[task](models[task], setModel, placement, <RefModeSelect placement={placement} value={refMode} onChange={(m) => switchVideo(models.video, m)} />)}
-        </>
-      }
-      actions={
-        // Agent 没有张数和消耗，直接是发送按钮（和画布 Agent 输入框一样）；其他任务用猕猴桃生成按钮。音频没有张数，换成字数 / 上限。只能看，点了不生成
-        task === 'agent' ? (
-          <SendButton disabled={!text.trim()} onClick={submit} />
-        ) : (
-          <>
-            {task === 'audio' ? <AudioCharCount count={text.length} model={audioModel} /> : <CountSelect placement={placement} />}
-            <GenerateButton cost={demoCost(task, models[task])} disabledReason={blockedReason} onClick={submit} />
-          </>
-        )
-      }
-    />
-  );
-}
 
 // ---------- 整页 ----------
 
@@ -909,7 +746,7 @@ export function CreatePage() {
           </div>
         </ScrollArea>
         <div ref={composer} className="tpl-ms__composer">
-          <Composer references={refs} onReferencesChange={setRefs} />
+          <PromptBox references={refs} onReferencesChange={setRefs} skills={SKILL_ITEMS} skillCategories={SKILL_CATEGORIES} />
         </div>
       </main>
       {/* 「更多」：其余的工具，往上开、右边和按钮对齐（按钮条在右下） */}

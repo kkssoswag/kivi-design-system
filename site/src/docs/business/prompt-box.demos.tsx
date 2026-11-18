@@ -1,31 +1,19 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactElement, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactElement } from 'react';
 import {
   Button,
-  DEFAULT_MODEL,
   GenerateButton,
   PromptBox,
-  ReferenceStack,
-  ReferenceFramePair,
-  RefModeSelect,
-  VIDEO_FIRST_LAST_ONLY,
   Switch,
   referenceName,
   type ButtonSize,
   type ReferenceType,
   type ReferenceStackItem,
+  type GenTask,
   MentionChip,
   PromptInput,
-  AgentControls,
-  AudioCharCount,
-  AudioModelControls,
-  CountSelect,
-  ImageModelControls,
-  TaskSelect,
-  VideoModelControls,
 } from '@kivi';
 import { Playground } from '@shell';
 import { SKILL_CATEGORIES, SKILL_ITEMS } from './skill-data';
-import { demoCost } from './gen-demo-cost';
 import './canvas.demos.css';
 import './generation.demos.css';
 
@@ -58,106 +46,47 @@ const LONG =
   '明亮的商业广告风格，饼干是主角。草莓口味参考 @图片1，开场用 @视频1 的构图，音乐在重拍处切入；饼干排成整齐的阵列，镜头参考 @视频2 的运动方式，高潮时饼干掰开进入慢动作，夹心爆开、碎屑飞散，最后定格在 @图片2 的画面，配乐用 @音频1。';
 const HUGE = [LONG, LONG, LONG].join('\n');
 
-const noop = () => {};
-
-// 主站输入框贴在页面底部：工具条里的下拉、面板都往上弹（Dropdown 默认往下，用的地方改方向；放不下自己翻）
-const UP = 'top-start' as const;
-
-// ---------- 工具条 ----------
-// 下拉、参数面板都用 generation.tsx 里共用的那一份，和画布生成面板一样：选项、顺序、图标、展开方向都一致
-
-// model 和 onModelChange：输入框演示按模型算生成按钮的消耗，别处不传就是各自管各自的。
-// more：属性面板传，任务类型、参考方式切了要真的变（11-17 用户定，不能是假状态）
-type ToolbarMore = { onTaskChange?: (task: string) => void; refMode?: ReactNode };
-const task = (value: string, more?: ToolbarMore) =>
-  more?.onTaskChange ? <TaskSelect placement={UP} value={value} onChange={more.onTaskChange} /> : <TaskSelect placement={UP} defaultValue={value} />;
-const TOOLBARS: Record<string, (model?: string, onModelChange?: (m: string) => void, more?: ToolbarMore) => JSX.Element> = {
-  agent: (_m, _c, more) => (
-    <>
-      {task('agent', more)}
-      <AgentControls placement={UP} skills={SKILL_ITEMS} skillCategories={SKILL_CATEGORIES} />
-    </>
-  ),
-  image: (model, onModelChange, more) => (
-    <>
-      {task('image', more)}
-      <ImageModelControls placement={UP} model={model} onModelChange={onModelChange} />
-    </>
-  ),
-  video: (model, onModelChange, more) => (
-    <>
-      {task('video', more)}
-      <VideoModelControls placement={UP} model={model} onModelChange={onModelChange} refMode={more?.refMode} />
-    </>
-  ),
-  audio: (model, onModelChange, more) => (
-    <>
-      {task('audio', more)}
-      <AudioModelControls placement={UP} model={model} onModelChange={onModelChange} />
-    </>
-  ),
-};
-
-const videoToolbar = TOOLBARS.video;
-const countSelect = <CountSelect placement={UP} />;
 
 // ---------- 属性面板：整个输入框 ----------
+// 输入框的状态都在 PromptBox 里（11-17 用户定），面板只切状态：任务、参考素材、提示词。
+// 工具条里切的任务、模型、参考方式、加删的素材都写回面板（记在面板上不显示的字段里）
 
 type BoxState = { refs: boolean; text: string; mode: string };
 
 const TEXT: Record<string, string> = { empty: '', short: SHORT, long: LONG, huge: HUGE };
-const PLACEHOLDER: Record<string, string> = {
-  agent: '输入想法、剧本或上传参考，支持「/」使用技能，@ 添加主体，和 Agent 一起创作',
-  image: '描述你想生成的图片，可以上传参考图',
-  video: '描述你想生成的视频，@ 引用参考素材',
-  audio: '描述你想生成的声音，或者输入要念的文字',
-};
 
-// 每种任务各记一个模型（面板上没有，记在 update 里），没选过用默认
-const modelOf = (s: BoxState): string => {
-  const picked = (s as Record<string, unknown>)[`model-${s.mode}`];
-  return typeof picked === 'string' ? picked : (DEFAULT_MODEL as Record<string, string>)[s.mode] ?? '';
-};
-
-// 参考方式（面板上没有，记在 update 里）：首尾帧、或只有首尾帧的模型，参考区换成首尾帧两格
-const refModeOf = (s: BoxState): string => String((s as Record<string, unknown>).refMode ?? 'omni');
-const framesOf = (s: BoxState) => s.mode === 'video' && (refModeOf(s) === 'frames' || VIDEO_FIRST_LAST_ONLY.includes(modelOf(s)));
+// 面板只记字符串和开关：模型记成 JSON 字符串；加删过的素材记在这个演示自己的 state 里
+type Extra = { custom?: string; models?: string; refMode?: string };
+const extra = (s: BoxState) => s as BoxState & Extra;
 
 export function PromptBoxPlayground() {
+  const [refList, setRefList] = useState<ReferenceStackItem[]>(SAMPLE.slice(0, 6));
   return (
     <Playground<BoxState>
       stageClassName="shell-pg-stage--scroll"
       controls={[
-        { key: 'refs', label: '参考区', type: 'toggle', value: true },
+        { key: 'refs', label: '参考素材', type: 'toggle', value: true },
         { key: 'text', label: '提示词', type: 'segment', value: 'long', options: [['empty', '空'], ['short', '短'], ['long', '长'], ['huge', '超长']] },
         { key: 'mode', label: '模式', type: 'segment', value: 'video', options: [['agent', 'Agent'], ['image', '图片生成'], ['video', '视频生成'], ['audio', '音频生成']] },
       ]}
       // 打了字写回面板：删空了是「空」，别的字四个都不亮（记在面板上不显示的 custom 里）
       render={(s, update) => (
         <PromptBox
-          key={s.mode}
-          placeholder={PLACEHOLDER[s.mode]}
-          value={s.text === 'custom' ? String((s as Record<string, unknown>).custom ?? '') : TEXT[s.text]}
+          value={s.text === 'custom' ? (extra(s).custom ?? '') : TEXT[s.text]}
           onChange={(v) => update(v ? { text: 'custom', custom: v } : { text: 'empty' })}
-          references={
-            !s.refs ? undefined : framesOf(s) ? (
-              <ReferenceFramePair size={72} first={{ src: SAMPLE[0].src }} last={{ src: SAMPLE[1].src }} />
-            ) : (
-              <ReferenceStack items={SAMPLE.slice(0, 6)} onAdd={noop} onRemove={noop} />
-            )
-          }
-          // 换模型时参考方式回到全能参考（照线上）
-          toolbar={TOOLBARS[s.mode](modelOf(s), (m) => update({ [`model-${s.mode}`]: m, refMode: 'omni' }), {
-            onTaskChange: (m) => update({ mode: m }),
-            refMode: <RefModeSelect placement={UP} value={refModeOf(s)} onChange={(m) => update({ refMode: m })} />,
-          })}
-          actions={
-            // 音频没有张数，换成字数 / 上限（照线上）
-            <>
-              {s.mode === 'audio' ? <AudioCharCount count={(s.text === 'custom' ? String((s as Record<string, unknown>).custom ?? '') : TEXT[s.text]).length} /> : countSelect}
-              <GenerateButton cost={demoCost(s.mode, modelOf(s))} />
-            </>
-          }
+          task={s.mode as GenTask}
+          onTaskChange={(t) => update({ mode: t })}
+          models={JSON.parse(extra(s).models ?? '{}') as Partial<Record<GenTask, string>>}
+          onModelsChange={(m) => update({ models: JSON.stringify(m) })}
+          refMode={extra(s).refMode ?? 'omni'}
+          onRefModeChange={(m) => update({ refMode: m })}
+          references={s.refs ? (refList.length ? refList : SAMPLE.slice(0, 6)) : []}
+          onReferencesChange={(items) => {
+            setRefList(items);
+            update({ refs: items.length > 0 });
+          }}
+          skills={SKILL_ITEMS}
+          skillCategories={SKILL_CATEGORIES}
         />
       )}
     />
@@ -257,7 +186,7 @@ function useReferenceLab(initial: ReferenceStackItem[]) {
     setItems([]);
   };
 
-  return { items, add, remove, clear, popLast: () => items.length && remove(items[items.length - 1].id) };
+  return { items, add, remove, clear, setItems, popLast: () => items.length && remove(items[items.length - 1].id) };
 }
 
 const SLOW = {
@@ -289,7 +218,7 @@ const bar: CSSProperties = {
  * 也能把图片文件拖进输入框。缩略图是占位图，不是真实素材。
  */
 export function PromptBoxLab() {
-  const { items, add, remove, clear, popLast } = useReferenceLab(LAB_START);
+  const { items, add, remove, clear, setItems, popLast } = useReferenceLab(LAB_START);
   const [pinned, setPinned] = useState(false);
   const [slow, setSlow] = useState(false);
   const [open, setOpen] = useState(false);
@@ -307,24 +236,17 @@ export function PromptBoxLab() {
       <div className="shell-demo-preview" data-stage="base">
         <PromptBox
           defaultValue={LONG}
-          placeholder="描述你想生成的视频，@ 引用参考素材"
+          defaultTask="video"
           onDropFiles={dropFiles}
-          references={
-            <ReferenceStack
-              items={items}
-              expanded={pinned || undefined}
-              onAdd={() => add('image')}
-              onRemove={remove}
-              onExpandedChange={setOpen}
-            />
-          }
-          toolbar={videoToolbar()}
-          actions={
-            <>
-              {countSelect}
-              <GenerateButton cost={99} />
-            </>
-          }
+          references={items}
+          // 删了的走 remove（清掉它的上传计时）；名字按顺序重新编过，整份换成新的
+          onReferencesChange={(next) => {
+            items.filter((i) => !next.some((n) => n.id === i.id)).forEach((i) => remove(i.id));
+            setItems(next);
+          }}
+          onAddReference={() => add('image')}
+          referencesExpanded={pinned || undefined}
+          onReferencesExpandedChange={setOpen}
         />
       </div>
       <div style={bar}>

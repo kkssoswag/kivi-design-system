@@ -39,6 +39,8 @@ export interface MenuItemProps extends Omit<ButtonHTMLAttributes<HTMLButtonEleme
   submenu?: boolean;
   /** 选中：白 10% 底，不打勾，给单选菜单标当前项（比例、数量）。写了就是 role="option"，外层 Menu 要用 role="listbox"；非当前项传 false。平铺（侧栏）里是当前打开的那一项，底白 10%（常驻底色），写 aria-current="page" */
   selected?: boolean;
+  /** 高亮：焦点留在别处、用方向键挑选项时标出当前这一项，样子同悬停（@ 引用菜单：焦点在输入框里） */
+  highlighted?: boolean;
   /** 勾选：在右边打勾，只给多选菜单（两行单选的打勾用 selected）。写了就是 role="menuitemcheckbox"，没勾的传 false。和 shortcut、submenu 三选一 */
   checked?: boolean;
   /** 收起：侧栏收成图标栏时用。只留图标 / 缩略图，文字淡出，悬停在右边出 Tooltip 写文字；「⋯」不显示。宽度跟着侧栏，图标栏里是 36。不带图标的条目（「更多」）收起时文字换成向下的箭头。不传就不包 Tooltip，要在收起、展开之间切换的写 true / false */
@@ -115,6 +117,7 @@ export const MenuItem = forwardRef<HTMLElement, MenuItemProps>(function MenuItem
     shortcut,
     submenu,
     selected,
+    highlighted,
     checked,
     collapsed,
     more,
@@ -172,6 +175,7 @@ export const MenuItem = forwardRef<HTMLElement, MenuItemProps>(function MenuItem
       aria-checked={checked}
       aria-haspopup={submenu ? 'menu' : undefined}
       data-two-line={twoLine ? '' : undefined}
+      data-highlighted={highlighted ? '' : undefined}
       data-lead={lead}
       data-collapsed={collapsed ? '' : undefined}
       data-expanding={justExpanded ? '' : undefined}

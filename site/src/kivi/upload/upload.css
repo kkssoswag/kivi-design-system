@@ -13,7 +13,7 @@
 */
 
 /* ---------- AddTile ---------- */
-/* 方格 56（只有这一档），白 10% 底（深底用 Light 1），圆角 8；图标 20 在正中，有文字时图标在上、12 号字在下，间距 2。悬停、按下底变亮 */
+/* 方格 56；主站输入框首尾帧的空格 72（kv-add-tile--72，和参考格一样大）。白 10% 底（深底用 Light 1），圆角 8；图标 20 在正中，有文字时图标在上、12 号字在下，间距 2。悬停、按下底变亮 */
 .kv-add-tile {
   display: flex;
   flex: none;
@@ -38,6 +38,11 @@
 }
 
 /* 带文字的（Lora）：图标和文字都是 tertiary */
+.kv-add-tile--72 {
+  width: 72px;
+  height: 72px;
+}
+
 .kv-add-tile[data-labeled] {
   color: var(--color-text-fill-tertiary);
 }

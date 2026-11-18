@@ -40,10 +40,11 @@ import { AddTilePlayground, UploadRingPlayground } from './upload.demos';
 
 ### AddTile
 
-56 见方，圆角 8（`--border-radius-8`），底白 10%（`--color-bg-fill-container-light-1`，深底用 Light 1），悬停白 14%（`-hover`），按下白 18%（`-pressed`）。只有这一档。点了打开素材库还是选电脑文件，由用的地方定；传上去之后显示成参考格（`ReferenceItem`），上传中用 `UploadRing`。其余原生 `<button>` 属性都能传，`ref` 指向按钮。
+56 见方，圆角 8（`--border-radius-8`），底白 10%（`--color-bg-fill-container-light-1`，深底用 Light 1），悬停白 14%（`-hover`），按下白 18%（`-pressed`）。主站输入框首尾帧的空格用 72，和旁边的参考格一样大。点了打开素材库还是选电脑文件，由用的地方定；传上去之后显示成参考格（`ReferenceItem`），上传中用 `UploadRing`。其余原生 `<button>` 属性都能传，`ref` 指向按钮。
 
 | 属性 | 类型 | 默认 | 说明 |
 |---|---|---|---|
+| `size` | `56` `72` | `56` | 尺寸：72 只给主站输入框首尾帧的空格（`ReferenceFramePair size={72}`），别处都是 56 |
 | `icon` | `IconName` | `"AddSmall"` | 图标，固定 20，`--color-text-fill-primary`；带文字时是 `--color-text-fill-tertiary` |
 | `label` | `ReactNode` | — | 图标下面的一行字，12 / 16 号，`--color-text-fill-tertiary`，和图标间距 2（`--spacing-2`），比如「Lora」。不传就只有图标 |
 | `disabled` | `boolean` | `false` | 禁用：图标和文字 `--color-text-fill-disabled`，不能点 |

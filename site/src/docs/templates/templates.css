@@ -932,6 +932,10 @@
   margin-left: var(--spacing-16);
 }
 
+.tpl-as__collect {
+  margin-left: var(--spacing-16); /* 同「类型」这类标签，和前面的筛选隔 16 */
+}
+
 .tpl-as__search {
   flex: 0 1 240px;
   min-width: 0;
@@ -993,7 +997,7 @@
   padding: var(--spacing-12) var(--spacing-8);
 }
 
-/* 图片、视频两组中间的短线：和图标方块一样宽 40，上下各 8 */
+/* 图片、视频两组中间的短线：宽 40，上下各 8 */
 .tpl-at__tools-body > .kv-divider {
   width: 40px;
   margin: var(--spacing-8) auto;
@@ -1196,6 +1200,7 @@
 .tpl-ms__wallet.tpl-at__wallet {
   --tpl-wallet-right: var(--spacing-12);
   flex: none;
+  align-self: stretch; /* 右栏是竖排 flex，撑满整栏宽，余额、头像才靠右 */
 }
 
 /* 历史：所有工具的结果一列，卡片 176 方图（11-11 用户定统一方图，图裁切铺满），新的在上面淡入 */

@@ -6,13 +6,14 @@
   ReferenceStack 的结构、状态说明在 generation.css 的「KIVI · 主站输入框」那段。
 
   状态
-    互换中  ReferenceFramePair 写 data-swapping
+    互换中  ReferenceFramePair 写 data-swapping；格子 __slot 有图又能删时 data-removable
 */
 
-/* 删除：展开后悬停或聚焦到某一张，右上角标换成删除（序号隐藏），三处共用这一份（Lora 栏的样式在 generation.css 里引用，LoraField 用到 ReferenceItem，会一起引入本文件） */
+/* 删除：展开后悬停或聚焦到某一张，右上角标换成删除（序号隐藏），参考区、附件条、首尾帧、Lora 共用这一份（Lora 栏的样式在 generation.css 里引用，LoraField 用到 ReferenceItem，会一起引入本文件） */
 
 .kv-reference-stack__remove,
 .kv-attachment-strip__remove,
+.kv-reference-frame-pair__remove,
 .kv-lora-field__remove {
   /* 删除是右上角的小圆：离边 4，18 的圆，黑 40% + 模糊 80，图标 14（11-04 用户定改回原来的圆，不用角标），同时那张的序号隐藏 */
   position: absolute;
@@ -34,12 +35,13 @@
   cursor: pointer;
   opacity: 0;
   pointer-events: none;
-  /* 移开时直接消失、不淡出，序号同时淡入；和序号交叉淡化会叠出重影（11-04） */
+  /* 和右上角的名字直接换，不过渡：移上去名字立刻没、删除立刻出，移开反过来（11-04 不交叉淡化，11-18 用户定两边都不淡入，原来新出的那个淡入 150ms，中间空一下像闪） */
   transition: none;
 }
 
 .kv-reference-stack__remove > .kv-icon,
 .kv-attachment-strip__remove > .kv-icon,
+.kv-reference-frame-pair__remove > .kv-icon,
 .kv-lora-field__remove > .kv-icon {
   width: 14px;
   height: 14px;
@@ -172,6 +174,28 @@
 
 .kv-reference-frame-pair__swap {
   --kv-icon-size: 20px;
+}
+
+/* 一格：有图是 ReferenceItem，空着是 AddTile（同尺寸）+ 角标。角标不挡点击 */
+.kv-reference-frame-pair__slot {
+  position: relative;
+  flex: none;
+  border-radius: var(--border-radius-8);
+}
+
+.kv-reference-frame-pair__slot > .kv-reference-item__badge {
+  pointer-events: none;
+}
+
+/* 有图的格子鼠标移上去或聚焦：右上角角标直接换成删除，移开直接换回来，不过渡（和附件条一样，11-18） */
+.kv-reference-frame-pair__slot:where(:hover, :focus-visible, :has(:focus-visible)) .kv-reference-frame-pair__remove {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.kv-reference-frame-pair__slot[data-removable]:where(:hover, :focus-visible, :has(:focus-visible)) .kv-reference-item__badge {
+  opacity: 0;
+  transition: none;
 }
 
 /* 互换：两张图各自滑到对方的位置，角标跟着图走；滑完再换回数据、去掉位移 */
@@ -634,6 +658,68 @@
   transition: none;
 }
 
+/* 快捷引用（11-18，照线上画布）：传了 onQuote，展开后鼠标移到卡片上右下角出「@」，点卡片把它 @ 进提示词。
+   16 的小圆，on-media 底，和时长一样的模糊；跟删除一起出现（150ms ease-out），拖的时候不出 */
+
+.kv-reference-stack__quote,
+.kv-attachment-strip__quote {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--border-radius-round);
+  background: var(--color-on-media-fill);
+  -webkit-backdrop-filter: blur(var(--effect-glass-blur));
+  backdrop-filter: blur(var(--effect-glass-blur));
+  color: var(--color-on-media-text);
+  font-size: var(--font-size-12);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--motion-duration-100) var(--motion-ease-in);
+}
+
+.kv-reference-stack__tray[data-open]:not([data-sorting]) .kv-reference-stack__card:where(:hover, :focus-visible) .kv-reference-stack__quote,
+.kv-attachment-strip__items:not([data-sorting]) .kv-attachment-strip__item:where(:hover, :focus-visible) .kv-attachment-strip__quote {
+  opacity: 1;
+  transition: opacity var(--motion-duration-150) var(--motion-ease-out);
+}
+
+/* 拖着排序（11-18 用户要的）：展开后按住一张左右拖，跟着鼠标走，别的卡片滑开让位，松手滑进新位置（useSortable）。
+   让位、落位都是屏幕内移动：200ms ease-in-out；被拖的那张跟手，不加过渡，压在最上面。
+   拖的时候不出删除和预览，序号一直显示、跟着新位置变（照线上画布） */
+
+.kv-reference-stack__card[data-draggable]:not([data-clickable]) {
+  cursor: grab;
+}
+
+.kv-reference-stack__card[data-dragging] {
+  cursor: grabbing;
+}
+
+.kv-reference-stack__tray[data-sorting] .kv-reference-stack__card {
+  transition: transform var(--motion-duration-200) var(--motion-ease-in-out);
+}
+
+.kv-reference-stack__tray[data-sorting] .kv-reference-stack__card[data-instant] {
+  transition: none;
+}
+
+.kv-reference-stack__tray[data-sorting][data-open] .kv-reference-stack__card .kv-reference-stack__remove {
+  opacity: 0;
+  pointer-events: none;
+  transition: none;
+}
+
+.kv-reference-stack__tray[data-sorting] .kv-reference-stack__card[data-labeled]:not([data-uploading]) .kv-reference-item__badge {
+  opacity: 1;
+  transition: none;
+}
+
 /* 视频、音频的时长：展开后显示在左下角，和 ReferenceItem 一样。展开时等卡片挪开 150ms 再 150ms ease-out 出现 */
 
 .kv-reference-stack__duration {
@@ -664,7 +750,12 @@
 .kv-reference-stack__tray[data-open] .kv-reference-stack__card:where(:hover, :focus-visible, :has(:focus-visible)) .kv-reference-stack__remove {
   opacity: 1;
   pointer-events: auto;
-  transition: opacity var(--motion-duration-150) var(--motion-ease-out);
+}
+
+/* 展开动画播完以后，名字和删除直接换，不过渡（11-18）。展开、收起时名字照常淡入淡出（没播完不带 data-settled） */
+
+.kv-reference-stack__tray[data-settled] .kv-reference-stack__card .kv-reference-item__badge {
+  transition: none;
 }
 
 /* 上传中：盖一层黑 40%，中间是 UploadRing（进度环 36 和百分比，样式在 upload.css），上传完 JS 去掉 */
@@ -705,13 +796,45 @@
   transition: opacity var(--motion-duration-150) var(--motion-ease-out);
 }
 
-/* 出删除时序号隐藏，和参考区一样：序号直接消失，移开后淡入 */
+/* 有角标的格子：角标和删除直接换，不过渡（11-18） */
 
-.kv-attachment-strip__item .kv-reference-item__badge {
-  transition: opacity var(--motion-duration-150) var(--motion-ease-out);
+.kv-attachment-strip__item:has(.kv-reference-item__badge) .kv-attachment-strip__remove {
+  transition: none;
 }
+
+/* 出删除时角标隐藏，和参考区一样：直接换，不过渡（11-18） */
 
 .kv-attachment-strip__item[data-removable]:where(:hover, :focus-visible, :has(:focus-visible)):not([data-uploading]) .kv-reference-item__badge {
   opacity: 0;
+  transition: none;
+}
+
+/* 拖着排序（11-18）：和参考区一样，被拖的那格跟手、压在上面，别的格子 200ms ease-in-out 滑开；拖的时候不出删除，序号一直显示 */
+
+.kv-attachment-strip__item[data-draggable]:not([data-clickable]) {
+  cursor: grab;
+}
+
+.kv-attachment-strip__item[data-dragging] {
+  z-index: 1;
+  cursor: grabbing;
+}
+
+.kv-attachment-strip__items[data-sorting] .kv-attachment-strip__item {
+  transition: transform var(--motion-duration-200) var(--motion-ease-in-out);
+}
+
+.kv-attachment-strip__items[data-sorting] .kv-attachment-strip__item[data-instant] {
+  transition: none;
+}
+
+.kv-attachment-strip__items[data-sorting] .kv-attachment-strip__item .kv-attachment-strip__remove {
+  opacity: 0;
+  pointer-events: none;
+  transition: none;
+}
+
+.kv-attachment-strip__items[data-sorting] .kv-attachment-strip__item:not([data-uploading]) .kv-reference-item__badge {
+  opacity: 1;
   transition: none;
 }
