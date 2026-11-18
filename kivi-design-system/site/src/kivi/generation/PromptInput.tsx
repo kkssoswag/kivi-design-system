@@ -1,5 +1,9 @@
-import { forwardRef, useRef, type ClipboardEvent, type CSSProperties, type DragEvent, type HTMLAttributes, type ReactNode } from 'react';
+import { forwardRef, useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent, type CSSProperties, type DragEvent, type HTMLAttributes, type ReactNode } from 'react';
 import { composeHandlers } from '../hooks/composeHandlers';
+import { useMergedRef } from '../hooks/useMergedRef';
+import { insertMention, trackCaret, type MentionSource } from './mentions';
+import { Dropdown, Menu, MenuItem } from '../menu';
+import { AssetThumb } from '../tags-avatar';
 import { cx } from '../utils';
 import './generation.css';
 
@@ -12,15 +16,82 @@ export interface PromptInputProps extends Omit<HTMLAttributes<HTMLDivElement>, '
   minRows?: number;
   /** 最多长到几行，再多滚动，默认 6 */
   maxRows?: number;
+  /** 打 @ 能引用的素材（照线上）：打「@」弹出菜单列出这些素材（缩略图 + 名字），接着打字按名字筛，↑ ↓ 挑、回车或点一下插进 @ 标签，Esc 关。不传或空的就不弹 */
+  mentions?: MentionSource[];
 }
+
+/** 打 @ 时的状态：@ 在哪个文字节点的第几个字，后面打了什么，@ 这个字在屏幕上的位置 */
+interface AtState {
+  node: Text;
+  at: number;
+  query: string;
+  x: number;
+  y: number;
+  top: number;
+}
+
+/** @ 后面打了超过这么多字还没有匹配的，就不再弹「暂无结果」（照线上） */
+const NO_RESULT_MAX = 7;
 
 /** 提示词输入：无底、无内边距，14 号字，可以插 @素材（MentionChip）。表单里的多行输入用 Textarea，不用它。Figma「画布」页 PromptInput */
 export const PromptInput = forwardRef<HTMLDivElement, PromptInputProps>(function PromptInput(
-  { placeholder, minRows = 4, maxRows = 6, className, style, children, onPaste, onDragStart, onDragEnd, onDrop, ...rest },
+  { placeholder, minRows = 4, maxRows = 6, mentions, className, style, children, onPaste, onDragStart, onDragEnd, onDrop, onInput, onKeyDown, onKeyUp, onClick, ...rest },
   ref,
 ) {
   // 框里自己拖动文字（挪位置）照浏览器默认，带的就是框里的样子
   const draggingInside = useRef(false);
+  // 记住光标位置：点参考缩略图快捷 @ 时焦点已经离开，插在离开前的光标处
+  const elRef = useRef<HTMLDivElement>(null);
+  const setRef = useMergedRef(elRef, ref);
+  useEffect(() => (elRef.current ? trackCaret(elRef.current) : undefined), []);
+
+  // ---------- 打 @ 弹出素材菜单 ----------
+  const [at, setAt] = useState<AtState | null>(null);
+  const [hi, setHi] = useState(0);
+  // 按 Esc、点外面关掉的那个 @：光标还停在它后面时不再弹
+  const dismissed = useRef<{ node: Text; at: number } | null>(null);
+  const readAt = () => {
+    const el = elRef.current;
+    const sel = window.getSelection();
+    if (!mentions?.length || !el || !sel?.rangeCount || !sel.isCollapsed) return setAt(null);
+    const r = sel.getRangeAt(0);
+    const node = r.endContainer;
+    if (node.nodeType !== Node.TEXT_NODE || !el.contains(node)) return setAt(null);
+    const m = (node as Text).data.slice(0, r.endOffset).match(/@([^\s@]*)$/);
+    if (!m) return setAt(null);
+    const index = r.endOffset - m[0].length;
+    if (dismissed.current?.node === node && dismissed.current.at === index) return setAt(null);
+    const mark = document.createRange();
+    mark.setStart(node, index);
+    mark.setEnd(node, index + 1);
+    const rect = mark.getBoundingClientRect();
+    setAt((prev) => {
+      if (prev?.query !== m[1]) setHi(0);
+      return { node: node as Text, at: index, query: m[1], x: rect.left, y: rect.bottom, top: rect.top };
+    });
+  };
+  const query = at?.query.toLowerCase() ?? '';
+  const matches = at ? (mentions ?? []).filter((m) => m.name.toLowerCase().includes(query)) : [];
+  const menuOpen = !!at && (matches.length > 0 || (query.length > 0 && query.length <= NO_RESULT_MAX));
+  const pick = (m: MentionSource) => {
+    if (!at) return;
+    // 把打的「@名字」换成 @ 标签
+    const range = document.createRange();
+    range.setStart(at.node, at.at);
+    range.setEnd(at.node, Math.min(at.node.length, at.at + 1 + at.query.length));
+    setAt(null);
+    insertMention(elRef.current, m, range);
+  };
+  const atKeys = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (!menuOpen || e.nativeEvent.isComposing || !matches.length) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHi((i) => (i + (e.key === 'ArrowDown' ? 1 : matches.length - 1)) % matches.length);
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      pick(matches[Math.min(hi, matches.length - 1)]);
+    }
+  };
 
   // 粘贴、拖进来只要纯文字：从网页、文档复制来的会带字号、颜色、底色，contentEditable 会照原样贴进来
   const pastePlain = (e: ClipboardEvent<HTMLDivElement>) => {
@@ -46,8 +117,9 @@ export const PromptInput = forwardRef<HTMLDivElement, PromptInputProps>(function
   };
 
   return (
+    <>
     <div
-      ref={ref}
+      ref={setRef}
       className={cx('kv-prompt-input', className)}
       style={{ '--kv-prompt-min-rows': minRows, '--kv-prompt-max-rows': maxRows, ...style } as CSSProperties}
       contentEditable
@@ -64,10 +136,51 @@ export const PromptInput = forwardRef<HTMLDivElement, PromptInputProps>(function
         draggingInside.current = false;
       })}
       onDrop={composeHandlers(onDrop, dropPlain)}
+      onInput={composeHandlers(onInput, readAt)}
+      onKeyDown={composeHandlers(onKeyDown, atKeys)}
+      onKeyUp={composeHandlers(onKeyUp, (e: KeyboardEvent<HTMLDivElement>) => {
+        // 方向键挑选项时不重读（重读会把高亮回到第一项）
+        if (!(menuOpen && (e.key === 'ArrowDown' || e.key === 'ArrowUp'))) readAt();
+      })}
+      onClick={composeHandlers(onClick, readAt)}
       {...rest}
     >
       {children}
     </div>
+    {/* 菜单出在 @ 下面（放不下翻到上面，不盖住这一行），焦点留在输入框里，方向键由输入框管 */}
+    <Dropdown
+      open={menuOpen}
+      onOpenChange={(open) => {
+        if (open || !at) return;
+        dismissed.current = { node: at.node, at: at.at };
+        setAt(null);
+      }}
+      anchorPoint={at ? { x: at.x, y: at.y, top: at.top } : undefined}
+      autoFocus={false}
+      haspopup="listbox"
+      closeOnSelect={false}
+    >
+      <Menu role="listbox" aria-label="引用素材" onMouseDown={(e) => e.preventDefault()}>
+        {matches.length ? (
+          matches.map((m, i) => (
+            <MenuItem
+              key={m.id}
+              role="option"
+              thumb={m.type === 'audio' ? undefined : <AssetThumb size={24} type="image" src={m.src} />}
+              icon={m.type === 'audio' ? 'Music' : undefined}
+              highlighted={i === hi}
+              onMouseEnter={() => setHi(i)}
+              onClick={() => pick(m)}
+            >
+              {m.name}
+            </MenuItem>
+          ))
+        ) : (
+          <MenuItem disabled>暂无结果</MenuItem>
+        )}
+      </Menu>
+    </Dropdown>
+    </>
   );
 });
 PromptInput.displayName = 'PromptInput';

@@ -24,50 +24,16 @@ import { GenerateButtonPlayground, PromptBoxLab, PromptBoxPlayground, PromptInpu
 <Demo stage="base" code={`
 <PromptBox
   placeholder="描述画面怎么从首帧变到尾帧"
-  references={
-    <ReferenceFramePair
-      size={72}
-      first={{ src: './placeholders/kivi-future-1x1.webp' }}
-      last={{ src: './placeholders/monstera-dots-1x1.webp' }}
-    />
-  }
-  toolbar={
-    <>
-      <TaskSelect defaultValue="video" />
-      <VideoModelControls refMode={<RefModeSelect defaultValue="frames" />} />
-    </>
-  }
-  actions={
-    <>
-      <CountSelect />
-      <GenerateButton cost={60} />
-    </>
-  }
+  defaultTask="video"
+  defaultRefMode="frames"
+  defaultFrames={{ first: './placeholders/kivi-future-1x1.webp', last: './placeholders/monstera-dots-1x1.webp' }}
 />
 `} />
 
 ### 拖文件进输入框
 
 <Demo stage="base" code={`
-() => {
-  const [items, setItems] = useState([]);
-  const drop = (files) =>
-    setItems((list) => {
-      let next = list;
-      files.forEach((f, i) => {
-        const type = f.type.startsWith('video') ? 'video' : f.type.startsWith('audio') ? 'audio' : 'image';
-        next = [...next, { id: Date.now() + '-' + i, type, name: referenceName(next, type), src: type === 'image' ? URL.createObjectURL(f) : undefined }];
-      });
-      return next;
-    });
-  return (
-    <PromptBox
-      placeholder="把图片、视频、音频拖到这里，拖别的类型会提示不支持"
-      onDropFiles={drop}
-      references={<ReferenceStack items={items} onAdd={() => {}} onRemove={(id) => setItems((list) => list.filter((i) => i.id !== id))} />}
-    />
-  );
-}
+<PromptBox defaultTask="video" placeholder="把图片、视频、音频拖到这里，拖别的类型会提示不支持" />
 `} />
 
 ## GenerateButton
@@ -86,22 +52,46 @@ import { GenerateButtonPlayground, PromptBoxLab, PromptBoxPlayground, PromptInpu
 
 ### PromptBox
 
-外框是渐变玻璃：底 `--color-bg-fill-glass-gradient`（#181818 80% 上暗下亮到 #282828 80%，只有这里用）+ 背景模糊 80 `--effect-glass-blur`，浮在生成记录上、下面的内容透出来；描边 border-subtle 1，圆角 24 `--border-radius-24`，内边距 16 `--spacing-16`；内容区和工具条间距 12 `--spacing-12`。宽度跟着外面走，最宽 1040；最窄是工具条所有控件按原宽排成一行时的宽度，工具条不折行、控件不压缩，再窄就不缩了，由外面的页面横向滚动。提示词 14 / 22 常规，primary，无底无描边，聚焦也不加描边，最矮 120，随内容长高。工具条高 32，左右两组间距至少 8。其余原生 `<div>` 属性都能传。
+外框是渐变玻璃：底 `--color-bg-fill-glass-gradient`（#181818 80% 上暗下亮到 #282828 80%，只有这里用）+ 背景模糊 80 `--effect-glass-blur`，浮在生成记录上、下面的内容透出来；描边 border-subtle 1，圆角 24 `--border-radius-24`，内边距 16 `--spacing-16`；内容区和工具条间距 12 `--spacing-12`。宽度跟着外面走，最宽 1040；最窄是工具条所有控件按原宽排成一行时的宽度，工具条不折行、控件不压缩，再窄就不缩了，由外面的页面横向滚动。提示词是 `PromptInput`（能放 @ 引用标签），14 / 22 常规，primary，无底无描边，聚焦也不加描边，最矮 120，随内容长高。点参考区的卡片把它 @ 进提示词（照线上）；素材删了、换了顺序，提示词里的 @ 跟着删、跟着改名。工具条高 32，左右两组间距至少 8。其余原生 `<div>` 属性都能传。
 
 | 属性 | 类型 | 默认 | 说明 |
 |---|---|---|---|
-| `value` | `string` | — | 提示词。传了就是受控，要在 `onChange` 里更新 |
+| `value` | `string` | — | 提示词，纯文字，@ 引用写成「@图片1」。传了就是受控，要在 `onChange` 里更新；从外面改成别的文字时，框里的 @ 标签变回纯文字 |
 | `defaultValue` | `string` | — | 非受控的初始提示词 |
 | `onChange` | `(value: string) => void` | — | 提示词变了触发，参数是新的文字 |
-| `placeholder` | `string` | — | 没输入时的占位文字，随模式变，比如「描述你想生成的视频，@ 引用参考素材」 |
-| `references` | `ReactNode` | — | 参考区，在提示词左边，间距 24 `--spacing-24`，从顶端对齐：`ReferenceStack`，或首尾帧 `ReferenceFramePair`。不传没有参考区，提示词从最左边开始。展开时浮在提示词上面，被盖住的字由输入框藏起来 |
-| `toolbar` | `ReactNode` | — | 工具条左边，间距 6 `--spacing-6`：任务类型、模型、参考方式、参数、其他开关。一般是 `Select variant="plain"`，不折行、控件不压缩 |
-| `actions` | `ReactNode` | — | 工具条右边，间距 8 `--spacing-8`：张数 + `GenerateButton` |
+| `task` | `'agent'` `'image'` `'video'` `'audio'` | — | 任务类型。传了就是受控，在 `onTaskChange` 里更新 |
+| `defaultTask` | 同上 | `'agent'` | 非受控时一开始的任务 |
+| `onTaskChange` | `(task) => void` | — | 工具条里切了任务类型 |
+| `models` | `{ image?, video?, audio? }` | — | 每种任务各选的模型（值），没写的用默认模型（GPT Image 2、Seedance 2.0、Seed Audio 1.0）。传了就是受控 |
+| `defaultModels` | 同上 | `{}` | 非受控时一开始的模型 |
+| `onModelsChange` | `(models) => void` | — | 换了模型，参数是所有任务的模型 |
+| `refMode` | `'omni'` `'frames'` `'edit'` `'extend'` | — | 视频的参考方式：全能参考 / 首尾帧 / 视频编辑 / 视频延长。首尾帧时参考区换成 `ReferenceFramePair` 72；只有首尾帧的模型（Veo、Sora、Grok、Vidu、Seedance 1.5）没有这个下拉，参考区也是首尾帧；其余三种是同一条 `ReferenceStack`。换模型时回到全能参考。传了就是受控 |
+| `defaultRefMode` | 同上 | `'omni'` | 非受控时一开始的参考方式 |
+| `onRefModeChange` | `(mode) => void` | — | 换了参考方式 |
+| `references` | `ReferenceStackItem[]` | — | 参考区的素材，在提示词左边，间距 24 `--spacing-24`，从顶端对齐；展开时浮在提示词上面，被盖住的字藏起来。传了就是受控 |
+| `defaultReferences` | `ReferenceStackItem[]` | `[]` | 非受控时一开始的素材，空的只有添加格 |
+| `onReferencesChange` | `(items) => void` | — | 素材变了：点添加格选了文件、拖进来、删了一张、拖着换了顺序（参考区展开后按住一张左右拖，同 `ReferenceStack` 的 `onReorder`）。名字按顺序重新编过（图片1、视频1…） |
+| `frames` | `{ first?, last? }` | — | 首尾帧的两张图（地址）。进首尾帧时两格空着，就把参考区前两张图搬进来；出首尾帧时参考区空着，就把首尾帧搬回参考区。传了就是受控 |
+| `defaultFrames` | 同上 | `{}` | 非受控时一开始的首尾帧 |
+| `onFramesChange` | `(frames) => void` | — | 首尾帧变了：互换、拖进来、搬过来 |
+| `onAddReference` | `() => void` | — | 点了添加格。不传就弹出选文件，选完加进参考区（视频取第一帧当封面、带时长） |
+| `referencesExpanded` | `boolean` | — | 参考区固定展开（受控）。不传是鼠标移上去展开 |
+| `onReferencesExpandedChange` | `(expanded) => void` | — | 参考区展开收起 |
+| `onSubmit` | `(submit) => void` | — | 点了生成 / 发送，参数是任务、模型、参考方式、提示词、素材、首尾帧。不能生成时不触发；不受控的提示词发出后清空 |
+| `generating` | `boolean` | `false` | 正在生成：生成按钮置灰，Agent 的发送按钮变停止 |
+| `cost` | `number` | — | 消耗的猕猴桃数。不传按任务和模型取示例数字（`genCost`） |
+| `placement` | `'top-start'` `'bottom-start'` | `'top-start'` | 工具条里的下拉往哪边弹：贴在页面底部往上，在页面上面（创作首页）往下 |
+| `skills` | `SkillItem[]` | — | Agent 技能面板里的技能 |
+| `skillCategories` | — | — | Agent 技能面板里的分类 |
+| `onPickSkill` | — | — | Agent 点了一个技能 |
+| `placeholder` | `string` | — | 没输入时的占位文字。不传跟着任务变，比如视频是「描述你想生成的视频，@ 引用参考素材」 |
 | `maxHeight` | `number` | `240` | 提示词最高多高，单位 px，超过就在里面滚动 |
-| `onDropFiles` | `(files: File[]) => void` | — | 把文件拖进输入框、放下后触发，参数是通过 `accept` 检查的文件：一般是加进 `references` 的素材（缩略图、上传进度自己管，输入框不存素材）。不传就不接收拖拽。拖进来时整个输入框盖一层 `DropOverlay`；类型不收的显示「不支持这种文件」，不接收，放下后弹 toast（页面上要放一个 `<Toaster />`） |
-| `accept` | `string` | `"image/*,video/*,audio/*"` | 收哪些文件，写法同 `<input accept>`。拖的过程中按类型提前判断 |
-| `inputRef` | `Ref<HTMLTextAreaElement>` | — | 提示词输入框的 ref，聚焦、选中用 |
+| `onDropFiles` | `(files: File[]) => void` | — | 把文件拖进输入框、放下后触发，参数是通过 `accept` 检查的文件。不传就直接加进参考区，首尾帧时图片按顺序填空着的首帧、尾帧。拖进来时整个输入框盖一层 `DropOverlay`；类型不收的显示「不支持这种文件」，不接收，放下后弹 toast（页面上要放一个 `<Toaster />`） |
+| `accept` | `string` | `"image/*,video/*,audio/*"` | 收哪些文件，写法同 `<input accept>`；首尾帧时只收图片。拖的过程中按类型提前判断 |
+| `inputRef` | `Ref<HTMLDivElement>` | — | 提示词输入框（`PromptInput`，contentEditable）的 ref，聚焦、选中用 |
 | `inputLabel` | `string` | `"提示词"` | 输入框的说明，读屏用 |
+
+工具条左边间距 6 `--spacing-6`：任务类型、模型、参考方式、参数；右边间距 8 `--spacing-8`：张数（音频是字数 / 上限）+ `GenerateButton`，Agent 是 `SendButton`。生成条件不满足时生成按钮置灰、悬停说原因（`genBlockedReason`，和画布生成面板同一份）。
 
 工具条里的 Select 无底：高 32，圆角 8，左右 8，13 号字，左图标 16，右箭头 16 tertiary，悬停白 14%（Light 1 hover），展开白 10%。参数把分辨率、比例、时长合成一个 Select，写「720P · 16:9 · 8s」。
 
@@ -114,7 +104,8 @@ import { GenerateButtonPlayground, PromptBoxLab, PromptBoxPlayground, PromptInpu
 | `cost` | `number` `string` | — | 这次生成消耗的猕猴桃数，必填，写在图标右边 |
 | `size` | `28` `32` `36` | `32` | 同按钮：高 28 / 32 / 36 |
 | `loading` | `boolean` | `false` | 点了等结果时用：猕猴桃换成转圈，数字和宽度不变，不能点 |
-| `disabled` | `boolean` | `false` | 参数不全或正在生成时用 |
+| `disabledReason` | `ReactNode` | — | 现在不能生成的原因，比如「请输入画面描述」「请至少上传 1 个视频」。传了按钮置灰、点了不触发，悬停、键盘聚焦时上方出 Popover（提示）写这句；用 `aria-disabled`，不用 `disabled`，好收到悬停 |
+| `disabled` | `boolean` | `false` | 不用说原因的禁用；条件不满足要说原因的用 `disabledReason` |
 | `aria-label` | `string` | `"生成，消耗 N 个猕猴桃"` | 读屏用，N 是 `cost` |
 
 ### PromptInput
@@ -127,3 +118,4 @@ import { GenerateButtonPlayground, PromptBoxLab, PromptBoxPlayground, PromptInpu
 | `children` | `ReactNode` | — | 开头的内容：文字，中间可以插 MentionChip。只在第一次渲染时用，之后由用户编辑 |
 | `minRows` | `number` | `4` | 最少几行高。工具弹窗里一横条的输入框用 `1` |
 | `maxRows` | `number` | `6` | 最多长到几行，再多滚动 |
+| `mentions` | `{ id, type, name, src? }[]` | — | 打 @ 能引用的素材（照线上）：打「@」在 @ 下面弹出菜单（玻璃，离 4，放不下翻到上面），列出素材（缩略图 24 / 音频图标 + 名字），接着打字按名字筛；第一项高亮，↑ ↓ 挑，回车、Tab 或点一下把打的「@名字」换成 MentionChip；Esc、点外面关掉，光标还在这个 @ 后面时不再弹。没有匹配的写「暂无结果」，@ 后面打了 7 个字以上还没有就不弹。不传或空的不弹。PromptBox、NodePanel 自带（参考素材） |

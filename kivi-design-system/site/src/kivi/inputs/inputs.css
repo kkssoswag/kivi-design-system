@@ -204,7 +204,7 @@
 }
 
 /* ---------- Textarea ---------- */
-/* 默认 320×104，可以拉伸；内边距 12，14/22 号字，右下角字数。宽度在使用时设成填满 */
+/* 默认 320×104，不能拖着改高度（11-18 用户定去掉右下角拖拽）；内边距 12，14/22 号字，右下角字数。宽度在使用时设成填满 */
 .kv-textarea {
   flex-direction: column;
   gap: var(--spacing-8);
@@ -221,7 +221,7 @@
   width: 100%;
   min-height: 52px;
   line-height: var(--font-line-height-22);
-  resize: vertical;
+  resize: none;
 }
 
 /* 底部一行：字数 + 框内按钮，靠右，间距 8 */

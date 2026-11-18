@@ -103,24 +103,15 @@
   依赖 tokens.css、base.css、button.css，参考卡片用上面的 kv-reference-item、tags-avatar.css 的 kv-asset-thumb。
   主站 Agent 专用，Figma 里的用词是「模板」，这里做成组件，方便前端直接用。
 
-  写法（React，见 PromptBox.tsx、ReferenceStack.tsx、GenerateButton.tsx）
-    <PromptBox
-      placeholder="描述你想生成的视频，@ 引用参考素材"
-      references={<ReferenceStack items={items} onAdd={add} onRemove={remove} />}
-      toolbar={<>
-        <Select variant="plain" leftIcon="VideoGeneration" options={…} defaultValue="video" />
-        …
-      </>}
-      actions={<>
-        <Select variant="plain" options={…} defaultValue="1" />
-        <GenerateButton cost={99} />
-      </>}
-    />
+  写法（React，见 PromptBox.tsx）：状态都在组件里（11-17），用的地方只传状态
+    <PromptBox defaultTask="video" references={items} onReferencesChange={setItems} onSubmit={…} />
+  参考区（ReferenceStack / 首尾帧 ReferenceFramePair）、工具条（任务、模型、参考方式、参数）、张数、生成按钮由组件自己出，
+  规则在 gen-rules.ts，和画布生成面板 NodePanel 共用
   渲染出来的结构
     <div class="kv-prompt-box">
       <div class="kv-prompt-box__content">
         <div class="kv-prompt-box__refs"><div class="kv-reference-stack">…</div></div>
-        <textarea class="kv-prompt-box__input" />
+        <div class="kv-prompt-input kv-prompt-box__input" contenteditable />
       </div>
       <div class="kv-prompt-box__toolbar">
         <div class="kv-prompt-box__toolbar-start">…</div>
@@ -207,7 +198,8 @@
   gap: var(--spacing-12);
 }
 
-/* 提示词：14 / 22，无底无描边，聚焦也不加描边。高度由 JS 随内容撑，最矮 120，超过 maxHeight 就滚 */
+/* 提示词：PromptInput（contentEditable，能放 @ 标签，11-18 从 textarea 换），14 / 22，无底无描边，聚焦也不加描边。
+   随内容长高，最矮 120，最高是 maxHeight（写在 style 上），再多就在里面滚 */
 
 .kv-prompt-box__input {
   /* 参考区展开时盖住的宽度（含渐隐），由 JS 写。没盖住是 0 */
@@ -229,10 +221,7 @@
   font-size: var(--font-size-14);
   font-weight: var(--font-weight-regular);
   line-height: var(--font-line-height-22);
-  resize: none;
-  overflow-y: hidden;
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-border) transparent;
+  overflow-y: auto; /* 原生滚动：输入框（contenteditable）自己滚，滚动条由 base.css 兜底成细条 */
 
   /* 用遮罩把左上角被参考区盖住的一块藏起来：整张挖掉一个矩形，右边 40 渐隐。
      遮罩宽度跟着参考区的宽度走，时长由参考区写进 --kv-prompt-cover-duration，缓动同参考区，两边同步 */
@@ -253,11 +242,6 @@
   transition:
     -webkit-mask-size var(--kv-prompt-cover-duration, var(--motion-duration-400)) var(--motion-ease-expand),
     mask-size var(--kv-prompt-cover-duration, var(--motion-duration-400)) var(--motion-ease-expand);
-}
-
-.kv-prompt-box__input::placeholder {
-  color: var(--color-text-fill-placeholder);
-  opacity: 1;
 }
 
 /* 工具条：高 32。左边任务类型、模型、参考方式、参数，间距 6；右边张数和生成，间距 8；两边撑开。

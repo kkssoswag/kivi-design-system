@@ -14,7 +14,7 @@ export interface TabItemProps extends Omit<ButtonHTMLAttributes<HTMLButtonElemen
   value?: string;
   /** 样式：选项卡切换下面整块内容 / 分段在底槽里选一个参数值，默认选项卡。放在 Tabs 里时跟着 Tabs */
   variant?: TabVariant;
-  /** 布局：横排 / 竖排，默认横排。竖排只有分段、中号用；竖排自带图标，必须传 icon */
+  /** 布局：横排 / 竖排，默认横排。竖排图标在上、文字在下，必须传 icon：分段竖排 56 × 56；选项卡竖排给侧边工具栏，宽跟着栏铺满 */
   layout?: TabLayout;
   /** 尺寸：中 32 / 大 36，默认中。竖排不分尺寸（56 × 56） */
   size?: TabSize;

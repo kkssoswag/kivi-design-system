@@ -17,3 +17,4 @@ export * from './GenModelPicker';
 export * from './SkillPanel';
 export * from './SkillPicker';
 export * from './AgentControls';
+export * from './gen-rules';

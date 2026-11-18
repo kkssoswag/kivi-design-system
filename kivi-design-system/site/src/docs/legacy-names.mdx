@@ -282,6 +282,13 @@ pattern: /(px|py|text|bg|font|rounded|gap)-(0|2|4|6|8|10|12|13|14|16|20|24|32|ro
 | `Cutting1` | `Cutting` | 合并 | 和 Cutting 重复。代码 1 处：添加节点面板 node-list |
 | `Snap1` | `Snap` | 合并 | 和 Snap 重复。代码 1 处：画布底部工具栏 bottom-toolbar（吸附开关） |
 | `ShowConnections-1` | `AutoLayout` | 改名 | 线上画布左下角「整理画布」用的是它（四个方块），不是连线。代码 1 处：画布底部工具栏 bottom-toolbar（11-05 改，原来误合并进 ShowConnections） |
+| `jianjiekouxing` | `LipSync` | 改名 | 拼音名改英文（对口型，图形是嘴唇）。代码 2 处：节点动作 nodes/video/constants、增长工具 growth-tools-menu/constants（左侧工具栏、节点面板都从这里取）（11-18） |
+| `zitaibuzhuo` | `MotionControl` | 改名 | 拼音名改英文（动作复刻）。代码 1 处：growth-tools-menu/constants（入口现在隐藏）（11-18） |
+| `a-Frame1942187448` | `RightArrowLong` | 改名 | 名字是 Figma 图层名，没有含义。代码 1 处：对口型面板两个素材槽之间的箭头 growth-tool-panel（11-18） |
+| `AutoLayout` | 不变 | 改图形 | 线上多选后「布局」入口和「宫格对齐」用它，和「整理画布」同一个（四个方块）。代码不用改（11-18） |
+| `VerticalLayout` `HorizontalLayout` | 不变 | 改图形 | 多选后「布局」菜单的垂直、水平对齐。名字不变，换成 Hugeicons 图形（11-18） |
+| `ElevenLabs` | 不变 | 改图形 | 音频模型 Logo，换成 LobeHub Mono 版（11-18） |
+| `gongnengmokuaiyuxinzeng` | 不收 | 删除 | 增长工具菜单的入口图标，代码里只定义了常量、没有地方用（菜单已改成直接进对口型）（11-18） |
 | `VolumeFull` `VolumeHalf` `VolumeOff` | 不变 | 改图形 | 名字不变，实心改成描边（volume-2、volume-1、volume-x）。代码不用改，Iconfont 换上新图形就行。播放、暂停还是实心 |
 
 ## 按钮
@@ -585,7 +592,7 @@ pattern: /(px|py|text|bg|font|rounded|gap)-(0|2|4|6|8|10|12|13|14|16|20|24|32|ro
 | `kv-canvas-toolbar__add`、`kv-button-group__solid` | IconButton `variant="primary"` | 「添加」11-05 从白底黑图标改成主要（品牌绿），`__solid` 类删了 |
 | `ParamValue` | `NumberInput`，放在 Slider 旁边 | 能输入，和拖滑块双向同步 |
 | `ToolbarSwitch label="X"` | `<Switch>X</Switch>` | Switch 能带文字，13 号、间距 8，整行能点。原来唯一的用法「样片模式」已删 |
-| `ReferenceAddSlot` | `<AddTile />` | 只有 56 一档 |
+| `ReferenceAddSlot` | `<AddTile />` | 56；主站首尾帧的空格 72 |
 | LoraField 的添加格（`kv-lora-field__add`） | `<AddTile icon="LoraModel" label="Lora" />` | — |
 | `UploadTile`（96 / 64） | `AddTile`（56）；传上去显示成 `ReferenceItem`，上传中用 `UploadRing` | 11-04 删：添加素材从哪来（素材库、电脑）不分组件。格子自己的拖入不要了，输入框整体拖入用 DropOverlay |
 | `AddTile size` 56 / 64 / 72 / 96 | 去掉 `size`，固定 56 | 只有 Lora 栏在用 56，别的档没人用 |
@@ -601,6 +608,19 @@ pattern: /(px|py|text|bg|font|rounded|gap)-(0|2|4|6|8|10|12|13|14|16|20|24|32|ro
 |---|---|---|
 | QuestionPanel | 「全部由 AI 决策」按钮：`aiDecide`、`aiDecideText`、`onAiDecide` | 删掉这三个属性，以后也不会有；底部只剩「忽略」和「确认提交」 |
 | AskRecord | `skippedText="交给 AI 决策"` 这种用法 | 不再传，跳过时用默认「已跳过」 |
+
+## 输入框和生成面板的状态收进组件（11-17）
+
+`PromptBox` 和 `NodePanel` 自己带工具条、参考区、校验和生成按钮，用的地方只传状态，不再往插槽里塞控件。规则在 `kivi/generation/gen-rules.ts`，两边共用。
+
+| 组件 | 旧写法 | 新写法 |
+|---|---|---|
+| PromptBox | `references={<ReferenceStack items onAdd onRemove />}` | `references` / `defaultReferences` / `onReferencesChange`（素材数组），首尾帧用 `frames`；添加格默认弹出选文件，要自己处理传 `onAddReference` |
+| PromptBox | `toolbar={<><TaskSelect /><VideoModelControls refMode={…} /></>}` | `task`、`models`、`refMode`（都有 default / on…Change 一套），Agent 的技能传 `skills`、`skillCategories` |
+| PromptBox | `actions={<><CountSelect /><GenerateButton cost /></>}` | 组件自己出；消耗不传按任务和模型取（`cost` 可覆盖），点了走 `onSubmit`，正在生成传 `generating` |
+| PromptBox | `onDropFiles` 不传就不收拖拽 | 不传也收：直接加进参考区，首尾帧时填空着的格 |
+| NodePanel | 外框里自己拼 `AttachmentStrip` + `PromptInput` + `NodePanelBar` | 传 `type`（text / image / video / audio）和 `references`（上游节点），点生成走 `onGenerate`；不传 `type` 还是外框（工具面板用） |
+| 演示 `demoCost()` | `docs/business/gen-demo-cost.ts` | 组件库 `genCost()` |
 
 ## 按钮类型改名（11-13）
 

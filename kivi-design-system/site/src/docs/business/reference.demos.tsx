@@ -9,7 +9,6 @@ import {
   type PreviewCardType,
   PromptBox,
   ReferenceItem,
-  ReferenceStack,
   type AttachmentItem,
   type ReferenceStackItem,
   type MentionChipType,
@@ -61,7 +60,17 @@ function stackItems(s: StackState): ReferenceStackItem[] {
   return s.upload && list.length ? list.map((it, i) => (i === list.length - 1 ? { ...it, progress: 54 } : it)) : list;
 }
 
+/** 拖着排过的顺序（id 列表）：按它重排，没排过的照原来的顺序跟在后面 */
+function applyOrder<T extends { id: string }>(items: T[], order: string[]) {
+  const rank = (id: string) => {
+    const i = order.indexOf(id);
+    return i < 0 ? order.length + items.findIndex((it) => it.id === id) : i;
+  };
+  return [...items].sort((a, b) => rank(a.id) - rank(b.id));
+}
+
 export function ReferenceStackPlayground() {
+  const [order, setOrder] = useState<string[]>([]);
   return (
     <Playground<StackState>
       controls={[
@@ -73,10 +82,15 @@ export function ReferenceStackPlayground() {
       // 空的时候只有添加格，没有类型、上传、展开
       rules={(s) => (s.count === '0' ? { kind: true, upload: true, pinned: true } : {})}
       render={(s) => (
+        // 参考区放在真的输入框里看（PromptBox 自带参考区，这里只切素材和展开）
+        // 拖着换顺序记下来；删除、添加不做
         <PromptBox
-          placeholder="描述你想生成的视频，@ 引用参考素材"
+          defaultTask="video"
           defaultValue={LONG}
-          references={<ReferenceStack items={stackItems(s)} onAdd={noop} onRemove={noop} expanded={s.pinned || undefined} />}
+          references={applyOrder(stackItems(s), order)}
+          onReferencesChange={(next) => setOrder(next.map((i) => i.id))}
+          onAddReference={noop}
+          referencesExpanded={s.pinned || undefined}
         />
       )}
     />
@@ -100,6 +114,7 @@ type StripState = { count: string; badge: boolean; remove: boolean; upload: bool
 
 export function AttachmentStripPlayground() {
   const [removed, setRemoved] = useState<string[]>([]);
+  const [order, setOrder] = useState<string[]>([]);
   return (
     <Playground<StripState>
       controls={[
@@ -109,12 +124,20 @@ export function AttachmentStripPlayground() {
         { key: 'upload', label: '上传中', type: 'toggle', value: false },
       ]}
       render={(s) => {
-        const items = ATTACHMENTS.slice(0, Number(s.count))
+        const items = applyOrder(ATTACHMENTS.slice(0, Number(s.count)), order)
           .filter((it) => !removed.includes(it.id))
           .map((it, i, list) => ({ ...it, ...(s.badge ? { badge: String(i + 1) } : {}), ...(s.upload && i === list.length - 1 ? { progress: 54 } : {}) }));
         return (
           <div style={{ width: 360 }}>
-            <AttachmentStrip items={items} onRemove={s.remove ? (id) => setRemoved((r) => [...r, id]) : undefined} />
+            <AttachmentStrip
+              items={items}
+              onRemove={s.remove ? (id) => setRemoved((r) => [...r, id]) : undefined}
+              onReorder={(from, to) => {
+                const ids = items.map((it) => it.id);
+                ids.splice(to, 0, ...ids.splice(from, 1));
+                setOrder(ids);
+              }}
+            />
             {removed.length > 0 && (
               <Button size={28} variant="ghost" onClick={() => setRemoved([])} style={{ marginTop: 12 }}>
                 恢复删掉的

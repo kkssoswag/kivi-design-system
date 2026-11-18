@@ -1,13 +1,20 @@
 import { forwardRef, useEffect, useRef, useState, type CSSProperties, type HTMLAttributes, type MouseEvent } from 'react';
 import { IconButton } from '../button';
+import { Icon } from '../Icon';
+import { AddTile } from '../upload';
 import { cx } from '../utils';
 import { ReferenceItem } from './ReferenceItem';
 import './reference.css';
 
 export interface ReferenceFrame {
-  /** 缩略图地址 */
+  /** 缩略图地址。不传就是空格：显示添加格 */
   src?: string;
+  /** 这张图是谁，删除时原样传回去好认（比如画布里上游节点的 key）。不传也行 */
+  id?: string;
 }
+
+/** 哪一格：首帧 / 尾帧（按现在显示的位置算） */
+export type ReferenceFrameSlot = 'first' | 'last';
 
 export interface ReferenceFramePairProps extends Omit<HTMLAttributes<HTMLDivElement>, 'onChange'> {
   /** 尺寸：56 用在画布生成面板，72 用在主站输入框。默认 56 */
@@ -18,18 +25,25 @@ export interface ReferenceFramePairProps extends Omit<HTMLAttributes<HTMLDivElem
   last: ReferenceFrame;
   /** 点中间的互换按钮后触发，参数是换过来的首帧、尾帧。不传也能换，组件自己记着；外面收到后把 first / last 换成这两个也行，不会换两次 */
   onSwap?: (first: ReferenceFrame, last: ReferenceFrame) => void;
+  /** 点了空格的添加格，参数是哪一格：弹出选图（主站），或新建上游图片节点连进来（画布）。不传添加格点了没反应 */
+  onAdd?: (slot: ReferenceFrameSlot) => void;
+  /** 点了有图那一格的删除（鼠标移上去右上角出，同时角标隐藏），参数是哪一格和那张图：主站清掉这一格，画布断开那条连线。不传就没有删除 */
+  onRemove?: (slot: ReferenceFrameSlot, frame: ReferenceFrame) => void;
 }
 
 /** 互换时两张图各自滑到对方的位置：屏幕内移动，ease-in-out，200ms（移动 100px 以内那档） */
 const GAP = 4;
 const BUTTON = 28;
 
+const LABEL: Record<ReferenceFrameSlot, string> = { first: '首帧', last: '尾帧' };
+
 /**
  * 首尾帧：两格参考图，右上角标写「首帧」「尾帧」，中间一个互换按钮，点一下两张图对调。
+ * 空格是添加格（AddTile，和格子一样大），角标照样写；有图的格子鼠标移上去出删除。两格都空时互换不能点，只有一张也能换（换到另一格）。
  * 画布生成面板和主站输入框共用。Figma「模板 · 画布」页「参考图区块 · 首尾帧」
  */
 export const ReferenceFramePair = forwardRef<HTMLDivElement, ReferenceFramePairProps>(function ReferenceFramePair(
-  { size = 56, first, last, onSwap, className, style, ...rest },
+  { size = 56, first, last, onSwap, onAdd, onRemove, className, style, ...rest },
   ref,
 ) {
   // 互换只记「换没换」，显示的图永远从外面传的 first / last 来：外面换图就跟着变
@@ -75,6 +89,37 @@ export const ReferenceFramePair = forwardRef<HTMLDivElement, ReferenceFramePairP
     timer.current = window.setTimeout(finish, ms);
   };
 
+  const empty = !first.src && !last.src;
+  const slot = (frame: ReferenceFrame, which: ReferenceFrameSlot) => (
+    <div
+      className={cx('kv-reference-frame-pair__slot', `kv-reference-frame-pair__${which}`)}
+      data-removable={frame.src && onRemove ? '' : undefined}
+    >
+      {frame.src ? (
+        <>
+          <ReferenceItem size={size} src={frame.src} badge={LABEL[which]} />
+          {onRemove && (
+            <button
+              type="button"
+              className="kv-reference-frame-pair__remove"
+              aria-label={`删除${LABEL[which]}`}
+              onClick={() => onRemove(which, frame)}
+            >
+              <Icon name="CloseSmall" />
+            </button>
+          )}
+        </>
+      ) : (
+        <>
+          <AddTile size={size} aria-label={`添加${LABEL[which]}`} onClick={() => onAdd?.(which)} />
+          <span className="kv-reference-item__badge" aria-hidden="true">
+            {LABEL[which]}
+          </span>
+        </>
+      )}
+    </div>
+  );
+
   return (
     <div
       ref={ref}
@@ -83,9 +128,9 @@ export const ReferenceFramePair = forwardRef<HTMLDivElement, ReferenceFramePairP
       data-swapping={moving ? '' : undefined}
       {...rest}
     >
-      <ReferenceItem size={size} src={pair[0].src} badge="首帧" className="kv-reference-frame-pair__first" />
-      <IconButton icon="Switch" label="交换首帧和尾帧" size={28} className="kv-reference-frame-pair__swap" onClick={swap} />
-      <ReferenceItem size={size} src={pair[1].src} badge="尾帧" className="kv-reference-frame-pair__last" />
+      {slot(pair[0], 'first')}
+      <IconButton icon="Switch" label="交换首帧和尾帧" size={28} className="kv-reference-frame-pair__swap" disabled={empty} onClick={swap} />
+      {slot(pair[1], 'last')}
     </div>
   );
 });

@@ -16,7 +16,7 @@ export interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElemen
 
 /**
  * 输入一段话：描述、备注。14 号字，是需要阅读的内容。Figma「输入控件」页 Textarea。
- * 默认 320 × 104，右下角能拖着改高度；宽度默认填满。没有可见标签时必须写 aria-label。
+ * 默认 320 × 104，不能拖着改高度；宽度默认填满。没有可见标签时必须写 aria-label。
  */
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function Textarea(
   { counter, actions, invalid, className, style, ...rest },

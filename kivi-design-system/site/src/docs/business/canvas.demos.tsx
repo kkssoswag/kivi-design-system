@@ -1,6 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactElement, type ReactNode } from 'react';
 import {
-  AttachmentStrip,
   AudioWave,
   Button,
   ButtonGroup,
@@ -8,27 +7,16 @@ import {
   Connector,
   CropHandles,
   Divider,
-  GenerateButton,
   IconButton,
   Toaster,
-  MentionChip,
   Minimap,
   NodeCard,
   NodeMedia,
   NodePanel,
-  NodePanelBar,
   NodeStack,
   NodeStackToggle,
   NodeWrapper,
-  PromptInput,
-  ReferenceFramePair,
-  AudioCharCount,
-  AudioModelControls,
-  CountSelect,
-  ImageModelControls,
-  ModelSelect,
-  RefModeSelect,
-  VideoModelControls,
+  type GenNodeType,
   type AttachmentItem,
   type ConnectorDotStatus,
   type ConnectorStatus,
@@ -303,67 +291,34 @@ function toolbarOf(type: NodeMediaType | 'group') {
   }
 }
 
-/** 生成面板：「模板 · 画布」页「生成面板」里按节点类型取。参考图是连进来的上游节点。音频面板 Figma 没画，先放参考图、提示词、模型、生成 */
-function panelOf(def: NodeDef, inputs: NodeDef[], onGenerate: () => void, busy: boolean) {
-  const refs = inputs.filter((n) => n.type === 'image' || n.type === 'video' || n.type === 'audio');
-  const generate = <GenerateButton cost={def.type === 'video' ? 20 : 1} onClick={onGenerate} disabled={busy} />;
-  // 参考图是连进来的上游节点：右上角写序号，悬停出预览；不能删（连线才是来源），所以不传 onRemove
-  const refItems: AttachmentItem[] = refs.map((n, i) => ({
-    id: n.key,
-    type: n.type as AttachmentItem['type'],
-    name: n.name,
-    src: n.src,
-    badge: String(i + 1),
-  }));
-  const refRow = refItems.length > 0 && <AttachmentStrip items={refItems} aria-label="参考图" />;
-
-  // 下拉、参数面板都用 generation.tsx 里共用的那一份，和主站输入框一样
-  // 右边：文字只有生成按钮；音频是字数 / 上限（没有张数，照线上）；图片、视频是张数
-  const bar = (left: ReactElement) => (
-    <NodePanelBar left={left} right={<>{def.type === 'audio' ? <AudioCharCount /> : def.type !== 'text' && <CountSelect />}{generate}</>} />
-  );
-  switch (def.type) {
-    case 'text':
-      return (
-        <NodePanel expand>
-          <PromptInput placeholder="描述任何你想要生成的内容" />
-          {bar(<ModelSelect type="text" />)}
-        </NodePanel>
-      );
-    case 'video':
-      return <VideoPanel refRow={refRow} bar={bar} />;
-    case 'audio':
-      return (
-        <NodePanel expand>
-          {refRow}
-          <PromptInput placeholder="描述任何你想要生成的内容" />
-          {bar(<AudioModelControls />)}
-        </NodePanel>
-      );
-    default:
-      return (
-        <NodePanel expand>
-          {refRow}
-          <PromptInput placeholder="描述任何你想要生成的内容" />
-          {bar(<ImageModelControls />)}
-        </NodePanel>
-      );
-  }
-}
-
-/** 视频生成面板：参考方式在底栏模型后面，和主站输入框是同一个下拉；切到「首尾帧」时参考区换成首尾帧（两格 + 中间互换） */
-function VideoPanel({ refRow, bar }: { refRow: ReactElement | false; bar: (left: ReactElement) => ReactElement }) {
-  const [mode, setMode] = useState('omni');
+/**
+ * 生成面板：NodePanel 传节点类型就是完整的生成面板（11-17 用户定，状态都在组件里，这里只传状态）。
+ * 参考图是连进来的上游节点：右上角写序号，悬停出预览；附件条里不能删（连线才是来源），首尾帧里删了就断开那条连线
+ */
+const GEN_TYPES: GenNodeType[] = ['text', 'image', 'video', 'audio'];
+function panelOf(
+  def: NodeDef,
+  inputs: NodeDef[],
+  onGenerate: () => void,
+  busy: boolean,
+  onDisconnect?: (from: string) => void,
+  onReorder?: (from: string, to: string) => void,
+) {
+  const type = (GEN_TYPES.includes(def.type as GenNodeType) ? def.type : 'image') as GenNodeType;
+  const references: AttachmentItem[] = inputs
+    .filter((n) => n.type === 'image' || n.type === 'video' || n.type === 'audio')
+    .map((n) => ({ id: n.key, type: n.type as AttachmentItem['type'], name: n.name, src: n.src }));
   return (
-    <NodePanel expand>
-      {mode === 'frames' ? (
-        <ReferenceFramePair first={{ src: `${IMG}kivi-future-1x1.webp` }} last={{ src: `${IMG}kiwi-light-1x1.webp` }} />
-      ) : (
-        refRow
-      )}
-      <PromptInput placeholder="描述任何你想要生成的内容" />
-      {bar(<VideoModelControls refMode={<RefModeSelect value={mode} onChange={setMode} />} />)}
-    </NodePanel>
+    <NodePanel
+      key={def.key}
+      expand
+      type={type}
+      references={references}
+      onRemoveReference={onDisconnect}
+      onReorderReference={onReorder}
+      onGenerate={onGenerate}
+      generating={busy}
+    />
   );
 }
 
@@ -610,7 +565,23 @@ export const MiniCanvas = forwardRef<MiniCanvasHandle, MiniCanvasProps>(function
       const inputs = edges.filter(([, b]) => b === sel.key).map(([a]) => nodeOf(a));
       panel = (
         <div className="cv-float cv-float--panel" style={{ ...fixed, left: center, top: sel.y + h + PANEL_GAP }} key={`p-${sel.key}`}>
-          {panelOf(sel, inputs, () => generate(sel.key), busy(sel.key))}
+          {panelOf(
+            sel,
+            inputs,
+            () => generate(sel.key),
+            busy(sel.key),
+            (from) => setEdges((es) => es.filter(([a, b]) => !(a === from && b === sel.key))),
+            // 拖着排参考图 = 改连进来的顺序：把这条线挪到目标那条线的位置
+            (from, to) =>
+              setEdges((es) => {
+                const i = es.findIndex(([a, b]) => a === from && b === sel.key);
+                const j = es.findIndex(([a, b]) => a === to && b === sel.key);
+                if (i < 0 || j < 0) return es;
+                const next = [...es];
+                next.splice(j, 0, ...next.splice(i, 1));
+                return next;
+              }),
+          )}
         </div>
       );
     }
@@ -1004,11 +975,11 @@ export function ToolbarPlayground() {
 
 type PanelPg = { type: string };
 
-/** 每种面板摆的参考图：图片面板连了一张素材图，视频面板连了图片和音频 */
+/** 每种面板摆的参考图：图片面板连了一张素材图，视频面板连了两张图片和音频（两张图能拖着换顺序） */
 const PANEL_INPUTS: Record<NodeMediaType, Key[]> = {
   text: [],
   image: ['upload'],
-  video: ['image', 'audio'],
+  video: ['image', 'upload', 'audio'],
   audio: ['upload'],
 };
 
@@ -1032,10 +1003,26 @@ export function PanelPlayground() {
       ]}
       render={(s) => {
         const type = s.type as NodeMediaType;
-        return <PgScroll inner="cv-pg-wide__inner">{panelOf(nodeOf(type), PANEL_INPUTS[type].map(nodeOf), () => {}, false)}</PgScroll>;
+        return (
+          <PgScroll inner="cv-pg-wide__inner">
+            <PanelDemo key={type} type={type} />
+          </PgScroll>
+        );
       }}
     />
   );
+}
+
+/** 属性面板里的生成面板：参考图能拖着换顺序（改的是连进来的顺序） */
+function PanelDemo({ type }: { type: NodeMediaType }) {
+  const [inputs, setInputs] = useState(PANEL_INPUTS[type]);
+  const move = (from: string, to: string) =>
+    setInputs((list) => {
+      const next = [...list];
+      next.splice(next.indexOf(to as Key), 0, ...next.splice(next.indexOf(from as Key), 1));
+      return next;
+    });
+  return panelOf(nodeOf(type), inputs.map(nodeOf), () => {}, false, undefined, move);
 }
 
 // ---------- 拆解：连线 ----------

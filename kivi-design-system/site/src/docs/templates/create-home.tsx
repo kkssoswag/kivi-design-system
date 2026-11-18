@@ -9,6 +9,7 @@ import {
   Input,
   Masonry,
   ProjectCard,
+  PromptBox,
   ScrollArea,
   TabItem,
   Tabs,
@@ -18,8 +19,8 @@ import {
 } from '@kivi';
 import { RATIO, SKILLS, WORKS, flowsOf, type ExploreTab } from './explore.demos';
 import { AgentComposer } from './composer';
+import { SKILL_CATEGORIES, SKILL_ITEMS } from '../business/skill-data';
 import { PixelBlast } from './pixel-blast';
-import { Composer } from './main-site.demos';
 
 type HomeMode = 'generate' | 'canvas';
 
@@ -397,7 +398,7 @@ export function CreateHome({
             <div className="tpl-home__shell" data-ready={shellReady || undefined} style={shellHeight != null ? { height: shellHeight } : undefined}>
               {SHOW_COMPOSER_MOTION && <ComposerMotion />}
               <div ref={generateBox} className="tpl-home__box" data-active={mode === 'generate' || undefined}>
-                <Composer placement="bottom-start" onSubmit={onSubmit} />
+                <PromptBox placement="bottom-start" onSubmit={onSubmit} skills={SKILL_ITEMS} skillCategories={SKILL_CATEGORIES} />
               </div>
               <div ref={canvasBox} className="tpl-home__box" data-active={mode === 'canvas' || undefined} style={generateHeight != null ? { minHeight: generateHeight } : undefined}>
                 <AgentComposer className="tpl-home__agent" placement="bottom-start" onSend={onOpenCanvas} />

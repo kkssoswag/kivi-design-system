@@ -7,7 +7,7 @@ import './navigation.css';
 export interface TabsProps extends Omit<HTMLAttributes<HTMLDivElement>, 'onChange' | 'defaultValue'> {
   /** 样式：选项卡 / 分段，默认选项卡。里面的 TabItem 都跟着它 */
   variant?: TabVariant;
-  /** 布局：横排 / 竖排，默认横排 */
+  /** 布局：横排 / 竖排，默认横排。选项卡竖排是整组竖着排（侧边工具栏），每项图标在上；分段竖排只是每项图标在上，整组仍横排 */
   layout?: TabLayout;
   /** 尺寸（选项高度）：32 / 36，默认 32 */
   size?: TabSize;
@@ -62,15 +62,20 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(function Tabs(
     setEntry((prev) => (prev === next ? prev : next));
   });
 
+  // 选项卡竖排：整组竖着排
+  const column = variant === 'tab' && layout === 'vertical';
+
   const keys = (e: KeyboardEvent<HTMLDivElement>) => {
     const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>(ITEMS));
     const i = items.indexOf(document.activeElement as HTMLElement);
     if (i < 0) return;
     let next = -1;
-    // 竖排只是单项上图标下文字，整组仍横排：左右切换。分段是 radiogroup，上下也认（WAI-ARIA radio）
+    // 选项卡竖排整组竖着排：上下切换。分段竖排只是单项上图标下文字，整组仍横排：左右切换；分段是 radiogroup，上下也认（WAI-ARIA radio）
     const radio = variant === 'segment';
-    if (e.key === 'ArrowRight' || (radio && e.key === 'ArrowDown')) next = (i + 1) % items.length;
-    else if (e.key === 'ArrowLeft' || (radio && e.key === 'ArrowUp')) next = (i - 1 + items.length) % items.length;
+    const fwd = column ? e.key === 'ArrowDown' : e.key === 'ArrowRight' || (radio && e.key === 'ArrowDown');
+    const back = column ? e.key === 'ArrowUp' : e.key === 'ArrowLeft' || (radio && e.key === 'ArrowUp');
+    if (fwd) next = (i + 1) % items.length;
+    else if (back) next = (i - 1 + items.length) % items.length;
     else if (e.key === 'Home') next = 0;
     else if (e.key === 'End') next = items.length - 1;
     if (next < 0) return;
@@ -83,8 +88,9 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(function Tabs(
     <TabsContext.Provider value={ctx}>
       <div
         ref={mergedRef}
-        className={cx('kv-tab-group', variant === 'segment' && 'kv-tab-group--segment', className)}
+        className={cx('kv-tab-group', variant === 'segment' && 'kv-tab-group--segment', column && 'kv-tab-group--vertical', className)}
         role={variant === 'segment' ? 'radiogroup' : 'tablist'}
+        aria-orientation={column ? 'vertical' : undefined}
         data-columns={columns ? '' : undefined}
         style={columns ? ({ '--kv-tab-columns': columns, ...style } as CSSProperties) : style}
         onKeyDown={composeHandlers(onKeyDown, keys)}

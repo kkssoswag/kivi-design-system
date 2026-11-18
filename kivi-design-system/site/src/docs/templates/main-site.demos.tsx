@@ -6,7 +6,6 @@ import {
   Dialog,
   GenPrompt,
   GenPromptRefs,
-  GenerateButton,
   Icon,
   IconButton,
   Menu,
@@ -19,15 +18,6 @@ import {
   ProcessGroup,
   PromptBox,
   ReferenceItem,
-  AgentControls,
-  AudioCharCount,
-  AudioModelControls,
-  CountSelect,
-  DEFAULT_MODEL,
-  ImageModelControls,
-  TaskSelect,
-  VideoModelControls,
-  ReferenceStack,
   ResultTile,
   Tag,
   UserMessage,
@@ -37,16 +27,14 @@ import {
   type PlaceholderImageName,
   type PlaceholderImageRatio,
   type ProcessStep,
-  type ReferenceType,
   type ReferenceStackItem,
   type ResultTileAction,
   type ResultTileStatus,
   ScrollArea,
-  SendButton,
 } from '@kivi';
 import { SKILL_CATEGORIES, SKILL_ITEMS } from '../business/skill-data';
-import { demoCost } from '../business/gen-demo-cost';
 import { useControllable, useCopy } from '../../kivi/hooks';
+import { cx } from '../../kivi/utils';
 import { MediaViewer, ViewerAuthor, ViewerSection, useLastShown, type ViewerMedia } from './media-viewer';
 import { TOOLS, ToolWorkbench, finishJob, nearestRatio, newId, ratioNum, toolOf, videoPoster, type Source, type ToolId, type ToolJob } from './ai-tools.demos';
 
@@ -484,116 +472,22 @@ export function Sidebar({
   );
 }
 
-// ---------- 输入框：能打字、加参考、选参数，点生成没反应 ----------
+// ---------- 输入框 ----------
+// 输入框就是组件库的 PromptBox（11-17 用户定：状态都在组件里，这里只传状态）。对话页贴在底部（下拉往上弹，默认）
 
-const PLACEHOLDER: Record<string, string> = {
-  agent: '输入想法、剧本或上传参考，支持「/」使用技能，@ 添加主体，和 Agent 一起创作',
-  image: '描述你想生成的图片，可以上传参考图',
-  video: '描述你想生成的视频，@ 引用参考素材',
-  audio: '描述你想生成的声音，或者输入要念的文字',
-};
-
-// 主站输入框贴在页面底部：工具条里的下拉、面板都往上弹（Dropdown 默认往下，用的地方改方向；放不下自己翻）
-const UP = 'top-start' as const;
-
-/** 任务类型后面那一组：Agent 是模型、技能、模式；图片、视频、音频是各自的模型和参数（kivi/generation 那一份） */
-type Placement = 'top-start' | 'bottom-start';
-const TOOLBAR: Record<string, (model: string, setModel: (m: string) => void, placement: Placement) => JSX.Element> = {
-  agent: (_m, _s, placement) => <AgentControls placement={placement} skills={SKILL_ITEMS} skillCategories={SKILL_CATEGORIES} />,
-  image: (model, setModel, placement) => <ImageModelControls placement={placement} model={model} onModelChange={setModel} />,
-  video: (model, setModel, placement) => <VideoModelControls placement={placement} model={model} onModelChange={setModel} />,
-  audio: (model, setModel, placement) => <AudioModelControls placement={placement} model={model} onModelChange={setModel} />,
-};
-
-/**
- * 主站输入框（PromptBox）。对话页贴在底部（下拉往上弹）；创作首页在上面（下拉往下弹）。
- * 创作首页「生成」「画布」两种模式用同一个输入框、一样大（11-10 用户定，新版需求画布的输入框不变矮），只是提交去的地方不同
- */
+/** 对话页参考区一开始的两张演示图（创作页「加入参考」也往里加） */
 const COMPOSER_REFS: ReferenceStackItem[] = [
   { id: 'c1', type: 'image', name: '图片1', src: img('kiwi-glass', '1:1') },
   { id: 'c2', type: 'image', name: '图片2', src: img('kiwi-light', '1:1') },
 ];
 
-export function Composer({
-  placement = UP,
-  onSubmit,
-  references,
-  onReferencesChange,
-}: {
-  placement?: Placement;
-  onSubmit?: () => void;
-  /** 参考区的素材：传了就受控（创作页「加入参考」往里加），不传自己记 */
-  references?: ReferenceStackItem[];
-  onReferencesChange?: (items: ReferenceStackItem[]) => void;
-}) {
-  const [task, setTask] = useState('agent');
-  const [text, setText] = useState('');
-  // 每种任务各记一个模型，生成按钮的消耗跟着它走
-  const [models, setModels] = useState<Record<string, string>>({ image: DEFAULT_MODEL.image, video: DEFAULT_MODEL.video, audio: DEFAULT_MODEL.audio });
-  const setModel = (m: string) => setModels((old) => ({ ...old, [task]: m }));
-  const audioModel = models.audio;
-  const [inner, setInner] = useState<ReferenceStackItem[]>(COMPOSER_REFS);
-  const items = references ?? inner;
-  const setItems = (fn: (list: ReferenceStackItem[]) => ReferenceStackItem[]) => {
-    const next = fn(items);
-    if (references === undefined) setInner(next);
-    onReferencesChange?.(next);
-  };
-  const pool: PlaceholderImageName[] = ['ip-peek', 'bunny-gouache', 'monstera-dots', 'kivi-future', 'ip-gouache'];
-  const add = () =>
-    setItems((list) => [...list, { id: `c${Date.now()}`, type: 'image', name: referenceName(list, 'image'), src: img(pool[list.length % pool.length], '1:1') }]);
-  // 把文件拖到输入框上：加进参考区（图片、音频用本地文件，视频缩略图用占位图）
-  const dropFiles = (files: File[]) =>
-    setItems((list) => {
-      let next = list;
-      files.forEach((f, i) => {
-        const type: ReferenceType = f.type.startsWith('video') ? 'video' : f.type.startsWith('audio') ? 'audio' : 'image';
-        // 音频传本地文件地址，悬停预览里能播；视频缩略图用占位图
-        const src = type === 'image' || type === 'audio' ? URL.createObjectURL(f) : img(pool[(next.length + i) % pool.length], '1:1');
-        next = [...next, { id: `c${Date.now()}-${i}`, type, name: referenceName(next, type), src, duration: type === 'video' ? '5s' : type === 'audio' ? '15s' : undefined }];
-      });
-      return next;
-    });
-  const submit = () => {
-    if (!onSubmit) return;
-    setText('');
-    onSubmit();
-  };
-  return (
-    <PromptBox
-      value={text}
-      onChange={setText}
-      onDropFiles={dropFiles}
-      placeholder={PLACEHOLDER[task]}
-      references={<ReferenceStack items={items} onAdd={add} onRemove={(id) => setItems((list) => list.filter((i) => i.id !== id))} />}
-      toolbar={
-        <>
-          <TaskSelect placement={placement} value={task} onChange={setTask} />
-          {TOOLBAR[task](models[task], setModel, placement)}
-        </>
-      }
-      actions={
-        // Agent 没有张数和消耗，直接是发送按钮（和画布 Agent 输入框一样）；其他任务用猕猴桃生成按钮。音频没有张数，换成字数 / 上限。只能看，点了不生成
-        task === 'agent' ? (
-          <SendButton disabled={!text.trim()} onClick={submit} />
-        ) : (
-          <>
-            {task === 'audio' ? <AudioCharCount count={text.length} model={audioModel} /> : <CountSelect placement={placement} />}
-            <GenerateButton cost={demoCost(task, models[task])} onClick={submit} />
-          </>
-        )
-      }
-    />
-  );
-}
-
 // ---------- 整页 ----------
 
 /** 创作页主区（生成记录 + 底部输入框，侧栏在 UI 页面预览的外壳里）：只能看。点完成的图全屏看大图 */
 /** 右上角：余额（猕猴桃）和头像。主站每一页都有（画布页没有），挂在外壳 KiviApp 上，不跟着页面换 */
-export function Wallet() {
+export function Wallet({ className }: { className?: string }) {
   return (
-    <div className="tpl-ms__wallet">
+    <div className={cx('tpl-ms__wallet', className)}>
       <span className="tpl-ms__balance" aria-label="余额 200">
         <Icon name="Kiwi" />
         200
@@ -852,7 +746,7 @@ export function CreatePage() {
           </div>
         </ScrollArea>
         <div ref={composer} className="tpl-ms__composer">
-          <Composer references={refs} onReferencesChange={setRefs} />
+          <PromptBox references={refs} onReferencesChange={setRefs} skills={SKILL_ITEMS} skillCategories={SKILL_CATEGORIES} />
         </div>
       </main>
       {/* 「更多」：其余的工具，往上开、右边和按钮对齐（按钮条在右下） */}

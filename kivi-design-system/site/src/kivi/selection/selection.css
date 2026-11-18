@@ -209,9 +209,13 @@
   margin-top: var(--spacing-4);
 }
 
+/* 字在 22 的框里垂直居中：单行不设行高（11-05），用 flex 居中 */
 .kv-slider__label {
   position: absolute;
   top: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   left: calc(var(--kv-inset) + var(--kv-at) * (100% - var(--kv-inset) * 2));
   box-sizing: border-box;
   min-width: 22px;
