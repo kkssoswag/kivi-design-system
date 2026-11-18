@@ -77,8 +77,9 @@ import { GenerateButtonPlayground, PromptBoxLab, PromptBoxPlayground, PromptInpu
 | `onAddReference` | `() => void` | — | 点了添加格。不传就弹出选文件，选完加进参考区（视频取第一帧当封面、带时长） |
 | `referencesExpanded` | `boolean` | — | 参考区固定展开（受控）。不传是鼠标移上去展开 |
 | `onReferencesExpandedChange` | `(expanded) => void` | — | 参考区展开收起 |
-| `onSubmit` | `(submit) => void` | — | 点了生成 / 发送，参数是任务、模型、参考方式、提示词、素材、首尾帧。不能生成时不触发；不受控的提示词发出后清空 |
+| `onSubmit` | `(submit) => void` | — | 点了生成 / 发送，参数是任务、模型、参考方式、提示词、素材、首尾帧，以及参数面板选的值 `params`（`GenParamValues`）和张数 `count`。不能生成时不触发；不受控的提示词发出后清空 |
 | `generating` | `boolean` | `false` | 正在生成：生成按钮置灰，Agent 的发送按钮变停止 |
+| `onStop` | `() => void` | — | Agent 正在回复（`generating`）时，发送按钮变成停止，点了触发 |
 | `cost` | `number` | — | 消耗的猕猴桃数。不传按任务和模型取示例数字（`genCost`） |
 | `placement` | `'top-start'` `'bottom-start'` | `'top-start'` | 工具条里的下拉往哪边弹：贴在页面底部往上，在页面上面（创作首页）往下 |
 | `skills` | `SkillItem[]` | — | Agent 技能面板里的技能 |

@@ -3,6 +3,7 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
   type ChangeEvent,
   type FormEvent,
   type HTMLAttributes,
@@ -22,6 +23,7 @@ import { GenActions, GenToolbar } from './gen-controls';
 import { GEN_PLACEHOLDER, fileToReference, genBlockedReason, genCost, isFramesMode, type GenFrames, type GenTask } from './gen-rules';
 import { DEFAULT_MODEL } from './options';
 import { TaskSelect } from './GenSelects';
+import { GEN_PARAM_DEFAULTS, type GenParamValues } from './GenParams';
 import './generation.css';
 
 export interface PromptBoxSubmit {
@@ -33,6 +35,10 @@ export interface PromptBoxSubmit {
   text: string;
   references: ReferenceStackItem[];
   frames: GenFrames;
+  /** 这个任务参数面板里选的值（比例、分辨率、时长……），键见 GenParams 的 GEN_PARAM_DEFAULTS；Agent、文字没有，是空的 */
+  params: GenParamValues;
+  /** 张数（图片、视频），别的任务是 1 */
+  count: number;
 }
 
 export interface PromptBoxProps extends Omit<HTMLAttributes<HTMLDivElement>, 'onChange' | 'defaultValue' | 'children' | 'onSubmit'> {
@@ -82,6 +88,8 @@ export interface PromptBoxProps extends Omit<HTMLAttributes<HTMLDivElement>, 'on
   onSubmit?: (submit: PromptBoxSubmit) => void;
   /** 正在生成：生成按钮置灰，Agent 的发送按钮变停止 */
   generating?: boolean;
+  /** Agent 正在回复时点了停止（发送按钮变成的停止） */
+  onStop?: () => void;
   /** 消耗的猕猴桃数。不传按任务和模型取示例数字 */
   cost?: number;
   /** 工具条里的下拉往哪边弹：输入框贴底时往上（默认），在页面上面时往下 */
@@ -142,6 +150,7 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(function Pro
     referencesExpanded,
     onReferencesExpandedChange,
     onSubmit,
+    onStop,
     generating,
     cost,
     placement = 'top-start',
@@ -171,6 +180,10 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(function Pro
   // 素材名字按排列顺序、每种类型各自编号（图片1、视频1…）：删了、换了顺序都重新编，提示词里的 @ 跟着改
   const setReferences = (list: ReferenceStackItem[]) => setReferencesRaw(relabelReferences(list));
   const [frames, setFrames] = useControllable(framesProp, defaultFrames, onFramesChange);
+  // 参数面板和张数：每种任务各记一份，切任务再切回来还在；发出时一起交出去
+  const [params, setParams] = useState<Partial<Record<GenTask, GenParamValues>>>({});
+  const [count, setCount] = useState('1');
+  const paramsOf = (t: GenTask): GenParamValues => params[t] ?? (t in GEN_PARAM_DEFAULTS ? GEN_PARAM_DEFAULTS[t as keyof typeof GEN_PARAM_DEFAULTS] : {});
   const textRef = useRef<HTMLDivElement | null>(null);
   const setRefs = useMergedRef(textRef, inputRef);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -249,7 +262,7 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(function Pro
   });
   const submit = () => {
     if (generating || (task === 'agent' ? !value.trim() : reason)) return;
-    onSubmit?.({ task, model, refMode, text: value, references, frames });
+    onSubmit?.({ task, model, refMode, text: value, references, frames, params: paramsOf(task), count: task === 'image' || task === 'video' ? Number(count) : 1 });
     if (onSubmit && valueProp === undefined) setValue('');
   };
   const dropHandlers = composeDropHandlers({ onDragEnter, onDragOver, onDragLeave, onDrop }, bind);
@@ -357,6 +370,8 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(function Pro
               skills={skills}
               skillCategories={skillCategories}
               onPickSkill={onPickSkill}
+              params={paramsOf(task)}
+              onParamsChange={(p) => setParams((all) => ({ ...all, [task]: p }))}
             />
           </div>
           <div className="kv-prompt-box__toolbar-end">
@@ -368,7 +383,10 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(function Pro
               reason={reason}
               generating={generating}
               onSubmit={submit}
+              onStop={onStop}
               placement={placement}
+              count={count}
+              onCountChange={setCount}
             />
           </div>
         </div>

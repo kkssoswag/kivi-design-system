@@ -1,6 +1,6 @@
 import { forwardRef, type ReactNode } from 'react';
 import { useControllable } from '../hooks';
-import { AudioParams, ImageParams, VideoParams } from './GenParams';
+import { AudioParams, ImageParams, VideoParams, type GenParamValues } from './GenParams';
 import { BackgroundSelect, ModelSelect, RefModeSelect, VoiceSelect, type GenSelectProps } from './GenSelects';
 import { DEFAULT_MODEL, VIDEO_FIRST_LAST_ONLY, VIDEO_WITH_AUDIO } from './options';
 
@@ -11,7 +11,12 @@ import { DEFAULT_MODEL, VIDEO_FIRST_LAST_ONLY, VIDEO_WITH_AUDIO } from './option
 
 /** 模型下拉能接的属性：值由组件自己管，不能传 */
 /** 其余属性给模型那一格；placement 给这一组所有的下拉（往哪边弹由用的地方定） */
-type ModelSelectRest = Omit<GenSelectProps, 'value' | 'defaultValue' | 'onChange'>;
+type ModelSelectRest = Omit<GenSelectProps, 'value' | 'defaultValue' | 'onChange'> & {
+  /** 参数面板选的值（受控），见 GenParams 的 GEN_PARAM_DEFAULTS。不传参数面板自己存 */
+  params?: GenParamValues;
+  /** 参数面板改了 */
+  onParamsChange?: (params: GenParamValues) => void;
+};
 
 export interface VideoModelControlsProps extends ModelSelectRest {
   /** 视频模型（值）。传了就是受控，参考方式、参数跟着它换；外面要按模型算消耗就传 */
@@ -30,7 +35,7 @@ export interface VideoModelControlsProps extends ModelSelectRest {
  * refMode 默认是不受控的 RefModeSelect，要跟着切参考区就自己传一个受控的
  */
 export const VideoModelControls = forwardRef<HTMLSpanElement, VideoModelControlsProps>(function VideoModelControls(
-  { model: modelProp, defaultModel = DEFAULT_MODEL.video, onModelChange, refMode, placement, ...rest },
+  { model: modelProp, defaultModel = DEFAULT_MODEL.video, onModelChange, refMode, placement, params, onParamsChange, ...rest },
   ref,
 ) {
   const [model, setModel] = useControllable(modelProp, defaultModel, onModelChange);
@@ -39,7 +44,7 @@ export const VideoModelControls = forwardRef<HTMLSpanElement, VideoModelControls
     <>
       <ModelSelect ref={ref} type="video" value={model} onChange={setModel} placement={placement} {...rest} />
       {!VIDEO_FIRST_LAST_ONLY.includes(model) && (refMode ?? <RefModeSelect placement={placement} />)}
-      <VideoParams audio={audio} placement={placement} />
+      <VideoParams audio={audio} placement={placement} values={params} onValuesChange={onParamsChange} />
     </>
   );
 });
@@ -56,14 +61,14 @@ export interface ImageModelControlsProps extends ModelSelectRest {
 
 /** 图片：模型 + 参数（比例、分辨率一个面板，照视频参数，11-11 用户定）；GPT Image 多一个背景（Figma 主站「图片生成 · GPT」示例） */
 export const ImageModelControls = forwardRef<HTMLSpanElement, ImageModelControlsProps>(function ImageModelControls(
-  { model: modelProp, defaultModel = DEFAULT_MODEL.image, onModelChange, placement, ...rest },
+  { model: modelProp, defaultModel = DEFAULT_MODEL.image, onModelChange, placement, params, onParamsChange, ...rest },
   ref,
 ) {
   const [model, setModel] = useControllable(modelProp, defaultModel, onModelChange);
   return (
     <>
       <ModelSelect ref={ref} type="image" value={model} onChange={setModel} placement={placement} {...rest} />
-      <ImageParams placement={placement} />
+      <ImageParams placement={placement} values={params} onValuesChange={onParamsChange} />
       {model.startsWith('gpt-image') && <BackgroundSelect placement={placement} />}
     </>
   );
@@ -79,7 +84,7 @@ export interface AudioModelControlsProps extends ModelSelectRest {
 
 /** 音频：模型 + 音色 + 高级设置，跟着模型换（照线上）。没有张数和比例，右边是字数 / 上限 */
 export const AudioModelControls = forwardRef<HTMLSpanElement, AudioModelControlsProps>(function AudioModelControls(
-  { model: modelProp, onModelChange, placement, ...rest },
+  { model: modelProp, onModelChange, placement, params, onParamsChange, ...rest },
   ref,
 ) {
   const [model, change] = useControllable(modelProp, DEFAULT_MODEL.audio, onModelChange);
@@ -87,7 +92,7 @@ export const AudioModelControls = forwardRef<HTMLSpanElement, AudioModelControls
     <>
       <ModelSelect ref={ref} type="audio" value={model} onChange={change} placement={placement} {...rest} />
       <VoiceSelect key={`v-${model}`} model={model} placement={placement} />
-      <AudioParams key={`p-${model}`} model={model} placement={placement} />
+      <AudioParams key={`p-${model}`} model={model} placement={placement} values={params} onValuesChange={onParamsChange} />
     </>
   );
 });

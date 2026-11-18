@@ -1,4 +1,4 @@
-import { forwardRef, type HTMLAttributes, type MouseEvent, type ReactNode } from 'react';
+import { forwardRef, useEffect, useLayoutEffect, useRef, useState, type HTMLAttributes, type MouseEvent, type ReactNode } from 'react';
 import { ButtonGroup, IconButton } from '../button';
 import { EmptyState, GENERATION_FAILED_TITLE } from '../feedback';
 import { GeneratingDots } from '../generating';
@@ -6,7 +6,7 @@ import { useControllable } from '../hooks';
 import type { IconName } from '../icons';
 import { Tag } from '../tags-avatar';
 import { cx } from '../utils';
-import { VideoPlayer } from '../media';
+import { Image, VideoPlayer } from '../media';
 import './main-site.css';
 
 export type ResultTileType = 'image' | 'video';
@@ -69,6 +69,11 @@ function Actions({ list, position, extra }: { list?: ResultTileAction[]; positio
   );
 }
 
+/** 生成完成后，生成中那层淡出用多久：和 main-site.css 里 --motion-duration-300 一致，只用来兜底 */
+const LEAVE_MS = 300;
+/** 等结果图加载最多等多久，过了也淡出（露出的是骨架屏） */
+const LEAVE_WAIT_MS = 4000;
+
 /** 主站生成结果的一格：一条记录里的一张图或一段视频，每格任务独立。Figma「生成记录」页 ResultTile */
 export const ResultTile = forwardRef<HTMLDivElement, ResultTileProps>(function ResultTile(
   {
@@ -96,21 +101,55 @@ export const ResultTile = forwardRef<HTMLDivElement, ResultTileProps>(function R
   const [collected, setCollected] = useControllable(collectedProp, defaultCollected, onCollectedChange);
   const cls = cx('kv-result-tile', type === 'video' && 'kv-result-tile--video', fit && 'kv-result-tile--fit', className);
 
+  // 生成中 → 完成：生成中那层（连同当时的原素材）留在上面盖着，结果图加载好再淡出，露出下面的图，不跳变（11-18 用户定）
+  const prev = useRef({ status, src, poster });
+  const [leaving, setLeaving] = useState<{ src?: string; poster?: string; out: boolean } | null>(null);
+  const mediaRef = useRef<HTMLImageElement>(null);
+  useLayoutEffect(() => {
+    if (prev.current.status === 'generating' && status === 'done') setLeaving({ src: prev.current.src, poster: prev.current.poster, out: false });
+    else if (status !== 'done') setLeaving(null);
+    prev.current = { status, src, poster };
+  }, [status, src, poster]);
+  const fadeOut = () => setLeaving((l) => (l && !l.out ? { ...l, out: true } : l));
+  useEffect(() => {
+    if (!leaving || leaving.out) return;
+    // 视频有封面直接走；图片已经在缓存里（不会再来 load）也直接走。等不到 load 的兜底
+    if (type === 'video' || mediaRef.current?.complete) {
+      const raf = requestAnimationFrame(fadeOut);
+      return () => cancelAnimationFrame(raf);
+    }
+    const t = window.setTimeout(fadeOut, LEAVE_WAIT_MS);
+    return () => window.clearTimeout(t);
+  }, [leaving, type]);
+  // 淡出结束撤掉；transitionend 不来（减少动态效果、后台标签页）按时长兜底
+  useEffect(() => {
+    if (!leaving?.out) return;
+    const t = window.setTimeout(() => setLeaving(null), LEAVE_MS + 100);
+    return () => window.clearTimeout(t);
+  }, [leaving?.out]);
+
+  // 生成中的样子：有原素材时原素材 + 遮罩，上面点阵。生成完成那一下它留在上面，等结果加载好再淡出
+  const generatingLayer = (from: { src?: string; poster?: string }) => (
+    <>
+      {from.src && (
+        <>
+          {type === 'image' ? (
+            <img className="kv-result-tile__media" src={from.src} alt="" />
+          ) : (
+            // 视频原素材：不播放，只露封面或首帧
+            <video className="kv-result-tile__media" src={from.src} poster={from.poster} muted playsInline preload="metadata" aria-hidden />
+          )}
+          <div className="kv-result-tile__mask" />
+        </>
+      )}
+      <GeneratingDots type={type} />
+    </>
+  );
+
   if (status === 'generating') {
     return (
       <div ref={ref} className={cls} aria-busy="true" {...rest}>
-        {src && (
-          <>
-            {type === 'image' ? (
-              <img className="kv-result-tile__media" src={src} alt="" />
-            ) : (
-              // 视频原素材：不播放，只露封面或首帧
-              <video className="kv-result-tile__media" src={src} poster={poster} muted playsInline preload="metadata" aria-hidden />
-            )}
-            <div className="kv-result-tile__mask" />
-          </>
-        )}
-        <GeneratingDots type={type} />
+        {generatingLayer({ src, poster })}
         {badge != null && (
           <span className="kv-result-tile__badge">
             <Tag variant="on-media">{badge}</Tag>
@@ -132,8 +171,19 @@ export const ResultTile = forwardRef<HTMLDivElement, ResultTileProps>(function R
 
   return (
     <div ref={ref} className={cls} tabIndex={0} {...rest}>
-      {src && type === 'image' && <img className="kv-result-tile__media" src={src} alt="" />}
+      {/* 图片：加载中骨架屏，加载完淡入（Image） */}
+      {src && type === 'image' && <Image ref={mediaRef} className="kv-result-tile__media" src={src} fit={fit ? 'contain' : 'cover'} onLoad={fadeOut} />}
       {src && type === 'video' && <VideoPlayer src={src} poster={poster} fit={fit ? 'contain' : undefined} onFullscreen={onPreview} />}
+      {leaving && (
+        <div
+          className="kv-result-tile__leaving"
+          data-out={leaving.out || undefined}
+          aria-hidden
+          onTransitionEnd={(e) => e.target === e.currentTarget && e.propertyName === 'opacity' && setLeaving(null)}
+        >
+          {generatingLayer(leaving)}
+        </div>
+      )}
       <Actions
         list={topActions}
         position="top"

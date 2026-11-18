@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef } from 'react';
 import { AskRecord, Button, ButtonGroup, CanvasHeader, Dropdown, Menu, MenuItem, MenuLabel, Icon, IconButton, MediaGroup, MessageFeedback, ProcessGroup, ScrollArea, Toaster, UserMessage, type AttachmentItem, type MediaGroupItem, type MediaGroupType, type ProcessStep } from '@kivi';
 import { MiniCanvas, type CanvasNodeKey, type MiniCanvasHandle } from '../business/canvas.demos';
-import { AgentComposer } from './composer';
+import { AgentComposer } from '../../app/parts/agent-composer';
 import { TemplateFrame } from './frame';
 
 // 页面模板 · 画布：左边画布，右边 Agent 侧栏。对话里点结果缩略图，画布平移到那个节点并选中。
