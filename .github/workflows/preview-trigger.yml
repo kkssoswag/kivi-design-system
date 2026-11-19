@@ -1,0 +1,20 @@
+name: Publish preview
+
+# 预览分支专用（合进 test 前删掉）：推了这个分支，就叫 main 上的「Publish design site」重新发一次网站，
+# 它会把这个分支打包放进网站的「分支名/」子目录（要先列进 main 的 .github/preview-branches.json）。正式站内容不变。
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  actions: write
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Re-publish site with this preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --repo "$GITHUB_REPOSITORY" --ref main
