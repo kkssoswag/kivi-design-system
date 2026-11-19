@@ -74,10 +74,16 @@ import { GenerateButtonPlayground, PromptBoxLab, PromptBoxPlayground, PromptInpu
 | `frames` | `{ first?, last? }` | — | 首尾帧的两张图（地址）。进首尾帧时两格空着，就把参考区前两张图搬进来；出首尾帧时参考区空着，就把首尾帧搬回参考区。传了就是受控 |
 | `defaultFrames` | 同上 | `{}` | 非受控时一开始的首尾帧 |
 | `onFramesChange` | `(frames) => void` | — | 首尾帧变了：互换、拖进来、搬过来 |
+| `params` | `Partial<Record<GenTask, GenParamValues>>` | — | 参数面板选的值，每种任务各一份（键见 `GEN_PARAM_DEFAULTS`），切模型时不支持的值自动回默认。传了就是受控；「重新编辑」回填用 |
+| `defaultParams` | 同上 | `{}` | 非受控时一开始的参数 |
+| `onParamsChange` | `(params) => void` | — | 改了任何一项参数，参数是所有任务的整组值 |
+| `count` | `number` | — | 张数（图片、视频，1 / 2 / 4）。传了就是受控 |
+| `defaultCount` | `number` | `1` | 非受控时一开始的张数 |
+| `onCountChange` | `(count) => void` | — | 张数变了 |
 | `onAddReference` | `() => void` | — | 点了添加格。不传就弹出选文件，选完加进参考区（视频取第一帧当封面、带时长） |
 | `referencesExpanded` | `boolean` | — | 参考区固定展开（受控）。不传是鼠标移上去展开 |
 | `onReferencesExpandedChange` | `(expanded) => void` | — | 参考区展开收起 |
-| `onSubmit` | `(submit) => void` | — | 点了生成 / 发送，参数是任务、模型、参考方式、提示词、素材、首尾帧，以及参数面板选的值 `params`（`GenParamValues`）和张数 `count`。不能生成时不触发；不受控的提示词发出后清空 |
+| `onSubmit` | `(submit) => void` | — | 点了生成 / 发送，参数是任务、模型、参考方式、提示词、素材、首尾帧，以及参数面板选的值 `params`（`GenParamValues`）和张数 `count`。不能生成时不触发；发出后提示词不清空（照线上），要清自己改 `value` |
 | `generating` | `boolean` | `false` | 正在生成：生成按钮置灰，Agent 的发送按钮变停止 |
 | `onStop` | `() => void` | — | Agent 正在回复（`generating`）时，发送按钮变成停止，点了触发 |
 | `cost` | `number` | — | 消耗的猕猴桃数。不传按任务和模型取示例数字（`genCost`） |
@@ -87,7 +93,7 @@ import { GenerateButtonPlayground, PromptBoxLab, PromptBoxPlayground, PromptInpu
 | `onPickSkill` | — | — | Agent 点了一个技能 |
 | `placeholder` | `string` | — | 没输入时的占位文字。不传跟着任务变，比如视频是「描述你想生成的视频，@ 引用参考素材」 |
 | `maxHeight` | `number` | `240` | 提示词最高多高，单位 px，超过就在里面滚动 |
-| `onDropFiles` | `(files: File[]) => void` | — | 把文件拖进输入框、放下后触发，参数是通过 `accept` 检查的文件。不传就直接加进参考区，首尾帧时图片按顺序填空着的首帧、尾帧。拖进来时整个输入框盖一层 `DropOverlay`；类型不收的显示「不支持这种文件」，不接收，放下后弹 toast（页面上要放一个 `<Toaster />`） |
+| `onDropFiles` | `(files: File[]) => void` | — | 把文件拖进输入框、选文件、粘贴（焦点在输入框里 ⌘V，只取第一个符合的文件，粘的是字照常）后触发，参数是通过 `accept`、场景的上传要求（`UPLOAD_SPECS`：大小、时长、宽高、宽高比）和模型参考上限检查的文件。不合格、放不下（参考满了）的跳过并弹 toast 说第一个原因，合格的照常加；不传就直接加进参考区，首尾帧时图片按顺序填空着的首帧、尾帧。拖进来时整个输入框盖一层 `DropOverlay`；类型不收的显示「不支持这种文件」，不接收，放下后弹 toast（页面上要放一个 `<Toaster />`） |
 | `accept` | `string` | `"image/*,video/*,audio/*"` | 收哪些文件，写法同 `<input accept>`；首尾帧时只收图片。拖的过程中按类型提前判断 |
 | `inputRef` | `Ref<HTMLDivElement>` | — | 提示词输入框（`PromptInput`，contentEditable）的 ref，聚焦、选中用 |
 | `inputLabel` | `string` | `"提示词"` | 输入框的说明，读屏用 |
@@ -119,4 +125,5 @@ import { GenerateButtonPlayground, PromptBoxLab, PromptBoxPlayground, PromptInpu
 | `children` | `ReactNode` | — | 开头的内容：文字，中间可以插 MentionChip。只在第一次渲染时用，之后由用户编辑 |
 | `minRows` | `number` | `4` | 最少几行高。工具弹窗里一横条的输入框用 `1` |
 | `maxRows` | `number` | `6` | 最多长到几行，再多滚动 |
+| `maxLength` | `number` | — | 最多多少个字符（一个表情算一个，@ 标签按「@图片1」算），照线上：超了输入前拦住、粘贴超了截掉，不弹提示。PromptBox、NodePanel 传 10000（`PROMPT_MAX_LENGTH`）。不传不限 |
 | `mentions` | `{ id, type, name, src? }[]` | — | 打 @ 能引用的素材（照线上）：打「@」在 @ 下面弹出菜单（玻璃，离 4，放不下翻到上面），列出素材（缩略图 24 / 音频图标 + 名字），接着打字按名字筛；第一项高亮，↑ ↓ 挑，回车、Tab 或点一下把打的「@名字」换成 MentionChip；Esc、点外面关掉，光标还在这个 @ 后面时不再弹。没有匹配的写「暂无结果」，@ 后面打了 7 个字以上还没有就不弹。不传或空的不弹。PromptBox、NodePanel 自带（参考素材） |

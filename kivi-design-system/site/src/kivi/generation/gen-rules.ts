@@ -1,4 +1,6 @@
 import { referenceName, type ReferenceStackItem, type ReferenceType } from '../reference/ReferenceStack';
+import type { MediaRule } from '../hooks/useFileDrop';
+import { AUDIO_CHAR_LIMIT, countInputs, inputProblem, type InputKind } from './model-caps';
 import { VIDEO_FIRST_LAST_ONLY } from './options';
 
 /*
@@ -19,6 +21,14 @@ export interface GenFrames {
   first?: string;
   /** 尾帧图地址 */
   last?: string;
+}
+
+/** 提示词最多多少个字符（照线上 MentionInput）：PromptInput 的 maxLength，PromptBox、NodePanel 都传它 */
+export const PROMPT_MAX_LENGTH = 10000;
+
+/** 字符数：一个表情、生僻字算一个（按 code point，不是 `.length`） */
+export function charCount(text: string): number {
+  return [...text].length;
 }
 
 /** 主站输入框的占位文字，跟着任务变 */
@@ -57,7 +67,8 @@ export interface GenBlockInput {
 
 /**
  * 现在不能生成的原因，能生成返回 undefined（11-17 用户定：置灰 + 悬停说为什么）。
- * 文案照线上的校验：先看素材够不够，再看有没有描述。Agent 没写字只置灰，不说原因（发送按钮）
+ * 文案照线上的校验：先看素材够不够、多不多、互不互斥（读模型能力表 model-caps.ts），再看有没有描述、超没超字数。
+ * Agent 没写字只置灰，不说原因（发送按钮）
  */
 export function genBlockedReason({ kind, text, model = '', refMode = 'omni', referenceTypes = [], hasFirstFrame }: GenBlockInput): string | undefined {
   if (kind === 'video') {
@@ -67,11 +78,18 @@ export function genBlockedReason({ kind, text, model = '', refMode = 'omni', ref
       return '请至少上传 1 个视频';
     }
   }
+  // 参考数量：图片、视频、音频任务和节点才有（首尾帧的图在首尾帧格里，不算）
+  if ((kind === 'image' || kind === 'video' || kind === 'audio') && !(kind === 'video' && isFramesMode(model, refMode))) {
+    const problem = inputProblem(countInputs(referenceTypes), model, refMode);
+    if (problem) return problem;
+  }
   if (!text.trim()) {
     if (kind === 'audio') return '请输入文字';
     if (kind === 'text' || kind === 'agent') return '请输入内容';
     return '请输入画面描述';
   }
+  const limit = AUDIO_CHAR_LIMIT[model];
+  if (kind === 'audio' && limit && charCount(text) > limit) return `输入文本不能超过${limit}个字符`;
   return undefined;
 }
 
@@ -96,6 +114,50 @@ export function genCost(kind: GenKind, model: string): number {
   if (kind === 'audio') return 2;
   if (kind === 'text' || kind === 'agent') return 1;
   return COST[model] ?? (kind === 'image' ? 3 : 60);
+}
+
+// ---------- 上传要求 ----------
+// 各场景的上传要求写在这一份，不合格的文件不加进来、弹 Toast 说第一个原因（11-18 用户定，数字照线上）。
+
+const MB = 1024 * 1024;
+/** 一个场景里图片、视频、音频各自的要求。没写的类型不检查 */
+export type UploadSpec = Partial<Record<InputKind, MediaRule>>;
+
+/** 全能参考、首尾帧的图片：≤10MB、宽高 300–4096px、宽高比 1:2.5–2.5:1 */
+const OMNI_IMAGE: MediaRule = { maxSize: 10 * MB, minDimension: 300, maxDimension: 4096, ratio: [0.4, 2.5] };
+
+/**
+ * 上传要求预设：
+ * - general：主站图片、音频任务和 Agent，图 ≤50MB；视频 ≤50MB、≤600s；音频 ≤15MB、2–600s
+ * - omni：主站视频的全能参考（视频编辑、延长同），图见上；视频 ≤50MB、4–15s；音频 ≤15MB、2–15s
+ * - frames：主站视频的首尾帧，只有图片，同全能参考的图
+ * - tools：AI 工具页，图 ≤10MB、宽高 ≥360 ≤4096px；视频 mp4 ≤20MB
+ * - canvas：画布，图 png / jpg / webp ≤50MB；视频 mp4 ≤50MB；音频 mp3 / wav ≤15MB、2–600s（一批里有一个不合格整批不收，一次最多 20 个，由用的地方处理）
+ */
+export const UPLOAD_SPECS = {
+  general: { image: { maxSize: 50 * MB }, video: { maxSize: 50 * MB, maxDuration: 600 }, audio: { maxSize: 15 * MB, minDuration: 2, maxDuration: 600 } },
+  omni: { image: OMNI_IMAGE, video: { maxSize: 50 * MB, minDuration: 4, maxDuration: 15 }, audio: { maxSize: 15 * MB, minDuration: 2, maxDuration: 15 } },
+  frames: { image: OMNI_IMAGE },
+  tools: { image: { maxSize: 10 * MB, minDimension: 360, maxDimension: 4096 }, video: { accept: 'video/mp4', formats: 'mp4', maxSize: 20 * MB } },
+  canvas: {
+    image: { accept: 'image/png,image/jpeg,image/webp', formats: 'png、jpg、webp', maxSize: 50 * MB },
+    video: { accept: 'video/mp4', formats: 'mp4', maxSize: 50 * MB },
+    audio: { accept: 'audio/mpeg,audio/wav,.mp3,.wav', formats: 'mp3、wav', maxSize: 15 * MB, minDuration: 2, maxDuration: 600 },
+  },
+} satisfies Record<string, UploadSpec>;
+
+/** 主站输入框这会儿用哪一套上传要求：视频任务按参考方式（首尾帧 / 全能参考、编辑、延长），其余是通用 */
+export function mainUploadSpec(kind: GenKind, model: string, refMode: string): UploadSpec {
+  if (kind !== 'video') return UPLOAD_SPECS.general;
+  return isFramesMode(model, refMode) ? UPLOAD_SPECS.frames : UPLOAD_SPECS.omni;
+}
+
+/** 参考满了、再添加时弹的文字。全能参考写「位已满」（照线上），其余写上限几张；模型根本不收这类（上限 0）也说一声 */
+export function referenceFullMessage(type: InputKind, max: number, omni: boolean): string {
+  const name = { image: '图片', video: '视频', audio: '音频' }[type];
+  if (max === 0) return `当前模型不支持上传${name}`;
+  if (omni) return `全能参考${name}位已满，请删除后再上传`;
+  return { image: `参考图已满，最多支持${max}张图`, video: `参考视频已满，最多支持${max}个视频`, audio: `参考音频已满，最多支持${max}段音频` }[type];
 }
 
 /** 文件是哪种参考素材 */

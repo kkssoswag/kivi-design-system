@@ -531,6 +531,12 @@
   --kv-empty-ip: 96px;
 }
 
+/* 图标代替插图（icon 属性）：160 配 64、96 配 40，颜色 disabled 一档（不叠透明度） */
+.kv-empty-state__icon {
+  flex: none;
+  color: var(--color-text-fill-disabled);
+}
+
 /* 插图：IP 图，背后一圈绿色光晕，脚下一块地面阴影。尺寸跟着 --kv-empty-ip 等比走（大 160，小 96） */
 .kv-empty-state__illustration {
   position: relative;

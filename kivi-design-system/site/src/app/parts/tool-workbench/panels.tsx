@@ -1,8 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import {
-  AddTile,
-  AttachmentStrip,
   Dropdown,
+  Icon,
   Menu,
   MenuItem,
   NodePanel,
@@ -13,11 +12,11 @@ import {
   Select,
   Slider,
   TabItem,
+  Popover,
   Tabs,
-  placeholderImageSrc,
 } from '@kivi';
 import type { ToolId } from '../../data/tools';
-import { EDIT_MODES, EXPAND_RATIOS } from './options';
+import { EDIT_MODELS, EDIT_MODES, EDIT_PROMPT_MAX, EXPAND_RATIOS } from './options';
 import type { ToolState } from './types';
 
 /*
@@ -25,13 +24,14 @@ import type { ToolState } from './types';
 */
 
 /** 提示词：PromptInput 是不受控的，这里记下打的字（切工具再切回来接着显示），也决定生成按钮能不能点 */
-function Prompt({ placeholder, initial, onText, oneLine }: { placeholder: string; initial: string; onText: (t: string) => void; oneLine?: boolean }) {
+function Prompt({ placeholder, initial, onText, oneLine, maxLength }: { placeholder: string; initial: string; onText: (t: string) => void; oneLine?: boolean; maxLength?: number }) {
   const [init] = useState(initial); // 只在挂上时放进去，之后由用户编辑
   return (
     <PromptInput
       placeholder={placeholder}
       minRows={oneLine ? 1 : undefined}
       maxRows={oneLine ? 3 : undefined}
+      maxLength={maxLength}
       onInput={(e) => onText(e.currentTarget.textContent ?? '')}
     >
       {init || undefined}
@@ -66,12 +66,12 @@ export interface ToolPanelProps {
   setPrompt: (t: string) => void;
   /** 扩图、智能编辑的提示词放成一横条 */
   promptBar?: boolean;
-  /** 有没有原图（拼接的第一段） */
-  hasSource: boolean;
+  /** 拼接生成过一次后出的「继续拼接」按钮 */
+  continueButton?: ReactNode;
   pickExpandRatio: (v: string | null) => void;
 }
 
-export function ToolPanel({ tool, st, set, gen, promptKey, prompt, setPrompt, promptBar, hasSource, pickExpandRatio }: ToolPanelProps) {
+export function ToolPanel({ tool, st, set, gen, promptKey, prompt, setPrompt, promptBar, continueButton, pickExpandRatio }: ToolPanelProps) {
   switch (tool) {
     case 'cutout':
       return (
@@ -143,8 +143,10 @@ export function ToolPanel({ tool, st, set, gen, promptKey, prompt, setPrompt, pr
             placeholder={st.editMode === 'redraw' ? '描述你想怎么改这张图' : '描述涂抹的地方要改成什么'}
             onText={setPrompt}
             oneLine={promptBar}
+            maxLength={EDIT_PROMPT_MAX}
           />
         ) : null;
+      const model = EDIT_MODELS.find((o) => o.value === st.editModel);
       const editLeft = (
         <>
           <Dropdown
@@ -163,7 +165,26 @@ export function ToolPanel({ tool, st, set, gen, promptKey, prompt, setPrompt, pr
               ))}
             </Menu>
           </Dropdown>
-          {st.editMode === 'remove' && <Hint>涂抹要去掉的东西</Hint>}
+          {/* 只有智能重绘能选模型，局部重绘、元素去除用固定的 */}
+          {st.editMode === 'redraw' && (
+            <Dropdown
+              haspopup="listbox"
+              trigger={
+                <Select variant="plain" leftIcon={model?.icon} aria-label="模型">
+                  {model?.label}
+                </Select>
+              }
+            >
+              <Menu role="listbox" aria-label="模型">
+                {EDIT_MODELS.map((o) => (
+                  <MenuItem key={o.value} icon={o.icon} selected={o.value === st.editModel} onClick={() => set('editModel', o.value as string)}>
+                    {o.label}
+                  </MenuItem>
+                ))}
+              </Menu>
+            </Dropdown>
+          )}
+          {st.editMode === 'remove' && <Hint>涂抹需要去除的区域，AI 将自动补全背景</Hint>}
         </>
       );
       return promptBar ? (
@@ -206,7 +227,19 @@ export function ToolPanel({ tool, st, set, gen, promptKey, prompt, setPrompt, pr
     case 'loop':
       return (
         <NodePanel className="tpl-tool__panel">
-          <ParamField label="过渡时长">
+          <ParamField
+            label={
+              <span className="tpl-at__label-tip">
+                过渡时长
+                {/* 说明性的话用 Popover，Tooltip 只写工具名（设计规则「提示」） */}
+                <Popover content="在首尾之间补出过渡画面，让视频循环播放时不跳">
+                  <span className="tpl-at__label-info" tabIndex={0} role="img" aria-label="过渡时长说明">
+                    <Icon name="Lightbulb" size={16} />
+                  </span>
+                </Popover>
+              </span>
+            }
+          >
             <Tabs variant="segment" value={st.loop} onChange={(v) => set('loop', v)} aria-label="过渡时长">
               {[['auto', '自动'], ['1', '1s'], ['2', '2s'], ['3', '3s']].map(([v, l]) => (
                 <TabItem key={v} value={v}>
@@ -221,20 +254,7 @@ export function ToolPanel({ tool, st, set, gen, promptKey, prompt, setPrompt, pr
     case 'stitch':
       return (
         <NodePanel className="tpl-tool__panel">
-          <ParamField label="按顺序拼接">
-            <div className="tpl-at__strip">
-              <AttachmentStrip
-                aria-label="要拼接的视频"
-                items={[
-                  ...(hasSource ? [{ id: 'a', type: 'video' as const, name: '视频1', src: placeholderImageSrc('kivi-future', '16:9'), duration: '0:08', badge: '1' }] : []),
-                  ...(st.stitchExtra ? [{ id: 'b', type: 'video' as const, name: '视频2', src: placeholderImageSrc('ip-gouache', '9:16'), duration: '0:05', badge: '2' }] : []),
-                ]}
-                onRemove={(id) => id === 'b' && set('stitchExtra', false)}
-              />
-              {!st.stitchExtra && <AddTile label="添加视频" onClick={() => set('stitchExtra', true)} />}
-            </div>
-          </ParamField>
-          <NodePanelBar right={gen} />
+          <NodePanelBar left={continueButton} right={gen} />
         </NodePanel>
       );
   }

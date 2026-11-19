@@ -3,9 +3,9 @@ import { GENERATION_FAILED_TITLE } from '@kivi';
 import { ApiError, request } from './api';
 import { db } from './db';
 import { demo, setDemo } from './demo';
-import { mockOutput } from './mock';
+import { mockOutput, mockText } from './mock';
 import { uid } from './store';
-import type { Asset, Media, Task } from './types';
+import type { Asset, Task, TaskMedia } from './types';
 
 /*
   假任务：全站所有生成（主站、工具页、画布）都走这里。
@@ -19,16 +19,18 @@ export type TaskInput = Omit<Task, 'id' | 'outputs' | 'status' | 'createdAt' | '
   count?: number;
   /** 估时（秒），不传按类型 */
   seconds?: number;
+  /** 这次固定失败（演示：工具第一次生成失败一次）；不传看演示开关「下次生成失败」 */
+  forceFail?: boolean;
 };
 
 /** 平时的估时（秒）；演示开关「快速出结果」打开时一律 3 秒 */
-const ESTIMATE: Record<Task['kind'], Record<Media, number>> = {
-  gen: { image: 20, video: 60, audio: 15 },
-  tool: { image: 8, video: 30, audio: 10 },
+const ESTIMATE: Record<Task['kind'], Record<TaskMedia, number>> = {
+  gen: { image: 20, video: 60, audio: 15, text: 8 },
+  tool: { image: 8, video: 30, audio: 10, text: 8 },
 };
 const FAST = 3;
 
-const estimate = (kind: Task['kind'], media: Media, seconds?: number) => (demo.get().fast ? FAST : seconds ?? ESTIMATE[kind][media]);
+const estimate = (kind: Task['kind'], media: TaskMedia, seconds?: number) => (demo.get().fast ? FAST : seconds ?? ESTIMATE[kind][media]);
 
 const patchTask = (id: string, fn: (t: Task) => Task) => db.set((s) => ({ ...s, tasks: s.tasks.map((t) => (t.id === id ? fn(t) : t)) }));
 
@@ -39,11 +41,11 @@ function charge(cost: number) {
 }
 
 /** 提交一个生成任务。余额不够、断网会抛 ApiError，交给 handleError */
-export function submitTask({ count = 1, seconds, ...input }: TaskInput): Promise<Task> {
+export function submitTask({ count = 1, seconds, forceFail, ...input }: TaskInput): Promise<Task> {
   return request(() => {
     charge(input.cost);
     const now = Date.now();
-    const willFail = demo.get().failNext || undefined;
+    const willFail = forceFail || demo.get().failNext || undefined;
     if (willFail) setDemo({ failNext: false });
     const task: Task = {
       ...input,
@@ -97,18 +99,29 @@ export function removeTask(id: string): Promise<void> {
   });
 }
 
+/** 再次生成：用这条任务原来的参数直接再提交一次（扣费、排到最后），生成和工具任务都一样 */
+export function rerunTask(t: Task): Promise<Task> {
+  const { id: _id, outputs, status: _status, createdAt: _c, dueAt: _d, willFail: _w, error: _e, hold: _h, holdLeft: _l, ...input } = t;
+  return submitTask({ ...input, count: outputs.length });
+}
+
 /** 到点的任务出结果 */
 function settle(t: Task): { task: Task; assets: Asset[]; refund: number } {
   if (t.willFail) {
     return { task: { ...t, status: 'failed', error: GENERATION_FAILED_TITLE, outputs: t.outputs.map(() => ({ status: 'failed' as const })) }, assets: [], refund: t.cost };
   }
+  // 文字（画布文字节点）：结果是一段字，不进素材
+  if (t.media === 'text') {
+    return { task: { ...t, status: 'done', outputs: t.outputs.map(() => ({ status: 'done' as const, text: mockText(t.prompt) })) }, assets: [], refund: 0 };
+  }
+  const media = t.media;
   const now = Date.now();
   const assets: Asset[] = t.outputs.map((_, i) => ({
     id: uid('a'),
-    media: t.media,
+    media,
     ratio: t.ratio,
-    ...(t.echo && t.refs[0] ? { src: t.refs[0].src, poster: t.media === 'video' ? mockOutput('video', t.ratio).poster : undefined } : mockOutput(t.media, t.ratio)),
-    name: `${t.label ?? (t.media === 'video' ? '视频生成' : t.media === 'audio' ? '音频生成' : '图片生成')} ${i + 1}`,
+    ...(t.echo && t.refs[0] ? { src: t.refs[0].src, poster: media === 'video' ? mockOutput('video', t.ratio).poster : undefined } : mockOutput(media, t.ratio)),
+    name: `${t.label ?? (media === 'video' ? '视频生成' : media === 'audio' ? '音频生成' : '图片生成')} ${i + 1}`,
     createdAt: now,
     source: t.where.page,
     taskId: t.id,

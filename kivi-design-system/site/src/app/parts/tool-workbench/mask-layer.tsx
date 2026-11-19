@@ -37,13 +37,15 @@ function drawStrokes(canvas: HTMLCanvasElement, strokes: Stroke[], color: string
   ctx.globalCompositeOperation = 'source-over';
 }
 
-export function MaskLayer({ rect, strokes, onStroke, erase, size }: {
+export function MaskLayer({ rect, strokes, onStroke, erase, size, inactive }: {
   rect: CropRect;
   strokes: Stroke[];
   onStroke: (s: Stroke) => void;
   erase: boolean;
   /** 笔刷直径，屏幕像素 */
   size: number;
+  /** 拖动工具：不涂，鼠标事件交给外面平移 */
+  inactive?: boolean;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const live = useRef<Stroke | null>(null);
@@ -75,6 +77,7 @@ export function MaskLayer({ rect, strokes, onStroke, erase, size }: {
         height={Math.round(rect.h * dpr)}
         aria-label={erase ? '橡皮' : '涂抹要修改的地方'}
         onPointerDown={(e) => {
+          if (inactive) return;
           e.currentTarget.setPointerCapture(e.pointerId);
           live.current = { erase, size: size / rect.w, pts: [point(e)] };
           redraw();
@@ -82,7 +85,7 @@ export function MaskLayer({ rect, strokes, onStroke, erase, size }: {
         onPointerMove={(e) => {
           const b = e.currentTarget.getBoundingClientRect();
           setCursor({ x: e.clientX - b.left, y: e.clientY - b.top });
-          if (!live.current) return;
+          if (inactive || !live.current) return;
           live.current.pts.push(point(e));
           redraw();
         }}
@@ -92,7 +95,7 @@ export function MaskLayer({ rect, strokes, onStroke, erase, size }: {
         }}
         onPointerLeave={() => setCursor(null)}
       />
-      {cursor && <span className="tpl-at__brush" style={{ left: cursor.x, top: cursor.y, width: size, height: size }} />}
+      {cursor && !inactive && <span className="tpl-at__brush" style={{ left: cursor.x, top: cursor.y, width: size, height: size }} />}
     </div>
   );
 }

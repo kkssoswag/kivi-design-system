@@ -34,6 +34,7 @@ export * from './tooltip';
 export * from './dialog';
 export * from './feedback';
 export * from './generating';
+export * from './kimo';
 
 // 业务组件
 export * from './reference';

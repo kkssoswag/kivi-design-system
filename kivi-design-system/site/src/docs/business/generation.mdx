@@ -216,7 +216,7 @@ Agent 控件：Agent 模式下工具条上的模型、技能和生成模式。
 
 ### 生成下拉
 
-下面这些是填好选项的生成控件，画布生成面板、主站输入框、Agent 输入框共用，放进 `PromptBox` 的 `toolbar` 和 `actions`。选项（任务、模型、比例、尺寸、背景、音色、张数、Agent 模式、模型分组、字数上限）都在 `kivi/generation/options.ts`，只写这一份；线上的清单是后端下发的，接入时整体换掉。
+下面这些是填好选项的生成控件，画布生成面板、主站输入框、Agent 输入框共用，放进 `PromptBox` 的 `toolbar` 和 `actions`。选项（任务、模型、比例、尺寸、背景、音色、张数、Agent 模式、模型分组）都在 `kivi/generation/options.ts`，各模型能接几个参考、字数上限、支持哪些参数值在 `model-caps.ts`，只写这两份；线上的清单是后端下发的，接入时整体换掉。
 
 `TaskSelect`、`RefModeSelect`、`ModelSelect`、`SizeSelect`、`RatioSelect`、`BackgroundSelect`、`VoiceSelect`、`CountSelect`、`AgentModeSelect` 都是填好选项的无底 `Select`（`variant="plain"`）。展开位置不写，默认往下、放不下自己翻上去。`Select` 的属性（`value`、`defaultValue`、`onChange`、`placement`、`disabled`、`aria-label` 等）都能传，传了盖过默认；选项和样式固定，不能传 `options`、`variant`。
 
@@ -253,11 +253,12 @@ Agent 控件：Agent 模式下工具条上的模型、技能和生成模式。
 | `values` | `GenParamValues` | — | 选的值（受控），`{ ratio, duration, resolution, sound }`，值都是字符串；不传组件自己存，默认 `GEN_PARAM_DEFAULTS.video`（16:9、5、720P、开） |
 | `onValuesChange` | `(values) => void` | — | 改了任何一项，参数是整组新值 |
 | `audio` | `boolean` | `false` | 有「生成音频」：Seedance、Kling V3 Omni 有。开着时摘要后面跟一个音量图标 |
+| `allowed` | `GenParamLimits` | — | 当前模型支持的参数值（`ratio`、`resolution`、`duration`，字符串数组），面板只显示这些，不传全部显示。时长只有几个固定值时（Veo 4 / 6 / 8，Sora 4 / 8 / 12）还是刻度滑块，范围和步进按这几个值。`VideoModelControls` 按模型能力表（`model-caps.ts`）传 |
 | 其余 | `ParamPickerProps` | — | 去掉 `summary`、`children`；`placement`、`open` 一套等都能传 |
 
 ### ImageParams
 
-图片参数：一个 `ParamPicker`，摘要「分辨率 · 比例」，面板里是比例（竖排分段带比例图标，11 个一排 6 个，`RATIOS`）、分辨率（1K / 2K / 4K，`SIZES`）。交互照 `VideoParams`；面板里选的值不传 `values` 就组件自己管。
+图片参数：一个 `ParamPicker`，摘要「分辨率 · 比例」，面板里是比例（竖排分段带比例图标，11 个一排 6 个，`RATIOS`）、分辨率（1K / 2K / 4K，`SIZES`）。交互照 `VideoParams`；面板里选的值不传 `values` 就组件自己管。`allowed`（`GenParamLimits`）：当前模型支持的比例、分辨率，面板只显示这些，不传全部显示（GPT Image 2 比例只有 智能 / 1:1 / 2:3 / 3:2，分辨率 1K / 2K），`ImageModelControls` 按模型能力表传。
 
 | 属性 | 类型 | 默认 | 说明 |
 |---|---|---|---|
@@ -312,8 +313,8 @@ Agent 控件：Agent 模式下工具条上的模型、技能和生成模式。
 
 | 属性 | 类型 | 默认 | 说明 |
 |---|---|---|---|
-| `count` | `number` | `0` | 现在的字数。超过上限字变红（`--color-status-danger`），不挡生成 |
-| `model` | `string` | `"seed-audio-1.0"` | 音频模型的值，上限跟着它变（`AUDIO_CHAR_LIMIT`：Seed 3000、MiniMax 10000、Eleven 5000） |
+| `count` | `number` | `0` | 现在的字数（一个表情算一个）。超过上限字变红（`--color-status-danger`），同时生成按钮置灰、悬停说「输入文本不能超过{n}个字符」（`genBlockedReason`） |
+| `model` | `string` | `"seed-audio-1.0"` | 音频模型的值，上限跟着它变（`AUDIO_CHAR_LIMIT`，从模型能力表 `model-caps.ts` 算出来：Seed 3000、MiniMax 10000、Eleven 5000） |
 
 ### GenModelPicker
 

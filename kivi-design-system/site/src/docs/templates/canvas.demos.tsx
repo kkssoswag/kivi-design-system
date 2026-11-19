@@ -93,7 +93,7 @@ function AgentPanel({ onLocate, skill }: { onLocate: (key: CanvasNodeKey) => voi
       </div>
       </ScrollArea>
 
-      <AgentComposer attachments={skill ? undefined : ATTACHMENTS} skill={skill} />
+      <AgentComposer defaultAttachments={skill ? undefined : ATTACHMENTS} skill={skill} />
     </aside>
   );
 }

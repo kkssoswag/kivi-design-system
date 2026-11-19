@@ -1,10 +1,11 @@
 import { forwardRef, type HTMLAttributes } from 'react';
 import { cx } from '../utils';
-import { AUDIO_CHAR_LIMIT, DEFAULT_MODEL } from './options';
+import { AUDIO_CHAR_LIMIT } from './model-caps';
+import { DEFAULT_MODEL } from './options';
 import './generation.css';
 
 export interface AudioCharCountProps extends HTMLAttributes<HTMLSpanElement> {
-  /** 现在的字数，默认 0 */
+  /** 现在的字数（按字符数，一个表情算一个），默认 0 */
   count?: number;
   /** 音频模型的值，上限跟着它变，默认 Seed Audio */
   model?: string;

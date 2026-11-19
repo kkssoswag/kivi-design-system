@@ -4,6 +4,7 @@ import { useControllable } from '@kivi/hooks';
 import { createCanvas, deleteCanvas, pinCanvas, renameCanvas } from '../../data/canvases';
 import { createChat, deleteChat, pinChat, renameChat, sortRecent } from '../../data/chats';
 import { useDB } from '../../data/db';
+import { confirmDelete } from '../../flows/delete';
 import { attempt } from '../../flows/errors';
 import { HistoryGroup, type HistoryItem } from './HistoryGroup';
 
@@ -114,7 +115,7 @@ export function Sidebar({ collapsed: collapsedProp, defaultCollapsed = false, on
               collapsed={collapsed}
               onSelect={(id) => open('chat', id)}
               onNew={() => void attempt(() => createChat('新对话')).then((c) => c && open('chat', c.id))}
-              onRemove={(id) => void attempt(() => deleteChat(id))}
+              onRemove={(id) => void confirmDelete(() => deleteChat(id))}
               onRename={(id, name) => void attempt(() => renameChat(id, name))}
               onPin={(id) => void attempt(() => pinChat(id))}
             />
@@ -127,7 +128,7 @@ export function Sidebar({ collapsed: collapsedProp, defaultCollapsed = false, on
               collapsed={collapsed}
               onSelect={(id) => open('canvas', id)}
               onNew={() => void attempt(() => createCanvas('未命名画布')).then((c) => c && open('canvas', c.id))}
-              onRemove={(id) => void attempt(() => deleteCanvas(id))}
+              onRemove={(id) => void confirmDelete(() => deleteCanvas(id))}
               onRename={(id, name) => void attempt(() => renameCanvas(id, name))}
               onPin={(id) => void attempt(() => pinCanvas(id))}
               onAll={() => onNavigate?.('assets')}

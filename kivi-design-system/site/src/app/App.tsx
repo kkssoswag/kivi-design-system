@@ -5,6 +5,7 @@ import { PreviewHost } from '../docs/components/media.demos';
 import { TemplateFrame } from '../docs/templates/frame';
 import '../docs/templates/templates.css';
 import { useDB } from './data/db';
+import { useBalanceTip } from './flows/balance-tip';
 import { FlowHost } from './flows/dialogs';
 import { AssetsPage } from './pages/assets';
 import { CanvasPage } from './pages/canvas';
@@ -13,6 +14,8 @@ import { ExplorePage, type ExploreTab } from './pages/explore';
 import { ToolsPage } from './pages/tools';
 import { Sidebar, Wallet, type AppPage, type HistoryKind } from './parts/shell';
 import { DemoPanel } from './parts/DemoPanel';
+import type { AgentComposerMessage } from './parts/agent-composer';
+import { ensureCanvas } from './data/canvases';
 import './app.css';
 
 /*
@@ -29,6 +32,7 @@ const PAGES: AppPage[] = ['create', 'explore', 'tools', 'assets', 'canvas'];
 const NONE = { kind: 'chat' as HistoryKind, id: '' };
 
 export function KiviApp({ page, onNavigate }: { page: AppPage; onNavigate: (page: AppPage) => void }) {
+  useBalanceTip();
   const [collapsed, setCollapsed] = useState(false);
   // 侧栏选中哪条对话 / 画布：进来是创作首页，什么都不选
   const [selected, setSelected] = useState(NONE);
@@ -62,11 +66,19 @@ export function KiviApp({ page, onNavigate }: { page: AppPage; onNavigate: (page
     }
     onNavigate(next);
   };
-  const openCanvas = () => {
-    setSelected(NONE);
-    setSkill(undefined);
+  // 新建画布进画布页（创作首页「画布」提交、探索页克隆、技能「使用」）：在点的时候就建好，带着 id 进去。
+  // 创作首页「画布」输入框里发的那句话，进去后 Agent 接着发
+  const [canvasIntro, setCanvasIntro] = useState<AgentComposerMessage | undefined>();
+  const openCanvas = (message?: AgentComposerMessage, withSkill?: string) => {
+    setSelected({ kind: 'canvas', id: ensureCanvas() });
+    setSkill(withSkill);
+    setCanvasIntro(message && typeof message === 'object' && 'text' in message ? message : undefined);
     onNavigate('canvas');
   };
+  // 直接进画布页没带画布（比如新 Tab 打开）：打开最近改过的那块
+  const canvases = useDB((s) => s.canvases);
+  const recentCanvas = canvases.reduce<string | undefined>((best, c) => (!best || c.updatedAt > (canvases.find((x) => x.id === best)?.updatedAt ?? 0) ? c.id : best), undefined);
+  const canvasId = selected.kind === 'canvas' && selected.id ? selected.id : recentCanvas;
 
   return (
     <>
@@ -114,11 +126,7 @@ export function KiviApp({ page, onNavigate }: { page: AppPage; onNavigate: (page
             key={`${exploreTab}:${exploreKeyword}`}
             initialTab={exploreTab}
             initialKeyword={exploreKeyword}
-            onUseSkill={(name) => {
-              setSelected(NONE);
-              setSkill(name);
-              onNavigate('canvas');
-            }}
+            onUseSkill={(name) => openCanvas(undefined, name)}
             onOpenCanvas={openCanvas}
           />
         )}
@@ -127,7 +135,20 @@ export function KiviApp({ page, onNavigate }: { page: AppPage; onNavigate: (page
         {/* 公共的头：右上角余额和头像，每一页一样的位置（中线离顶 32，和侧栏 Logo 对齐），换页不动。AI 工具页的放进右栏顶上 */}
         {page !== 'tools' && <Wallet />}
       </div>
-      {page === 'canvas' && <CanvasPage key={skill ?? 'canvas'} skill={skill} onHome={() => navigate('create')} />}
+      {page === 'canvas' && canvasId && (
+        <CanvasPage
+          // 换画布整页重新挂载（视角、选中、Agent 对话都是那块画布自己的）
+          key={canvasId}
+          canvasId={canvasId}
+          onCanvasChange={(id) => {
+            setCanvasIntro(undefined);
+            setSelected({ kind: 'canvas', id });
+          }}
+          skill={skill}
+          intro={canvasIntro}
+          onHome={() => navigate('create')}
+        />
+      )}
       <DemoPanel />
     </>
   );

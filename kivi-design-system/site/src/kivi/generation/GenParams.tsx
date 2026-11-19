@@ -72,6 +72,9 @@ export const GEN_PARAM_DEFAULTS = {
   audio: { speed: '1.0', pitch: '0', emotion: 'auto', stability: 'natural', subtitle: 'on' },
 } satisfies Record<'video' | 'image' | 'audio', GenParamValues>;
 
+/** 模型支持哪些参数值，没写的参数全部支持。参数面板只显示这里有的值；时长要等差（4、6、8），做成刻度滑块的步进 */
+export type GenParamLimits = Partial<Record<'ratio' | 'resolution' | 'duration', string[]>>;
+
 /** 参数面板通用的受控三件套：传了 values 就听外面的 */
 interface ParamValueProps {
   /** 选的值（受控）。不传就自己存，一开始是默认值 */
@@ -89,6 +92,8 @@ function useParamValues(defaults: GenParamValues, values: GenParamValues | undef
 }
 
 export interface VideoParamsProps extends Omit<ParamPickerProps, 'summary' | 'children'>, ParamValueProps {
+  /** 当前模型支持的参数值（比例、分辨率、时长），面板只显示这些。不传全部显示。由 VideoModelControls 按模型传 */
+  allowed?: GenParamLimits;
   /** 有没有「生成音频」：Seedance、Kling V3 Omni 有。开着时摘要后面跟一个音量图标，默认没有 */
   audio?: boolean;
 }
@@ -100,12 +105,17 @@ const VIDEO_SEC = { min: 4, max: 15 };
  * 视频参数：Figma「模板 · 画布」页「视频参数调整」（210:1514）。比例、时长、分辨率，Seedance 多一个生成音频。
  * 摘要照 Figma 主站输入框写成「分辨率 · 比例 · 时长」；生成音频开着时，后面跟一个音量图标（Figma 画布摘要「智能 · 8s · 2K ·」后面那个）
  */
-export const VideoParams = forwardRef<HTMLSpanElement, VideoParamsProps>(function VideoParams({ audio = false, values, onValuesChange, ...rest }, ref) {
+export const VideoParams = forwardRef<HTMLSpanElement, VideoParamsProps>(function VideoParams({ audio = false, allowed, values, onValuesChange, ...rest }, ref) {
   const [get, set] = useParamValues(GEN_PARAM_DEFAULTS.video, values, onValuesChange);
   const [ratio, setRatio] = [get('ratio'), set('ratio')];
   const [sec, setSec] = [Number(get('duration')), set('duration')];
   const [res, setRes] = [get('resolution'), set('resolution')];
   const [sound, setSound] = [get('sound'), set('sound')];
+  // 时长只有几个固定值（Veo 4 / 6 / 8，Sora 4 / 8 / 12）：还是刻度滑块，范围和步进按这几个值
+  const secs = allowed?.duration?.map(Number).sort((a, b) => a - b);
+  const secMin = secs?.length ? secs[0] : VIDEO_SEC.min;
+  const secMax = secs?.length ? secs[secs.length - 1] : VIDEO_SEC.max;
+  const secStep = secs && secs.length > 1 ? secs[1] - secs[0] : 1;
   return (
     <ParamPicker
       ref={ref}
@@ -115,28 +125,40 @@ export const VideoParams = forwardRef<HTMLSpanElement, VideoParamsProps>(functio
     >
       <ParamField label="选择比例">
         <Tabs variant="segment" layout="vertical" value={ratio} onChange={setRatio} aria-label="比例">
-          {VIDEO_RATIOS.map(([v, icon]) => (
+          {VIDEO_RATIOS.filter(([v]) => !allowed?.ratio || allowed.ratio.includes(v)).map(([v, icon]) => (
             <TabItem key={v} value={v} icon={icon}>
               {v}
             </TabItem>
           ))}
         </Tabs>
       </ParamField>
-      <SliderField label="选择视频生成时长" min={VIDEO_SEC.min} max={VIDEO_SEC.max} value={sec} unit="S" marks={ticks(5, 15, 5, 5)} onChange={setSec} />
-      <Segment label="选择分辨率" value={res} options={plainOptions(VIDEO_RES)} onChange={setRes} />
+      <SliderField
+        label="选择视频生成时长"
+        min={secMin}
+        max={secMax}
+        step={secStep}
+        value={sec}
+        unit="S"
+        marks={secs ? ticks(secMin, secMax, secStep, secStep) : ticks(5, 15, 5, 5)}
+        onChange={setSec}
+      />
+      <Segment label="选择分辨率" value={res} options={plainOptions(VIDEO_RES.filter((v) => !allowed?.resolution || allowed.resolution.includes(v)))} onChange={setRes} />
       {audio && <Segment label="生成音频" value={sound} options={ON_OFF} onChange={setSound} />}
     </ParamPicker>
   );
 });
 VideoParams.displayName = 'VideoParams';
 
-export interface ImageParamsProps extends Omit<ParamPickerProps, 'summary' | 'children'>, ParamValueProps {}
+export interface ImageParamsProps extends Omit<ParamPickerProps, 'summary' | 'children'>, ParamValueProps {
+  /** 当前模型支持的参数值（比例、分辨率），面板只显示这些。不传全部显示。由 ImageModelControls 按模型传 */
+  allowed?: GenParamLimits;
+}
 
 /**
  * 图片参数：比例、分辨率放进一个参数面板，交互照视频参数（11-11 用户定，原来是分辨率、比例两个下拉）。
  * 摘要写成「分辨率 · 比例」；比例 11 个，竖排分段一排 6 个
  */
-export const ImageParams = forwardRef<HTMLSpanElement, ImageParamsProps>(function ImageParams({ values, onValuesChange, ...props }, ref) {
+export const ImageParams = forwardRef<HTMLSpanElement, ImageParamsProps>(function ImageParams({ allowed, values, onValuesChange, ...props }, ref) {
   const [get, set] = useParamValues(GEN_PARAM_DEFAULTS.image, values, onValuesChange);
   const [ratio, setRatio] = [get('ratio'), set('ratio')];
   const [size, setSize] = [get('resolution'), set('resolution')];
@@ -144,14 +166,14 @@ export const ImageParams = forwardRef<HTMLSpanElement, ImageParamsProps>(functio
     <ParamPicker ref={ref} summary={`${size} · ${ratio}`} {...props}>
       <ParamField label="选择比例">
         <Tabs variant="segment" layout="vertical" columns={6} value={ratio} onChange={setRatio} aria-label="比例">
-          {RATIOS.map((o) => (
+          {RATIOS.filter((o) => !allowed?.ratio || allowed.ratio.includes(o.value)).map((o) => (
             <TabItem key={o.value} value={o.value} icon={o.icon}>
               {o.label}
             </TabItem>
           ))}
         </Tabs>
       </ParamField>
-      <Segment label="选择分辨率" value={size} options={SIZES} onChange={setSize} />
+      <Segment label="选择分辨率" value={size} options={SIZES.filter((o) => !allowed?.resolution || allowed.resolution.includes(o.value))} onChange={setSize} />
     </ParamPicker>
   );
 });

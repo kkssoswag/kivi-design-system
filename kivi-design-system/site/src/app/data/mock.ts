@@ -36,3 +36,9 @@ export function mockOutput(media: Media, ratio: Ratio): { src: string; poster?: 
   if (media === 'audio') return { src: DEMO_AUDIO, duration: '0:12' };
   return { src: pic(turn++, ratio) };
 }
+
+/** 假生成的一段文字（画布文字节点）：照提示词开个头，后面接一段示例 */
+export function mockText(prompt?: string): string {
+  const head = prompt?.trim() ? `「${prompt.trim().slice(0, 40)}」\n\n` : '';
+  return `${head}画面以清晨的猕猴桃果园为主场景，薄雾里透出暖金色的逆光。镜头从叶片上的露珠缓缓推进，切到一颗被剖开的猕猴桃，果肉翠绿、籽粒清晰。整体色调清新明亮，节奏舒缓，结尾落在品牌标志上。`;
+}

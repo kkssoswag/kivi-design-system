@@ -4,6 +4,7 @@ import { db } from './db';
 import { demo } from './demo';
 import { uid } from './store';
 import { submitTask } from './tasks';
+import { agentCreateNode, executeNode, getDoc, nodeCost } from './canvas-doc';
 import type { AgentBlock, AgentTurn, AgentUserMessage } from './types';
 
 /*
@@ -60,6 +61,7 @@ function advance(t: AgentTurn, now: number): AgentTurn {
     return next(replaceLast(t, { ...last, done: true }), now);
   }
   if ('generate' in beat) {
+    if (t.canvas) return canvasGenerate(t, beat.generate, now);
     // 创作页不出确认卡，到这一步直接提交生成（11-18 用户定）；提交完等结果出来再往下走
     if (last?.kind !== 'task') {
       if (!submitting.has(t.id)) void startGenerate(t.id, beat.generate);
@@ -69,6 +71,63 @@ function advance(t: AgentTurn, now: number): AgentTurn {
     return !task || task.status !== 'running' ? next(t, now) : t;
   }
   return t;
+}
+
+/**
+ * 画布里的生成（照线上画布 Agent）：先在画布上建节点（带上用户添加到对话的节点当上游），
+ * 手动模式出确认卡「是否确认 N 个节点生成?」等用户点，自动模式直接执行；执行完等结果出来再往下走。取消就结束这一轮
+ */
+function canvasGenerate(t: AgentTurn, g: ScriptGenerate, now: number): AgentTurn {
+  const { canvasId, mode } = t.canvas!;
+  // 正在提交执行：等它把结果块挂上来
+  if (submitting.has(t.id)) return t;
+  const last = lastBlock(t);
+  // 已经在等结果
+  if (last?.kind === 'task') {
+    const task = db.get().tasks.find((x) => x.id === last.taskId);
+    return !task || task.status !== 'running' ? next(t, now) : t;
+  }
+  if (last?.kind === 'confirm') {
+    if (last.answer === 'cancelled') return { ...t, status: 'done' };
+    if (last.answer !== 'approved') return t.status === 'waiting' ? t : { ...t, status: 'waiting' };
+    void startCanvasRun(t.id, canvasId, last.nodeIds);
+    return t;
+  }
+  // 第一次走到这：建节点，出一行工具调用
+  const sources = t.user.refs.map((r) => r.nodeId).filter((id): id is string => !!id && !!getDoc(canvasId).nodes.find((n) => n.id === id));
+  const node = agentCreateNode(canvasId, { ...g, prompt: t.user.text }, sources);
+  const steps = [{ icon: 'UseCanvas', action: '创建节点', object: node.name }, ...(sources.length ? [{ icon: 'UseCanvas', action: '节点连线', object: `${sources.length} 个节点 → ${node.name}` }] : [])];
+  const withTools: AgentTurn = { ...t, beatAt: now, blocks: [...t.blocks, { kind: 'tools', steps, shown: steps.length, done: true }] };
+  if (mode === 'manual') return { ...withTools, status: 'waiting', blocks: [...withTools.blocks, { kind: 'confirm', nodeIds: [node.id], cost: nodeCost(node) }] };
+  void startCanvasRun(t.id, canvasId, [node.id]);
+  return withTools;
+}
+
+/** 执行画布节点，结果挂进这一轮（每个节点一个 task 块）。余额不足、断网就在这一轮里出错误卡 */
+async function startCanvasRun(turnId: string, canvasId: string, nodeIds: string[]) {
+  if (submitting.has(turnId)) return;
+  submitting.add(turnId);
+  try {
+    for (const id of nodeIds) await executeNode(canvasId, id);
+    const taskIds = nodeIds.map((id) => getDoc(canvasId).nodes.find((n) => n.id === id)?.taskId).filter((x): x is string => !!x);
+    patchTurn(turnId, (x) => (x.status === 'running' ? { ...x, beatAt: Date.now(), blocks: [...x.blocks, ...taskIds.map((taskId) => ({ kind: 'task' as const, taskId }))] } : x));
+  } catch (e) {
+    const text = e instanceof ApiError && e.code === 'balance' ? '猕猴桃余额不足，这次没有生成' : e instanceof ApiError ? e.message : '生成确认提交失败，请重新发起生成';
+    patchTurn(turnId, (x) => (x.status === 'running' ? { ...x, status: 'failed', blocks: [...x.blocks, { kind: 'error', text }] } : x));
+  } finally {
+    submitting.delete(turnId);
+  }
+  tick();
+}
+
+/** 画布手动模式：确认卡上点了「确认生成」/「取消」 */
+export function answerConfirm(turnId: string, approved: boolean) {
+  patchTurn(turnId, (x) => {
+    const last = lastBlock(x);
+    if (x.status !== 'waiting' || last?.kind !== 'confirm') return x;
+    return { ...replaceLast(x, { ...last, answer: approved ? 'approved' : 'cancelled' }), status: 'running', beatAt: Date.now() };
+  });
+  tick();
 }
 
 function fail(t: AgentTurn): AgentTurn {
@@ -135,24 +194,36 @@ if (typeof window !== 'undefined') tick();
 // ---------- 动作 ----------
 
 /** 发一条消息给 Agent：对话里多一轮，开始播剧本。断网会抛错 */
-export function sendAgent(chatId: string, user: AgentUserMessage): Promise<AgentTurn> {
+export function sendAgent(chatId: string, user: AgentUserMessage, canvas?: AgentTurn['canvas']): Promise<AgentTurn> {
   return request(() => {
     const now = Date.now();
-    const turn: AgentTurn = { id: uid('ag'), chatId, user, script: pickScript(), step: 0, beatAt: now, status: 'running', blocks: [], createdAt: now };
+    const turn: AgentTurn = { id: uid('ag'), chatId, user, script: pickScript(), step: 0, beatAt: now, status: 'running', blocks: [], createdAt: now, canvas };
     db.set((s) => ({
       ...s,
       agentTurns: [...s.agentTurns, turn],
       chats: s.chats.map((c) => (c.id === chatId ? { ...c, updatedAt: now, items: [...c.items, { kind: 'agent', id: turn.id }] } : c)),
+      // 画布对话：第一句话当标题
+      canvasChats: s.canvasChats.map((c) => (c.id === chatId ? { ...c, updatedAt: now, title: c.title === NEW_CHAT ? user.text.slice(0, 20) || NEW_CHAT : c.title } : c)),
     }));
     tick();
     return turn;
   });
 }
 
+/** 画布对话的默认标题 */
+export const NEW_CHAT = '新对话';
+
+/** 画布右侧 Agent 新开一条对话 */
+export function newCanvasChat(canvasId: string): string {
+  const chat = { id: uid('cc'), canvasId, title: NEW_CHAT, updatedAt: Date.now() };
+  db.set((s) => ({ ...s, canvasChats: [chat, ...s.canvasChats] }));
+  return chat.id;
+}
+
 /** 停止：停在当前进度，已经出来的内容留着（照线上） */
 export function stopAgent(turnId: string) {
   patchTurn(turnId, (x) => {
-    if (x.status !== 'running') return x;
+    if (x.status !== 'running' && x.status !== 'waiting') return x;
     const blocks = x.blocks.map((b): AgentBlock => {
       if (b.kind === 'thinking' && !b.done) return { ...b, done: true };
       if (b.kind === 'tools' && !b.done) return { ...b, done: true };
@@ -171,4 +242,4 @@ export function regenerateAgent(turnId: string) {
 }
 
 /** 这个对话里正在回复的那一轮 */
-export const activeTurnOf = (turns: AgentTurn[], chatId: string) => turns.find((t) => t.chatId === chatId && t.status === 'running');
+export const activeTurnOf = (turns: AgentTurn[], chatId: string) => turns.find((t) => t.chatId === chatId && (t.status === 'running' || t.status === 'waiting'));
