@@ -101,6 +101,7 @@
   height: 20px;
   border-radius: var(--border-radius-round);
   background: var(--kv-nested-fill, var(--color-bg-fill-container-light-1)); /* 控件的部件，按所在的底取 Container 默认档（11-05 从 pressed 改） */
+  /* 状态切换：开、关时轨道变色 */
   transition: background-color var(--motion-duration-150) var(--motion-ease-in-out);
 }
 
@@ -278,9 +279,7 @@
   border: var(--border-width-1) solid var(--kv-box-stroke);
   border-radius: var(--border-radius-4);
   background: var(--kv-box-fill);
-  transition:
-    background-color var(--motion-duration-100) var(--motion-ease-in-out),
-    border-color var(--motion-duration-100) var(--motion-ease-in-out);
+  transition: border-color var(--motion-duration-100) var(--motion-ease-in-out);
 }
 
 .kv-checkbox--square .kv-checkbox__box {
@@ -358,7 +357,6 @@
   text-align: left;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: background-color var(--motion-duration-100) var(--motion-ease-in-out);
 }
 
 .kv-select > .kv-icon {
@@ -471,7 +469,6 @@
   background: var(--color-bg-fill-container-light-1);
   color: var(--color-text-fill-primary);
   cursor: pointer;
-  transition: background-color var(--motion-duration-100) var(--motion-ease-in-out);
 }
 
 .kv-select-preview > .kv-icon {

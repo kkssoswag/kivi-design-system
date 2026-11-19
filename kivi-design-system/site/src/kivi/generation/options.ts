@@ -101,6 +101,10 @@ export const RATIOS: SelectOption[] = [
   { value: '9:16', label: '9:16', icon: 'Square916' },
   { value: '3:4', label: '3:4', icon: 'Square34' },
   { value: '4:3', label: '4:3', icon: 'Square43' },
+  { value: '4:5', label: '4:5', icon: 'Square45' },
+  { value: '5:4', label: '5:4', icon: 'Square54' },
+  { value: '1:8', label: '1:8', icon: 'Square18' },
+  { value: '8:1', label: '8:1', icon: 'Square81' },
   { value: '9:21', label: '9:21', icon: 'Square921' },
 ];
 export const BACKGROUNDS: SelectOption[] = [

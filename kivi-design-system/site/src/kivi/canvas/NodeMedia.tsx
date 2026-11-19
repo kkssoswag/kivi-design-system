@@ -1,16 +1,20 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from 'react';
 import { IconButton } from '../button';
 import { useAudioPlayer } from '../hooks';
+import { Icon } from '../Icon';
+import type { IconName } from '../icons';
 import { cx } from '../utils';
 import { VideoPlayer } from '../media';
 import { AudioWave } from './AudioWave';
 import './canvas.css';
 
-export type NodeMediaType = 'image' | 'video' | 'audio' | 'text';
+export type NodeMediaType = 'image' | 'video' | 'audio' | 'text' | 'file';
 
 export interface NodeMediaProps extends HTMLAttributes<HTMLDivElement> {
-  /** 类型：图片 / 视频 / 音频 / 文字，默认图片 */
+  /** 类型：图片 / 视频 / 音频 / 文字 / 文件，默认图片。文件是只能下载、不能预览的产出（比如视频封装的压缩包） */
   type?: NodeMediaType;
+  /** 文件：中间的 64 图标，默认 File；压缩包用 FileZip */
+  icon?: IconName;
   /** 内容地址：图片是图片，视频是视频文件，音频是音频文件（mp4 也行，播它的声音）。视频用 VideoPlayer 卡片播，时长、播放、音量、进度都在里面；音频用 <audio> 播，同一时间只播一个 */
   src?: string;
   /** 视频封面，没播时显示；不传是首帧 */
@@ -35,7 +39,7 @@ export interface NodeMediaProps extends HTMLAttributes<HTMLDivElement> {
   onEnded?: () => void;
   /** 音频波形每条竖条的高度，默认是 Figma 里画好的 72 条，见 AudioWave */
   bars?: number[];
-  /** 正文：文字类型用，超出的裁掉 */
+  /** 正文：文字类型是正文，超出的裁掉；文件类型是图标下面那句说明 */
   children?: ReactNode;
 }
 
@@ -47,6 +51,7 @@ const clock = (sec: number) => `${pad(Math.floor(sec / 60))}:${pad(Math.floor(se
 export const NodeMedia = forwardRef<HTMLDivElement, NodeMediaProps>(function NodeMedia(
   {
     type = 'image',
+    icon,
     src,
     poster,
     onPreview,
@@ -82,6 +87,15 @@ export const NodeMedia = forwardRef<HTMLDivElement, NodeMediaProps>(function Nod
     return (
       <div ref={ref} className={cls} {...rest}>
         {children}
+      </div>
+    );
+  }
+
+  if (type === 'file') {
+    return (
+      <div ref={ref} className={cls} {...rest}>
+        <Icon name={icon ?? 'File'} size={64} className="kv-node-media__icon" />
+        {children != null && <p className="kv-node-media__caption">{children}</p>}
       </div>
     );
   }

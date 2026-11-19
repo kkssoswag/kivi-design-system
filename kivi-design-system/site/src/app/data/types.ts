@@ -126,7 +126,38 @@ export interface CanvasMeta {
 
 // ---------- 画布里的东西（每块画布一份，存本机） ----------
 
-export type CanvasNodeType = 'text' | 'image' | 'video' | 'audio' | 'group';
+/**
+ * 节点类型。clip = 视频剪辑、pack = 视频封装（线上都是 processor 节点，按 action 分，这里拆成两个类型）；
+ * archive = 封装产出的压缩包（只有结果）
+ */
+export type CanvasNodeType = 'text' | 'image' | 'video' | 'audio' | 'group' | 'clip' | 'pack' | 'archive';
+
+/** 视频封装的四种类型（照线上 PackagerTemplateId） */
+export type PackTemplate = 'badge' | 'vehicle' | 'background' | 'custom';
+
+/** 视频封装节点里记的设置（弹窗里改的，节点记住） */
+export interface PackConfig {
+  template: PackTemplate;
+  /** 资源名称，导出的压缩包用它命名 */
+  name: string;
+  /** 自定义：封装格式、帧率、质量（尺寸默认原视频大小） */
+  format: 'mp4' | 'webp' | 'apng' | 'mp4-alpha';
+  fps: number;
+  quality: number;
+  width?: number;
+  height?: number;
+  /** 礼物 / 座驾：素材背景开关、羽化开关和强度 */
+  vehicleBg: boolean;
+  feather: boolean;
+  strength: number;
+}
+
+/** 视频剪辑节点里记的东西：素材在时间轴上的顺序（连进来的上游节点 id）、画布比例、帧率 */
+export interface ClipConfig {
+  order: string[];
+  ratio: string;
+  fps: number;
+}
 
 /** 节点里的一张结果 / 一个素材 */
 export interface CanvasItem {
@@ -170,6 +201,18 @@ export interface CanvasNode {
   parentId?: string;
   /** 组的背景色（线上 6 种），不写是无 */
   color?: string;
+  /** 工具节点（抠图、高清、循环…）：用的哪个工具（data/tools.ts 的 id，另有 text-edit、crop）。没有生成面板，只有这个工具自己的参数面板 */
+  tool?: string;
+  /** 预设：视频节点的一种。lip-sync = 对口型（只收视频 1、音频 1，没有提示词和模型，面板是音频 → 视频两个格子） */
+  preset?: 'lip-sync';
+  /** 结果节点：处理器（剪辑、封装）导出来的，没有生成面板、不接上游 */
+  output?: boolean;
+  /** 视频剪辑的设置（clip） */
+  clip?: ClipConfig;
+  /** 视频封装的设置（pack） */
+  pack?: PackConfig;
+  /** 压缩包（archive）：文件名；done 是导出完成了（任务出结果时写） */
+  archive?: { fileName: string; done?: boolean };
 }
 
 /** 一条连线：上游 from 的右边连到下游 to 的左边；同一个下游按连接顺序排参考 */

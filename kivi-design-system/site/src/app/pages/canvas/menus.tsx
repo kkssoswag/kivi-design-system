@@ -1,24 +1,28 @@
 import { Divider, Menu, MenuItem, MenuLabel, type IconName } from '@kivi';
 import { CANVAS_TEXT, inputRoom } from '../../rules/canvas';
-import type { CanvasDoc, CanvasNodeType } from '../../data/types';
+import type { CanvasDoc, CanvasNode, CanvasNodeType } from '../../data/types';
 
 /*
   画布的菜单：添加节点（底部「添加」、双击空白、连线拖到空白松手都是它），右键菜单（空白处、节点）。
-  照线上 node-list / context-menu-plugin。视频剪辑节点还没做，先不放。
+  照线上 node-list / context-menu-plugin。视频剪辑和文 / 图 / 视 / 音并列（线上 node-list）；视频封装没有入口，只由视频节点工具栏的「封装」建。
 */
 
-export const ADD_NODES: { type: Exclude<CanvasNodeType, 'group'>; icon: IconName; label: string }[] = [
+export type AddType = Exclude<CanvasNodeType, 'group'>;
+
+export const ADD_NODES: { type: AddType; preset?: CanvasNode['preset']; icon: IconName; label: string }[] = [
   { type: 'text', icon: 'Text', label: '文本生成' },
   { type: 'image', icon: 'ImageGeneration', label: '图片生成' },
   { type: 'video', icon: 'VideoGeneration', label: '视频生成' },
   { type: 'audio', icon: 'Audio', label: '音频生成' },
+  { type: 'clip', icon: 'Cutting', label: '视频剪辑' },
+  { type: 'video', preset: 'lip-sync', icon: 'LipSync', label: '对口型' },
 ];
 
 export interface AddNodeMenuProps {
   doc: CanvasDoc;
   /** 连线拖出来的：标题「引用该节点生成」，不能再接这种上游的类型置灰，没有上传 */
   from?: string;
-  onPick: (type: Exclude<CanvasNodeType, 'group'>) => void;
+  onPick: (type: AddType, preset?: CanvasNode['preset']) => void;
   /** 上传（双击空白的面板里有，连线拖出来的没有） */
   onUpload?: () => void;
 }
@@ -29,10 +33,10 @@ export function AddNodeMenu({ doc, from, onPick, onUpload }: AddNodeMenuProps) {
     <Menu width={200}>
       <MenuLabel>{source ? CANVAS_TEXT.quoteTitle : '添加节点'}</MenuLabel>
       {ADD_NODES.map((n) => {
-        // 拖出来的那个节点接不进这种节点（比如图片接不进音频生成之外的…），置灰
-        const full = !!source && source.type !== 'group' && !inputRoom(doc, { id: '', type: n.type, name: '', x: 0, y: 0, w: 0, h: 0 }, source.type);
+        // 拖出来的那个节点接不进这种节点（比如图片接不进音频生成之外的…；对口型只收视频、音频），置灰
+        const full = !!source && source.type !== 'group' && !inputRoom(doc, { id: '', type: n.type, preset: n.preset }, source.type);
         return (
-          <MenuItem key={n.type} icon={n.icon} disabled={full} onClick={() => onPick(n.type)}>
+          <MenuItem key={n.preset ?? n.type} icon={n.icon} disabled={full} onClick={() => onPick(n.type, n.preset)}>
             {n.label}
           </MenuItem>
         );

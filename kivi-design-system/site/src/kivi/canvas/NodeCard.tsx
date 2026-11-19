@@ -13,6 +13,8 @@ import type { NodeMediaType } from './NodeMedia';
 import './canvas.css';
 
 export type NodeCardStatus = 'guide' | 'pending' | 'generating' | 'done' | 'failed';
+/** 节点的内容类型（文件没有引导、待生成、生成中，完成态直接放 NodeMedia type="file"，卡片按视频节点传） */
+export type NodeCardType = Exclude<NodeMediaType, 'file'>;
 
 /** 引导态默认的三个起步方式：音频一套，其他类型一套 */
 const GUIDE_OPTIONS: Record<'audio' | 'other', string[]> = {
@@ -21,7 +23,7 @@ const GUIDE_OPTIONS: Record<'audio' | 'other', string[]> = {
 };
 
 /** 待生成态默认的 64 图标，跟着内容类型走 */
-const TYPE_ICON: Record<NodeMediaType, IconName> = {
+const TYPE_ICON: Record<NodeCardType, IconName> = {
   text: 'Text',
   image: 'ImageGeneration',
   video: 'VideoGeneration',
@@ -32,7 +34,7 @@ export interface NodeCardProps extends HTMLAttributes<HTMLDivElement> {
   /** 状态：引导 / 待生成 / 生成中 / 完成 / 失败，默认引导 */
   status?: NodeCardStatus;
   /** 内容类型：图片 / 视频 / 音频 / 文字，默认图片。引导项、待生成的图标、生成中动效拼出的图标跟着它走；音频完成态单独放时是 341 宽 */
-  type?: NodeMediaType;
+  type?: NodeCardType;
   /** 待生成：中间的 64 图标，默认按内容类型取。视频封装用 Pack，视频剪辑用 Cutting */
   icon?: IconName;
   /** 待生成：图标下面的按钮，Button 小 · 次要灰（占位处的按钮都减弱一档），比如「打开视频封装」。不传就没有 */

@@ -1,4 +1,4 @@
-import { MODELS, type SelectOption } from '@kivi';
+import { MODELS, RATIOS, type SelectOption } from '@kivi';
 import type { ToolId } from '../../data/tools';
 import type { ToolState } from './types';
 
@@ -6,14 +6,17 @@ import type { ToolState } from './types';
   工具参数的选项、消耗、记进任务的参数文字。
 */
 
+/** 扩图比例：自由、原比例（默认，配倍数），其余照线上生图比例（11-19 用户给的全表，不含自适应） */
 export const EXPAND_RATIOS: SelectOption[] = [
   { value: 'free', label: '自由比例', icon: 'AutoAspect' },
-  { value: '1:1', label: '1:1', icon: 'Square11' },
-  { value: '4:3', label: '4:3', icon: 'Square43' },
-  { value: '3:4', label: '3:4', icon: 'Square34' },
-  { value: '16:9', label: '16:9', icon: 'Square169' },
-  { value: '9:16', label: '9:16', icon: 'Square916' },
+  { value: 'original', label: '原比例', icon: 'OriginalProportions' },
+  ...['1:1', '1:4', '4:1', '2:3', '3:2', '16:9', '9:16', '3:4', '4:3', '4:5', '5:4', '1:8', '8:1'].map((v) => RATIOS.find((o) => o.value === v)!),
 ];
+
+/** 扩图倍数：只在原比例时出（照即梦），默认 1.5 */
+export const EXPAND_SCALES = ['1.5', '2', '3'];
+/** 扩图打开、换原图、生成成功后回到的样子：原比例、往外扩 1.5 倍 */
+export const EXPAND_DEFAULT = { ratio: 'original', scale: '1.5' };
 
 export const EDIT_MODES: SelectOption[] = [
   { value: 'redraw', label: '智能重绘', icon: 'SmartEditing' },
@@ -75,7 +78,11 @@ export function toolCost(tool: ToolId, st: ToolState, ctx: CostContext = {}): nu
 export function toolParams(tool: ToolId, st: ToolState, ctx: CostContext = {}): Record<string, string> {
   switch (tool) {
     case 'expand':
-      return { 比例: EXPAND_RATIOS.find((o) => o.value === st.expandRatio)?.label as string, 分辨率: expandTier(ctx.expandArea) };
+      return {
+        比例: EXPAND_RATIOS.find((o) => o.value === st.expandRatio)?.label as string,
+        ...(st.expandRatio === 'original' && st.expandScale ? { 倍数: `${st.expandScale}x` } : {}),
+        分辨率: expandTier(ctx.expandArea),
+      };
     case 'hd':
       return { 放大倍数: `${st.hdScale} 倍` };
     case 'edit':

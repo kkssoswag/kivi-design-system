@@ -135,10 +135,12 @@
 .kv-gen-prompt-refs__popover {
   position: absolute;
   top: calc(100% + var(--spacing-8));
-  left: 0;
+  /* 右边放不下时往左挪（GenPromptRefs 出来前量好写进这个变量） */
+  left: calc(var(--kv-gen-prompt-refs-shift, 0px) * -1);
   z-index: 2;
   display: grid;
-  grid-template-columns: repeat(5, 72px);
+  /* 宽跟着个数走：几个就几列，最多 5 列，再多换行（GenPromptRefs 按个数写这个变量） */
+  grid-template-columns: repeat(var(--kv-gen-prompt-refs-cols, 5), 72px);
   gap: var(--spacing-6);
   padding: var(--spacing-6);
   border-radius: var(--border-radius-8);
@@ -163,6 +165,17 @@
   right: 0;
   left: 0;
   height: var(--spacing-8);
+}
+
+/* 下面放不下：翻到参考区上面，缝也补在下面 */
+.kv-gen-prompt-refs[data-placement="top"] > .kv-gen-prompt-refs__popover {
+  top: auto;
+  bottom: calc(100% + var(--spacing-8));
+}
+
+.kv-gen-prompt-refs[data-placement="top"] > .kv-gen-prompt-refs__popover::before {
+  top: auto;
+  bottom: calc(var(--spacing-8) * -1);
 }
 
 .kv-gen-prompt-refs:where(:hover, :focus-visible, :has(:focus-visible), .is-hover) > .kv-gen-prompt-refs__popover {
@@ -298,9 +311,37 @@
   opacity: 0;
 }
 
-/* 失败：EmptyState 小，居中 */
+/* 失败：EmptyState 小，居中；四周留 12，文字不贴边（11-19 用户定）。格子自己是尺寸容器，里面按格子大小调 */
 .kv-result-tile[aria-invalid="true"] {
+  container-type: size;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: var(--spacing-12);
+}
+
+/* 窄格子（不到 240 宽，比如 AI 工具页右侧历史 176）：96 的插图和 14 号字太占地方，插图缩到 64，标题 12 / 20 tertiary（11-19 用户定） */
+@container (max-width: 239px) {
+  .kv-result-tile[aria-invalid="true"] .kv-empty-state--96 {
+    --kv-empty-ip: 64px;
+  }
+
+  /* 64 的插图矮一些：EmptyState 自己「高不到 170 就藏插图」是按 96 算的，这里放得下就照常显示 */
+  .kv-result-tile[aria-invalid="true"] .kv-empty-state--96 .kv-empty-state__illustration {
+    display: block;
+  }
+
+  .kv-result-tile[aria-invalid="true"] .kv-empty-state--96 .kv-empty-state__title {
+    color: var(--color-text-fill-tertiary);
+    font-size: var(--font-size-12);
+    font-weight: var(--font-weight-regular);
+    line-height: var(--font-line-height-20);
+  }
+}
+
+/* 窄又矮（放不下 64 的插图 + 两行字）：只留文字 */
+@container (max-width: 239px) and (max-height: 119px) {
+  .kv-result-tile[aria-invalid="true"] .kv-empty-state--96 .kv-empty-state__illustration {
+    display: none;
+  }
 }

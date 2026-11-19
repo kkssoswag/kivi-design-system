@@ -52,7 +52,7 @@ export function BatchControls({
   );
 }
 
-/** 素材的批量操作（按钮用次要灰实底，选了东西就是亮的，照线上）：收藏 / 取消收藏、添加至文件夹、移出文件夹（文件夹内页才有）、下载、删除。没选东西时都置灰 */
+/** 素材的批量操作（按钮用无底灰，和「取消编辑」一样）：收藏 / 取消收藏、添加至文件夹、移出文件夹（文件夹内页才有）、下载、删除。没选东西时都置灰 */
 export function AssetBatchActions({ items, folderId, onChanged }: { items: Asset[]; folderId?: string; onChanged: () => void }) {
   const folders = useDB((s) => s.folders);
   const ids = items.map((a) => a.id);
@@ -62,7 +62,7 @@ export function AssetBatchActions({ items, folderId, onChanged }: { items: Asset
   const download = (
     <Button
       size={32}
-      variant="secondary-muted"
+      variant="ghost-muted"
       leftIcon="Download"
       disabled={none}
       aria-disabled={tooMany || undefined}
@@ -73,7 +73,7 @@ export function AssetBatchActions({ items, folderId, onChanged }: { items: Asset
   );
   return (
     <>
-      <Dropdown placement="bottom-start" trigger={<Button size={32} variant="secondary-muted" leftIcon="AddFolder" disabled={none}>添加至</Button>}>
+      <Dropdown placement="bottom-start" trigger={<Button size={32} variant="ghost-muted" leftIcon="AddFolder" disabled={none}>添加至</Button>}>
         <Menu aria-label="添加至文件夹">
           {folders.length === 0 && <MenuItem disabled>暂无文件夹</MenuItem>}
           {folders.map((f) => (
@@ -84,7 +84,7 @@ export function AssetBatchActions({ items, folderId, onChanged }: { items: Asset
         </Menu>
       </Dropdown>
       {folderId && (
-        <Button size={32} variant="secondary-muted" leftIcon="Folder" disabled={none} onClick={() => void run(() => removeFromFolder(ids, folderId), '已移出文件夹').then(onChanged)}>
+        <Button size={32} variant="ghost-muted" leftIcon="Folder" disabled={none} onClick={() => void run(() => removeFromFolder(ids, folderId), '已移出文件夹').then(onChanged)}>
           移出文件夹
         </Button>
       )}
@@ -95,10 +95,10 @@ export function AssetBatchActions({ items, folderId, onChanged }: { items: Asset
       ) : (
         download
       )}
-      <Button size={32} variant="secondary-muted" leftIcon={allCollected ? 'CollectSolid' : 'Collect'} disabled={none} onClick={() => void collectAssets(ids, !allCollected)}>
+      <Button size={32} variant="ghost-muted" leftIcon={allCollected ? 'CollectSolid' : 'Collect'} disabled={none} onClick={() => void collectAssets(ids, !allCollected)}>
         {allCollected ? '取消收藏' : '收藏'}
       </Button>
-      <Button size={32} variant="secondary-muted" leftIcon="Delete" disabled={none} onClick={() => void deleteAssets(ids).then((ok) => ok && onChanged())}>
+      <Button size={32} variant="ghost-muted" leftIcon="Delete" disabled={none} onClick={() => void deleteAssets(ids).then((ok) => ok && onChanged())}>
         删除
       </Button>
     </>

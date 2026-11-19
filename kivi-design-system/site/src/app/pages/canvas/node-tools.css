@@ -1,0 +1,207 @@
+/*
+  画布节点工具栏用到的零散样式（类名 app-）：工具节点面板上的素材条、裁剪和编辑文字的弹窗、分享按钮。
+  只用 tokens.css 里的变量。
+*/
+
+/* 工具节点面板最上面：连进来的素材条 + 拼接的「上传」格 */
+.app-toolstrip {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-8);
+}
+
+.app-toolstrip:empty {
+  display: none;
+}
+
+/* 裁剪、编辑文字弹窗：和创作页工具弹窗同一个大小（宽 800、高 640），里面一块舞台 + 一条底栏 */
+.app-stage-dlg {
+  height: min(640px, 100%);
+}
+
+.app-stage-dlg .kv-dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-16);
+  overflow: hidden;
+}
+
+.app-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  border-radius: var(--border-radius-12);
+  background: var(--color-bg-fill-container-dark);
+}
+
+.app-stage__img {
+  position: absolute;
+  display: block;
+  object-fit: cover;
+  user-select: none;
+  pointer-events: none;
+}
+
+.app-stage__bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-12);
+}
+
+.app-stage__bar-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-8);
+  min-width: 0;
+  color: var(--color-text-fill-tertiary);
+  font-size: var(--font-size-12);
+}
+
+.app-stage__bar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-8);
+}
+
+.app-stage--center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 框选：图本身，上面拖出选区；序号气泡和评论会伸出图，外层不裁剪 */
+.app-annot__frame {
+  position: relative;
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+}
+
+.app-annot__frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--border-radius-8);
+  pointer-events: none;
+}
+
+/* 编辑文字：左边图，右边识别出来的文字列表 */
+.app-textedit {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  gap: var(--spacing-16);
+}
+
+.app-textedit__stage {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+.app-textedit__frame {
+  position: relative;
+}
+
+.app-textedit__frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--border-radius-8);
+}
+
+.app-textedit__box {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--border-radius-4);
+  background: var(--color-fill-1);
+  /* 状态切换：选中哪一处文字时框变色 */
+  transition: background var(--motion-duration-200) var(--motion-ease-in-out);
+}
+
+.app-textedit__box[data-active] {
+  background: var(--color-fill-3);
+}
+
+.app-textedit__side {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--spacing-12);
+  width: 240px;
+  min-height: 0;
+}
+
+.app-textedit__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-12);
+}
+
+.app-textedit__item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+.app-textedit__label {
+  color: var(--color-text-fill-tertiary);
+  font-size: var(--font-size-12);
+}
+
+.app-textedit__scan {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-8);
+  color: var(--color-text-fill-secondary);
+  font-size: var(--font-size-14);
+}
+
+/* 右上角分享：和左上角画布切换同一排的玻璃按钮条 */
+.app-share {
+  position: absolute;
+  top: var(--spacing-16);
+  right: var(--spacing-16);
+  z-index: 3;
+}
+
+.app-share__tip {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-8);
+  width: 296px;
+}
+
+.app-share__title {
+  color: var(--color-text-fill-primary);
+  font-size: var(--font-size-14);
+}
+
+.app-share__desc {
+  color: var(--color-text-fill-tertiary);
+  font-size: var(--font-size-12);
+}
+
+/* 对口型面板：「音频 → 视频」两个格子，中间一个右箭头 */
+.app-lipsync__slots {
+  gap: var(--spacing-8);
+}
+
+.app-lipsync__slot {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-8);
+}
+
+.app-lipsync__arrow {
+  color: var(--color-text-fill-tertiary);
+}

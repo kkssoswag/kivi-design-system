@@ -11,7 +11,7 @@ import {
 } from 'react';
 import { toast } from '../feedback';
 import { cx } from '../utils';
-import { checkFiles, composeDropHandlers, composeHandlers, rejectMessage, useControllable, useFileDrop, useMergedRef, usePasteFiles } from '../hooks';
+import { checkFiles, composeDropHandlers, composeHandlers, rejectMessage, useControllable, useFileDrop, useMergedRef, usePasteFiles, usePending } from '../hooks';
 import { ReferenceFramePair } from '../reference/ReferenceFramePair';
 import { ReferenceStack, referenceName, relabelReferences, type ReferenceStackItem } from '../reference/ReferenceStack';
 import { PromptInput } from './PromptInput';
@@ -25,7 +25,7 @@ import {
   PROMPT_MAX_LENGTH,
   fileToReference,
   genBlockedReason,
-  genCost,
+  genTotalCost,
   isFramesMode,
   mainUploadSpec,
   referenceFullMessage,
@@ -109,8 +109,9 @@ export interface PromptBoxProps extends Omit<HTMLAttributes<HTMLDivElement>, 'on
   referencesExpanded?: boolean;
   /** 参考区展开收起 */
   onReferencesExpandedChange?: (expanded: boolean) => void;
-  /** 点了生成 / 发送，参数是现在的所有选择。不能生成时（按钮置灰）不触发。发出后提示词不清空（照线上，11-18 用户定），要清自己改 `value` */
-  onSubmit?: (submit: PromptBoxSubmit) => void;
+  /** 点了生成 / 发送，参数是现在的所有选择。不能生成时（按钮置灰）不触发。发出后提示词不清空（照线上，11-18 用户定），要清自己改 `value`。
+   *  返回请求的 Promise 时，等它的这段时间生成按钮转圈、不能重复提交（回车也一样） */
+  onSubmit?: (submit: PromptBoxSubmit) => void | Promise<unknown>;
   /** 正在生成：生成按钮置灰，Agent 的发送按钮变停止 */
   generating?: boolean;
   /** Agent 正在回复时点了停止（发送按钮变成的停止） */
@@ -343,9 +344,10 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(function Pro
     referenceTypes: references.map((r) => r.type),
     hasFirstFrame: !!frames.first,
   });
+  const [submitting, runSubmit] = usePending();
   const submit = () => {
-    if (generating || (task === 'agent' ? !value.trim() : reason)) return;
-    onSubmit?.({ task, model, refMode, text: value, references, frames, params: paramsNow(task), count: task === 'image' || task === 'video' ? Number(count) : 1 });
+    if (generating || submitting || (task === 'agent' ? !value.trim() : reason)) return;
+    return runSubmit(() => onSubmit?.({ task, model, refMode, text: value, references, frames, params: paramsNow(task), count: task === 'image' || task === 'video' ? Number(count) : 1 }));
   };
   const dropHandlers = composeDropHandlers({ onDragEnter, onDragOver, onDragLeave, onDrop }, bind);
 
@@ -463,9 +465,10 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(function Pro
               kind={task}
               model={model}
               text={value}
-              cost={cost ?? genCost(task, model)}
+              cost={cost ?? genTotalCost(task, model, Number(count) || 1)}
               reason={reason}
               generating={generating}
+              loading={submitting}
               onSubmit={submit}
               onStop={onStop}
               placement={placement}

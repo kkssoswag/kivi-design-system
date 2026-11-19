@@ -1,7 +1,9 @@
 import { type ReactElement } from 'react';
-import { Button, IconButton, NodeCard, NodeMedia, NodeStack, NodeStackToggle, NodeWrapper, type NodeMediaType, type NodeWrapperRatio } from '@kivi';
+import { Button, ButtonGroup, IconButton, NodeCard, NodeMedia, NodeStack, NodeStackToggle, NodeWrapper, toast, type NodeCardType, type NodeMediaType, type NodeWrapperRatio } from '@kivi';
 import { countdownLabel } from '../../data/tasks';
 import type { CanvasItem, CanvasNode, Task } from '../../data/types';
+import { PACK_TEXT } from '../../rules/packager';
+import { openProcessor } from './processor/state';
 
 /*
   一个节点画成什么样（照原来的小画布，状态从数据来）：
@@ -42,6 +44,8 @@ export interface NodeViewProps {
   onDownload?: () => void;
   /** 引导里选了一项（自己编写内容…） */
   onGuideSelect?: (option: string) => void;
+  /** 处理器（剪辑、封装）：连的素材够了，「打开…」按钮能点 */
+  ready?: boolean;
 }
 
 function mediaOf(node: CanvasNode, item?: CanvasItem) {
@@ -52,8 +56,10 @@ function mediaOf(node: CanvasNode, item?: CanvasItem) {
   return <NodeMedia type="image" src={item?.src} />;
 }
 
-export function NodeView({ node, task, uploading, now, selected, inLinked, outLinked, inHighlight, stackOpen, onStackOpenChange, onSetMain, onReplace, onView, onDownload, onGuideSelect }: NodeViewProps) {
-  const type = node.type as NodeMediaType;
+export function NodeView({ node, task, uploading, now, selected, inLinked, outLinked, inHighlight, stackOpen, onStackOpenChange, onSetMain, onReplace, onView, onDownload, onGuideSelect, ready }: NodeViewProps) {
+  const type = (node.type === 'clip' || node.type === 'pack' || node.type === 'archive' ? 'video' : node.type) as NodeCardType;
+  const processor = node.type === 'clip' || node.type === 'pack';
+  const archive = node.type === 'archive';
   const items = node.items ?? [];
   const media = type === 'image' || type === 'video';
   const viewButtons = (item: CanvasItem) => (
@@ -64,7 +70,34 @@ export function NodeView({ node, task, uploading, now, selected, inLinked, outLi
   );
 
   let body: ReactElement;
-  if (node.upload) {
+  if (processor) {
+    // 视频剪辑、视频封装：待生成的样子，中间图标 + 「打开…」按钮；连的素材不够、导出中按钮不能点（线上 canOpen / isBusy）
+    const clip = node.type === 'clip';
+    body = (
+      <NodeCard
+        status="pending"
+        type="video"
+        icon={clip ? 'Cutting' : 'Pack'}
+        button={
+          <Button size={28} variant="secondary-muted" disabled={!ready || task?.status === 'running'} onClick={() => openProcessor(node.id)}>
+            {clip ? '打开视频剪辑' : '打开视频封装'}
+          </Button>
+        }
+      />
+    );
+  } else if (archive) {
+    // 压缩包：导出中是生成中，完成是压缩包图标 + 一句话（下载在选中后顶上的工具栏），失败照常
+    if (task?.status === 'running') body = <NodeCard status="generating" type="video" countdown={countdownLabel(task, now)} />;
+    else if (node.archive?.done)
+      body = (
+        <NodeCard status="done" type="video">
+          <NodeMedia type="file" icon="FileZip">
+            {PACK_TEXT.archiveDone}
+          </NodeMedia>
+        </NodeCard>
+      );
+    else body = <NodeCard status="failed" type="video" failedTitle={task?.error} />;
+  } else if (node.upload) {
     body = (
       <NodeCard
         status="done"
@@ -84,8 +117,14 @@ export function NodeView({ node, task, uploading, now, selected, inLinked, outLi
     body = <NodeCard status="generating" type={type} cover={media ? items[0]?.poster ?? items[0]?.src : undefined} countdown={countdownLabel(task, now)} />;
   } else if (task?.status === 'failed') {
     body = <NodeCard status="failed" type={type} failedTitle={task.error} />;
+  } else if (node.preset === 'lip-sync' && !items.length) {
+    // 对口型还没生成：待生成的样子，中间图标，不放按钮；连线和生成在下面的面板里
+    body = <NodeCard status="pending" type="video" icon="LipSync" />;
+  } else if (node.tool && !items.length) {
+    // 工具节点（抠图、高清…）还没生成：待生成的样子，选中后下面出这个工具的参数面板
+    body = <NodeCard status="pending" type={type} />;
   } else if (type === 'text' ? !node.text : !items.length) {
-    body = <NodeCard status="guide" type={type} onGuideSelect={onGuideSelect} />;
+    body = node.output ? <NodeCard status="failed" type={type} /> : <NodeCard status="guide" type={type} onGuideSelect={onGuideSelect} />;
   } else if (items.length > 1) {
     body = (
       <NodeStack expanded={stackOpen}>
@@ -101,7 +140,7 @@ export function NodeView({ node, task, uploading, now, selected, inLinked, outLi
               i === 0 ? (
                 <NodeStackToggle count={items.length} expanded={stackOpen} onClick={() => onStackOpenChange?.(!stackOpen)} />
               ) : (
-                <Button onClick={() => onSetMain?.(i)}>设为主图</Button>
+                <Button onClick={() => onSetMain?.(i)}>{type === 'video' ? '设为主视频' : '设为主图'}</Button>
               )
             }
             onClick={i === 0 ? undefined : (e) => !(e.target as HTMLElement).closest('button') && onSetMain?.(i)}
@@ -123,12 +162,19 @@ export function NodeView({ node, task, uploading, now, selected, inLinked, outLi
     <NodeWrapper
       ratio={wrapperRatio(node)}
       name={node.name}
-      leftDot={node.upload ? undefined : inHighlight ? 'highlight' : inLinked ? 'connected' : 'default'}
-      rightDot={outLinked ? 'connected' : 'default'}
+      leftDot={node.upload || archive || node.output ? (inLinked ? 'connected' : undefined) : inHighlight ? 'highlight' : inLinked ? 'connected' : 'default'}
+      rightDot={outLinked ? 'connected' : processor || archive ? undefined : 'default'}
       selected={selected || undefined}
       style={{ width: node.w, height: node.h }}
     >
       {body}
+      {archive && selected && node.archive?.done && (
+        <div className="cv-float cv-float--toolbar app-archive__float" style={{ left: "50%", top: -40 }}>
+          <ButtonGroup variant="glass" size={44} aria-label="节点工具栏">
+            <IconButton icon="Download" label="下载" onClick={() => toast.success('已开始下载')} />
+          </ButtonGroup>
+        </div>
+      )}
     </NodeWrapper>
   );
 }

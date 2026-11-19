@@ -89,7 +89,8 @@ const kiwiLight = still('kiwi-light', '1:1');
 const CHAT1: Rec[] = [
   {
     id: 'r1',
-    prompt: '生成一张赛博朋克风格的猕猴桃海报',
+    prompt:
+      '生成一张赛博朋克风格的猕猴桃海报：雨夜的未来都市街头，巨大的全息广告牌上漂浮着一颗被剖开的发光猕猴桃，果肉是荧光绿、籽像电路板上的光点。前景是撑着透明雨伞的行人剪影，地面积水倒映出紫色和青色的霓虹。画面上方用粗壮的未来感字体写「KIVI」，下方一行小字「TASTE THE FUTURE」。整体高对比、强烈的色彩撞击，电影级光影，竖版构图，细节丰富，适合做活动主视觉。',
     media: 'image',
     model: 'seedream-4.5',
     params: { resolution: '2K', ratio: '1:1' },
@@ -105,8 +106,10 @@ const CHAT1: Rec[] = [
     params: { resolution: '720P', ratio: '16:9', duration: '8' },
     ratio: '16:9',
     refs: [
-      { type: 'image', src: kiwiGlass },
-      { type: 'image', src: kiwiLight },
+      { type: 'image', src: kiwiGlass, label: '图片1' },
+      { type: 'image', src: kiwiLight, label: '图片2' },
+      { type: 'video', src: still('kivi-future', '16:9'), label: '视频1' },
+      { type: 'audio', src: DEMO_AUDIO, label: '音频1' },
     ],
     refLabel: '全能参考',
     tiles: [{ img: 'kivi-future' }],
@@ -119,6 +122,11 @@ const CHAT1: Rec[] = [
     model: 'nano-banana-2',
     params: { resolution: '2K', ratio: '3:4' },
     ratio: '3:4',
+    refs: [
+      { type: 'image', src: still('ip-gouache', '1:1'), label: '图片1' },
+      { type: 'image', src: kiwiLight, label: '图片2' },
+    ],
+    refLabel: '参考图',
     tiles: [{ img: 'bunny-gouache' }, { img: 'ip-gouache' }, 'failed', { img: 'ip-peek' }],
     ago: 30,
   },

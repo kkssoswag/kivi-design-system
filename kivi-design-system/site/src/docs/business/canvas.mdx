@@ -131,7 +131,8 @@ import { AudioWavePlayground, CanvasHeaderPlayground, ConnectorPlayground, NodeP
 
 | 属性 | 类型 | 默认 | 说明 |
 |---|---|---|---|
-| `type` | `"image"` `"video"` `"audio"` `"text"` | `"image"` | 图片：画面铺满，居中裁切。视频：就是播放器 VideoPlayer 卡片（见「图片和视频」页），时长、悬停播放、控制条、进度都在里面。音频：内边距 8，顶上空 32，波形垫一块白 10%、圆角 6 的底，底下一行左边时间、右边播放键。文字：内边距 16，14 号、行高 22、`--color-text-fill-primary`，超出裁掉 |
+| `type` | `"image"` `"video"` `"audio"` `"text"` `"file"` | `"image"` | 图片：画面铺满，居中裁切。视频：就是播放器 VideoPlayer 卡片（见「图片和视频」页），时长、悬停播放、控制条、进度都在里面。音频：内边距 8，顶上空 32，波形垫一块白 10%、圆角 6 的底，底下一行左边时间、右边播放键。文字：内边距 16，14 号、行高 22、`--color-text-fill-primary`，超出裁掉。文件：只能下载、不能预览的产出（视频封装的压缩包），正中 64 图标，下面一句说明，12 号、行高 20、`--color-text-fill-secondary`，间距 12；节点卡片按视频节点传 |
+| `icon` | `IconName` | `"File"` | 文件：中间的图标，压缩包用 `FileZip` |
 | `src` | `string` | — | 图片是图片地址，视频是视频文件，音频是音频文件（mp4 也行，播它的声音）。音频传了就真能播：点播放键或拖波形，时间和波形跟着走；同一时间只播一个，新开一个会暂停别的 |
 | `poster` | `string` | — | 视频封面，没播时显示；不传是首帧 |
 | `onPreview` | `(currentTime) => void` | — | 视频右下「预览」，打开预览接着放；不传就没有这个按钮 |
@@ -144,7 +145,7 @@ import { AudioWavePlayground, CanvasHeaderPlayground, ConnectorPlayground, NodeP
 | `onPlay` | `() => void` | — | 音频：开始播放 |
 | `onPause` | `() => void` | — | 音频：暂停 |
 | `onEnded` | `() => void` | — | 音频：播完 |
-| `children` | `ReactNode` | — | 文字：正文 |
+| `children` | `ReactNode` | — | 文字：正文；文件：图标下面那句说明 |
 
 音频下面一行高 32：左边时间，右边播放键（IconButton 32 · 次要）。
 
@@ -210,7 +211,7 @@ import { AudioWavePlayground, CanvasHeaderPlayground, ConnectorPlayground, NodeP
 | `onRefModeChange` | `(mode) => void` | — | 换了参考方式 |
 | `onGenerate` | `() => void` | — | 点了生成。不能生成时（按钮置灰、悬停说原因）不触发；原因包括参考不够 / 太多 / 互斥（读模型能力表）、没有描述、音频超字数。提示词最多 10000 个字符 |
 | `generating` | `boolean` | `false` | 正在生成：生成按钮置灰 |
-| `cost` | `number` | — | 消耗的猕猴桃数。不传按类型和模型取示例数字 |
+| `cost` | `number` | — | 消耗的猕猴桃数。不传按类型、模型、张数取示例数字（单张 × 张数） |
 | `placeholder` | `string` | `"描述任何你想要生成的内容"` | 没输入时的占位文字 |
 | `expand` | `boolean` | `false` | 右上角的全屏按钮：`IconButton` 32 · 无底灰（`FullScreen`，白 50%，悬停 100%），离边 12 |
 | `onExpand` | `() => void` | — | 点全屏按钮 |

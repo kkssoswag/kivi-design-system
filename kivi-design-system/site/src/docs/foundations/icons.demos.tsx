@@ -174,6 +174,10 @@ export const ICON_INFO: Record<IconName, IconInfo> = {
   Square14: { means: '1:4', note: '自绘' },
   Square41: { means: '4:1', note: '自绘' },
   Square921: { means: '9:21', note: '自绘' },
+  Square54: { means: '5:4', note: '自绘' },
+  Square45: { means: '4:5', note: '自绘' },
+  Square18: { means: '1:8', note: '自绘' },
+  Square81: { means: '8:1', note: '自绘' },
   OriginalProportions: { means: '原始比例', note: '自绘' },
   // 对话与反馈（17）
   ThumbsUp: { means: '点赞' },
@@ -268,7 +272,6 @@ const CSS = `
   border: 0; border-radius: var(--border-radius-12);
   background: var(--color-bg-fill-container-light-2); color: var(--color-text-fill-primary);
   font: inherit; cursor: pointer;
-  transition: background-color var(--motion-duration-100) var(--motion-ease-in-out);
 }
 .ic-tile:hover { background: var(--color-bg-fill-container-light-2-hover); }
 .ic-tile:active { background: var(--color-bg-fill-container-light-2-pressed); }

@@ -163,7 +163,6 @@
   background: var(--color-bg-fill-container-light-2);
   color: var(--color-text-fill-primary);
   font-family: var(--font-family);
-  transition: background-color var(--motion-duration-150) var(--motion-ease-out);
 }
 
 .kv-explore-card:where(:hover, :has(:focus-visible), .is-hover) {

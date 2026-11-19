@@ -17,7 +17,8 @@ import { addToFolder, removeAssets, removeFromFolder } from '../../data/assets';
 import { byId, useDB } from '../../data/db';
 import type { Asset } from '../../data/types';
 import { confirmDelete } from '../../flows/delete';
-import { MediaViewer, ViewerAuthor, ViewerSection, useLastShown, type ViewerMedia } from '../../parts/media-viewer';
+import { AssetInfo } from '../../parts/asset-info';
+import { MediaViewer, ViewerAuthor, useLastShown, type ViewerMedia } from '../../parts/media-viewer';
 import { Pickable } from './Pickable';
 import { collectAssets, deleteAssets, downloadAssets, run } from './ops';
 
@@ -187,14 +188,7 @@ export function useAssetCells(list: Asset[], { folderId, picking, picked, onTogg
           )
         }
       >
-        {shownView && (
-          <ViewerSection title="来源">
-            <GenPrompt>
-              <Tag icon={shownView.media === 'video' ? 'VideoGeneration' : shownView.media === 'audio' ? 'Audio' : 'ImageGeneration'}>{shownView.name}</Tag>
-              <Tag>{SOURCE_LABEL[shownView.source]}</Tag>
-            </GenPrompt>
-          </ViewerSection>
-        )}
+        {shownView && <AssetInfo asset={shownView} onPick={setViewId} pickable={(id) => viewable.some((a) => a.id === id)} />}
       </MediaViewer>
     </>
   );

@@ -1,19 +1,20 @@
-import { Button, ButtonGroup, DropOverlay, EmptyState, Icon, IconButton, VideoPlayer, toast } from '@kivi';
-import { useFileDrop } from '@kivi/hooks';
+import { Button, ButtonGroup, DropOverlay, EmptyState, Icon, IconButton, UPLOAD_SPECS, VideoPlayer, toast } from '@kivi';
+import { rejectMessage, useFileDrop } from '@kivi/hooks';
 import { StageUploading } from './stage-parts';
 import type { Source } from './types';
 
 /*
   视频拼接的舞台：并排两个上传位（视频1、视频2），各自点了选文件、也能拖进对应的位；传完是播放器，右上角能删。
-  两个位一样大（11-18 用户嫌铺满坑太大）：按视频1 的比例（还没传就 3:4 竖卡，照线上）在各占一半的坑里放下、再缩到 80%，并排居中。
+  两个位一样大（11-18 用户嫌铺满坑太大）：固定 3:4 竖卡（照线上），在各占一半的坑里放下、再缩到 80%，并排居中。
+  传了视频位也不变大小，视频在里面按比例放下（11-19 用户定，原来跟着视频1 的比例变）。
   工具一打开就露出两个位（照线上，11-18 用户定），不先出工具介绍；中间一个「+」表示前后接上
 */
 
 /** 两个位之间的间距（中间放 32 的「+」，两边各留 8）、比放满时再缩多少 */
 const GAP = 48;
 const SCALE = 0.8;
-/** 视频1 还没传时位的比例 */
-const EMPTY_RATIO = 3 / 4;
+/** 位的比例，固定 */
+const SLOT_RATIO = 3 / 4;
 
 interface SlotProps {
   title: string;
@@ -35,7 +36,8 @@ function Slot({ title, source, uploading, onPick, onFile, onRemove, size }: Slot
     multiple: false,
     disabled: !onFile,
     onFiles: ([f]) => onFile?.(f),
-    onReject: () => toast.error('请上传视频'),
+    // 和页面上传同一句（类型不对：请上传 mp4）
+    onReject: (_, reason) => toast.error(rejectMessage(reason, UPLOAD_SPECS.tools.video)),
   });
   return (
     <div className="tpl-at__slot" aria-label={title} style={size} {...bind}>
@@ -77,11 +79,10 @@ export interface StitchStageProps {
   second: SlotProps;
   /** 坑的大小 */
   area: { w: number; h: number };
-  /** 位的宽高比：视频1 的比例，没传就 3:4 */
-  ratio?: number;
 }
 
-export function StitchStage({ first, second, area, ratio = EMPTY_RATIO }: StitchStageProps) {
+export function StitchStage({ first, second, area }: StitchStageProps) {
+  const ratio = SLOT_RATIO;
   const halfW = Math.max(0, (area.w - GAP) / 2);
   const fit = Math.min(halfW / ratio, area.h);
   const size = { width: Math.round(fit * ratio * SCALE), height: Math.round(fit * SCALE) };

@@ -32,7 +32,7 @@
 
   状态
     节点状态      kv-node-card--guide / --pending / --generating / --done / --failed（status 属性）
-    节点内容类型  kv-node-media--image / --video / --audio / --text（type 属性）
+    节点内容类型  kv-node-media--image / --video / --audio / --text / --file（type 属性）
     连接点        kv-connector-dot--connected / --highlight（status 属性，不加是默认）
     连线          kv-connector--active / --drawing / --flowing（status 属性，不加是默认）
     选中          NodeWrapper 写 aria-selected="true"（selected 属性）
@@ -283,6 +283,29 @@
   font-size: var(--font-size-14);
   font-weight: var(--font-weight-regular);
   line-height: var(--font-line-height-22);
+}
+
+/* 文件：只能下载、不能预览的产出（视频封装的压缩包）。照线上压缩包节点：正中 64 图标，下面一句说明 */
+.kv-node-media--file {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-12);
+  padding: var(--spacing-24);
+  text-align: center;
+}
+
+.kv-node-media__icon {
+  flex: none;
+  color: var(--color-text-fill-primary);
+}
+
+.kv-node-media__caption {
+  margin: 0;
+  color: var(--color-text-fill-secondary);
+  font-size: var(--font-size-12);
+  line-height: var(--font-line-height-20);
 }
 
 /* ---------- AudioWave：音频波形 ---------- */
@@ -795,6 +818,7 @@
     rotate(calc(var(--kv-layer) * 2deg));
   transition:
     transform calc(var(--motion-duration-400) * var(--kv-stack-factor, 1)) var(--motion-ease-spring),
+    /* 状态切换：展开、收起时卡片底色跟着变，不是悬停 */
     background-color var(--motion-duration-150) var(--motion-ease-out),
     box-shadow calc(var(--motion-duration-400) * var(--kv-stack-factor, 1)) var(--motion-ease-out);
 }
@@ -819,6 +843,7 @@
     rotate(0deg);
   transition:
     transform calc(var(--motion-duration-400) * var(--kv-stack-factor, 1)) var(--motion-ease-spring),
+    /* 状态切换：展开、收起时卡片底色跟着变，不是悬停 */
     background-color var(--motion-duration-150) var(--motion-ease-in),
     box-shadow calc(var(--motion-duration-400) * var(--kv-stack-factor, 1)) var(--motion-ease-out);
 }

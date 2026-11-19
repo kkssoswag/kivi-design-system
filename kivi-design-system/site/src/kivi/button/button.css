@@ -48,8 +48,8 @@
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
+  /* 悬停、按下的底色不做过渡（11-19 用户定：Chrome 跑底色过渡偶尔丢一帧，快速划过时闪），文字颜色、透明度照旧 */
   transition:
-    background-color var(--motion-duration-100) var(--motion-ease-in-out),
     color var(--motion-duration-100) var(--motion-ease-in-out),
     opacity var(--motion-duration-100) var(--motion-ease-in-out);
 }
@@ -76,6 +76,12 @@
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* 文字位置只放一个图标（比如画布左上角的 Logo）：图标按块排，不坐在文字基线上，
+   否则下面空出一截下行留白，图标整体偏上 2px */
+.kv-button > .kv-button__label > .kv-icon:only-child {
+  display: block;
 }
 
 /* 右边的下拉箭头减弱一档，和 Select 的箭头一样（11-04 用户定，所有按钮都这样） */
