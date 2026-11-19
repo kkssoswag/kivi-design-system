@@ -36,8 +36,8 @@ export function ToolsHistory({ account, items, media, onPreview, onUseInTool, on
             <Dropdown
               haspopup="listbox"
               placement="bottom-end"
-              // 筛选只放图标（11-11 用户定），筛了某个工具时按钮留选中底色
-              trigger={<IconButton icon="Filter" label="按工具筛选" size={28} selected={filter !== 'all'} />}
+              // 筛选只放图标（11-11 用户定），无底灰（11-18 用户要灰的），筛了某个工具时按钮留选中底色
+              trigger={<IconButton icon="Filter" label="按工具筛选" variant="ghost-muted" size={28} selected={filter !== 'all'} />}
             >
               <Menu role="listbox" aria-label="按工具筛选">
                 <MenuItem selected={filter === 'all'} onClick={() => setFilter('all')}>
@@ -52,8 +52,8 @@ export function ToolsHistory({ account, items, media, onPreview, onUseInTool, on
             </Dropdown>
           </div>
           {shown.length === 0 && (
-            // 空的时候右栏正中放插图，不写说明（11-12 用户定）
-            <EmptyState className="tpl-at__history-empty" size={96} title={filter === 'all' ? '暂无历史记录' : `暂无${toolOf(filter).name}记录`} />
+            // 空的时候右栏正中放一个历史图标（窄栏放 IP 不合适，11-18 用户定），不写说明
+            <EmptyState className="tpl-at__history-empty" size={96} icon="History" title={filter === 'all' ? '暂无历史记录' : `暂无${toolOf(filter).name}记录`} />
           )}
           {shown.map((r) => {
             const done = r.status === 'done';

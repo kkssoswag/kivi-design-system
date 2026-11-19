@@ -15,15 +15,17 @@ export interface RecordFeedProps {
   assets: Asset[];
   agentTurns: AgentTurnData[];
   ctx: TileContext;
+  /** 从第几项开始显示（更早的还没加载） */
+  start?: number;
 }
 
-export function RecordFeed({ chat, tasks, assets, agentTurns, ctx }: RecordFeedProps) {
+export function RecordFeed({ chat, tasks, assets, agentTurns, ctx, start = 0 }: RecordFeedProps) {
   const taskById = useMemo(() => new Map(tasks.map((t) => [t.id, t])), [tasks]);
   const assetById = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets]);
   const turnById = useMemo(() => new Map(agentTurns.map((t) => [t.id, t])), [agentTurns]);
   return (
     <>
-      {chat.items.map((it) => {
+      {chat.items.slice(start).map((it) => {
         if (it.kind === 'agent') {
           const turn = turnById.get(it.id);
           return turn ? <AgentTurn key={it.id} turn={turn} tasks={taskById} assets={assetById} ctx={ctx} /> : null;

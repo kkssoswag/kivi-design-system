@@ -204,11 +204,11 @@ import { AudioWavePlayground, CanvasHeaderPlayground, ConnectorPlayground, NodeP
 | `onChange` | `(text: string) => void` | — | 提示词变了 |
 | `model` | `string` | — | 模型（值）。传了就是受控；不传用这个类型的默认模型 |
 | `defaultModel` | `string` | — | 非受控时一开始的模型 |
-| `onModelChange` | `(model) => void` | — | 换了模型 |
+| `onModelChange` | `(model) => void` | — | 换了模型。新模型不支持当前参数值时改回默认并弹 toast「所选模型不支持当前参数，已调整为默认值」，都支持不提示；参数面板只显示新模型支持的值（`model-caps.ts`） |
 | `refMode` | `'omni'` `'frames'` `'edit'` `'extend'` | — | 视频的参考方式，同 `PromptBox`。只有首尾帧的模型没有这个下拉，参考区也是首尾帧；换模型时回到全能参考 |
 | `defaultRefMode` | 同上 | `'omni'` | 非受控时一开始的参考方式 |
 | `onRefModeChange` | `(mode) => void` | — | 换了参考方式 |
-| `onGenerate` | `() => void` | — | 点了生成。不能生成时（按钮置灰、悬停说原因）不触发 |
+| `onGenerate` | `() => void` | — | 点了生成。不能生成时（按钮置灰、悬停说原因）不触发；原因包括参考不够 / 太多 / 互斥（读模型能力表）、没有描述、音频超字数。提示词最多 10000 个字符 |
 | `generating` | `boolean` | `false` | 正在生成：生成按钮置灰 |
 | `cost` | `number` | — | 消耗的猕猴桃数。不传按类型和模型取示例数字 |
 | `placeholder` | `string` | `"描述任何你想要生成的内容"` | 没输入时的占位文字 |

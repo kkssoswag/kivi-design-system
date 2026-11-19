@@ -15,6 +15,7 @@ export * from './useScrollLock';
 export * from './useAudioPlayer';
 export * from './useScrollFade';
 export * from './useFileDrop';
+export * from './usePasteFiles';
 export * from './useCopy';
 export * from './useTruncated';
 export * from './useJustExpanded';

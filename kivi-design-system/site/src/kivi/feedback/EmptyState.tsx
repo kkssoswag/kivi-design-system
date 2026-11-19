@@ -1,4 +1,6 @@
 import { forwardRef, type HTMLAttributes, type ReactNode } from 'react';
+import { Icon } from '../Icon';
+import type { IconName } from '../icons';
 import { cx } from '../utils';
 import './feedback.css';
 
@@ -32,20 +34,26 @@ export interface EmptyStateProps extends Omit<HTMLAttributes<HTMLDivElement>, 't
   action?: ReactNode;
   /** 换一张插图的地址（比如项目里图放在别处）；不传就按 type 用 EMPTY_STATE_IMAGES */
   image?: string;
+  /** 用图标代替 IP 插图（窄栏、侧栏放不下 IP 时，11-18 用户定）：160 配 64、96 配 40 的图标，颜色 disabled 一档，不叠透明度 */
+  icon?: IconName;
 }
 
 const has = (node: ReactNode) => node !== undefined && node !== null && node !== false && node !== '';
 
 /** 页面、面板、下拉里没有东西可看时，用 IP 插图告诉用户为什么是空的、下一步做什么。Figma「加载和空态」页 EmptyState */
 export const EmptyState = forwardRef<HTMLDivElement, EmptyStateProps>(function EmptyState(
-  { type = 'empty', size = 160, title, description, action, image, className, ...rest },
+  { type = 'empty', size = 160, title, description, action, image, icon, className, ...rest },
   ref,
 ) {
   return (
     <div ref={ref} className={cx('kv-empty-state', `kv-empty-state--${size}`, className)} {...rest}>
-      <div className="kv-empty-state__illustration">
-        <img className="kv-empty-state__ip" src={image ?? EMPTY_STATE_IMAGES[type]} alt="" />
-      </div>
+      {icon ? (
+        <Icon name={icon} size={size === 160 ? 64 : 40} className="kv-empty-state__icon" />
+      ) : (
+        <div className="kv-empty-state__illustration">
+          <img className="kv-empty-state__ip" src={image ?? EMPTY_STATE_IMAGES[type]} alt="" />
+        </div>
+      )}
       <div className="kv-empty-state__text">
         <div className="kv-empty-state__title">{title}</div>
         {has(description) && <div className="kv-empty-state__desc">{description}</div>}

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Button, Dropdown, GenPrompt, IconButton, Menu, MenuItem, type PlaceholderImageRatio } from '@kivi';
 import { videoPoster } from '../../data/mock';
 import { countdownLabel, useNow } from '../../data/tasks';
@@ -20,19 +21,35 @@ function gridOf(ratio: PlaceholderImageRatio, count: number) {
 }
 
 export function GenRecordView({ task, assets, ctx }: { task: Task; assets: Map<string, Asset>; ctx: TileContext }) {
+  // 再次生成提交中：按钮转圈、不能连点
+  const [rerunning, setRerunning] = useState(false);
+  const rerun = async () => {
+    setRerunning(true);
+    try {
+      await ctx.record.rerun(task);
+    } finally {
+      setRerunning(false);
+    }
+  };
   return (
     <div className="tpl-record">
       <GenPrompt prompt={task.prompt}>
         <TaskTags task={task} />
       </GenPrompt>
       <TaskGrid task={task} assets={assets} ctx={ctx} />
-      {/* 照即梦：常用的两个是带图标的次要灰按钮，删除收进「⋯」（11-16 用户定）。只能看，点了不生成、不删 */}
+      {/* 照即梦：常用的两个是带图标的次要灰按钮，删除收进「⋯」（11-16 用户定） */}
       <div className="tpl-row">
-        <Button variant="secondary-muted" leftIcon="Rename">重新编辑</Button>
-        <Button variant="secondary-muted" leftIcon="Reset">再次生成</Button>
+        <Button variant="secondary-muted" leftIcon="Rename" onClick={() => ctx.record.edit(task)}>
+          重新编辑
+        </Button>
+        <Button variant="secondary-muted" leftIcon="Reset" loading={rerunning} onClick={() => void rerun()}>
+          再次生成
+        </Button>
         <Dropdown placement="bottom-start" trigger={<IconButton icon="More" label="更多" tooltip={false} variant="ghost-muted" />}>
           <Menu aria-label="这组记录的更多操作">
-            <MenuItem icon="Delete" variant="danger">删除整组</MenuItem>
+            <MenuItem icon="Delete" variant="danger" onClick={() => ctx.record.remove(task)}>
+              删除整组
+            </MenuItem>
           </Menu>
         </Dropdown>
       </div>

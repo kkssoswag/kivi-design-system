@@ -18,14 +18,14 @@ export function CategoryTabs({ label, value, options, onChange }: { label: strin
   );
 }
 
-/** 工作流卡的骨架：16:9 封面 + 标题、作者两行 */
-export function CardSkeleton() {
+/** 工作流卡的骨架：16:9 封面 + 标题、作者两行；short 只有标题一行（卡上不写作者时，画布「工作流」面板） */
+export function CardSkeleton({ short }: { short?: boolean }) {
   return (
     <div className="tpl-ex__card-skeleton" aria-hidden>
       <Skeleton style={{ width: '100%', aspectRatio: '16 / 9', borderRadius: 0 }} />
       <div className="tpl-ex__card-skeleton-body">
         <Skeleton variant="text" width="60%" />
-        <Skeleton variant="text" width="30%" />
+        {!short && <Skeleton variant="text" width="30%" />}
       </div>
     </div>
   );

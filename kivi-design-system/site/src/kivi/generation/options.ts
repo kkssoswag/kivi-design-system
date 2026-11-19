@@ -131,8 +131,6 @@ export const VOICES: Record<string, SelectOption[]> = {
 };
 /** 张数：线上是 x1 / x2 / x4 */
 export const COUNTS: SelectOption[] = [1, 2, 4].map((n) => ({ value: String(n), label: `x${n}` }));
-/** 音频字数上限，按模型 */
-export const AUDIO_CHAR_LIMIT: Record<string, number> = { 'seed-audio-1.0': 3000, 'minimax-speech-2.8-hd': 10000, 'eleven-v4': 5000 };
 
 /** 刻度：每 every 一条线，每 labelEvery 写一个数字 */
 export function ticks(min: number, max: number, every: number, labelEvery: number, fmt: (v: number) => string = String): SliderMark[] {

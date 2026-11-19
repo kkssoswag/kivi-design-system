@@ -5,7 +5,7 @@ import './agent.css';
 export type ActionCardType = 'confirm' | 'auth' | 'error';
 
 export interface ActionCardProps extends Omit<HTMLAttributes<HTMLElement>, 'title'> {
-  /** 类型：生成确认 / 授权 / 出错，默认生成确认。生成确认、授权样子一样；出错只有一行说明，描边不填底 */
+  /** 类型：生成确认 / 授权 / 出错，默认生成确认。生成确认、授权样子一样（生成确认换掉输入框，最低 160 高、按钮贴底）；出错只有一行说明，描边不填底 */
   type?: ActionCardType;
   /** 标题，14 粗。出错没有标题 */
   title?: ReactNode;
@@ -28,7 +28,7 @@ export const ActionCard = forwardRef<HTMLElement, ActionCardProps>(function Acti
     );
   }
   return (
-    <section ref={ref} className={cx('kv-action-card', className)} {...rest}>
+    <section ref={ref} className={cx('kv-action-card', `kv-action-card--${type}`, className)} {...rest}>
       <div className="kv-action-card__text">
         <div className="kv-action-card__title">{title}</div>
         <div className="kv-action-card__desc">{description}</div>

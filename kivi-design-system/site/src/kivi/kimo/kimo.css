@@ -1,0 +1,44 @@
+/*
+  Kimo：IP 形象（Kimo.tsx）。原站角色框 216，矢量 153 缩放进去、居中，超出框的帽尖、杖尖照常露出来。
+  下面一团影子：原站 .character-shadow（框底、宽一半、高 10、模糊 8、透明 45%），按 size 等比缩。
+*/
+
+.kv-kimo {
+  position: relative;
+  flex: none;
+  width: var(--kv-kimo-size);
+  height: var(--kv-kimo-size);
+  visibility: hidden;
+}
+
+/* 第一帧画好再出来，不闪一下原图的样子 */
+.kv-kimo[data-ready] {
+  visibility: visible;
+}
+
+.kv-kimo__rig {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.kv-kimo__rig > svg {
+  flex-shrink: 0;
+  overflow: visible;
+  transform: scale(var(--kv-kimo-scale));
+}
+
+.kv-kimo__shadow {
+  position: absolute;
+  bottom: 0;
+  left: 25%;
+  width: 50%;
+  height: calc(var(--kv-kimo-size) * 10 / 216);
+  border-radius: var(--border-radius-round);
+  background: #070807; /* Figma 没变量：原站影子色 */
+  opacity: 0.45;
+  filter: blur(calc(var(--kv-kimo-size) * 8 / 216));
+}

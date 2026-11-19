@@ -1,80 +1,66 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import {
   Button,
   DateRangeFilter,
   Dropdown,
   EmptyState,
-  GenPrompt,
-  IconButton,
   Input,
+  Loading,
   Menu,
   MenuItem,
-  ResultTile,
   Select,
+  Skeleton,
   TabItem,
   Tabs,
-  Tag,
-  placeholderImageSrc,
-  toast,
   type DateRange,
   type SelectOption,
 } from '@kivi';
-import { setCollected } from '../../data/assets';
-import { byId, useDB } from '../../data/db';
-import type { Asset } from '../../data/types';
-import { attempt } from '../../flows/errors';
-import { MediaViewer, ViewerAuthor, ViewerSection, useLastShown } from '../../parts/media-viewer';
+import { useDB } from '../../data/db';
+import { useBriefLoading } from '../../hooks/useBriefLoading';
+import { useDebounced } from '../../hooks/useDebounced';
+import { usePaged, type MoreRef } from '../../hooks/usePaged';
+import { GROUPS, SOURCE_LABEL, groupOf, startOfDay, useAssetCells } from './assetCells';
+import { AssetBatchActions, BatchControls } from './BatchBar';
 
 /*
   资产页 · 生成历史：全部生成结果（会话、工具、画布来的，上传的不算），按今天 / 昨天 / 更早分组。
   筛选条（来源、类型、时间、收藏、搜索）滚动时吸顶；结果格悬停出收藏；点图用全站查看大图。
 */
 
-const SOURCE_LABEL: Record<string, string> = { create: '会话', tools: '工具', canvas: '画布' };
-const SOURCE_OPTIONS: SelectOption[] = [{ value: 'all', label: '全部' }, ...Object.entries(SOURCE_LABEL).map(([value, label]) => ({ value, label }))];
-const GROUPS = ['今天', '昨天', '更早'];
-const DAY = 24 * 3_600_000;
+const SOURCE_OPTIONS: SelectOption[] = [{ value: 'all', label: '全部' }, ...Object.entries(SOURCE_LABEL).filter(([v]) => v !== 'upload').map(([value, label]) => ({ value, label }))];
+/** 一页几条（线上 100，演示数据少，改小） */
+const PAGE_SIZE = 20;
+/** 首次进入、换筛选先出几个骨架 */
+const SKELETON_COUNT = 10;
 
-const startOfDay = (t: number) => new Date(t).setHours(0, 0, 0, 0);
-/** 属于哪一组：今天 / 昨天 / 更早 */
-const groupOf = (createdAt: number) => {
-  const days = Math.round((startOfDay(Date.now()) - startOfDay(createdAt)) / DAY);
-  return GROUPS[Math.min(Math.max(days, 0), 2)];
-};
-const timeOf = (t: number) => new Date(t).toTimeString().slice(0, 5);
+/** 筛选条吸顶的位置：余额、头像那一排下面（和 CSS 的 top 一致） */
+const STICK_TOP = 64;
 
-/** 生成历史的一格：结果格（悬停出收藏，收藏了留一颗星；视频悬停就播，左下是播放器自己的时长）。不挂类型、来源标签，下面不带名字和时间 */
-function HistoryCard({ item, onCollect, onOpen }: { item: Asset; onCollect: (v: boolean) => void; onOpen: () => void }) {
-  const video = item.media === 'video';
-  return (
-    <ResultTile
-      // 点图看大图（视频点右下「预览」），点的是格子里的按钮就不打开
-      style={{ cursor: video ? undefined : 'zoom-in' }}
-      onClick={video ? undefined : (e) => !(e.target as HTMLElement).closest('button') && onOpen()}
-      onPreview={video ? onOpen : undefined}
-      title={item.name}
-      type={video ? 'video' : undefined}
-      src={item.src}
-      poster={video ? item.poster : undefined}
-      collect
-      collected={item.collected}
-      onCollectedChange={onCollect}
-    />
-  );
-}
-
-export function HistorySection() {
+export function HistorySection({ moreRef }: { moreRef: MoreRef }) {
   const assets = useDB((s) => s.assets);
   const [source, setSource] = useState<string | null>('all');
   const [type, setType] = useState('all');
   const [onlyCollected, setOnlyCollected] = useState(false);
   const [keyword, setKeyword] = useState('');
   const [range, setRange] = useState<DateRange>({ start: null, end: null });
-  // 看大图：全站共用的查看大图（media-viewer.tsx），信息栏写名字、来源和时间
-  const [view, setView] = useState<Asset | null>(null);
-  const shownView = useLastShown(view);
+  // 批量编辑：按钮在筛选行最右边，进去后格子出勾选框，按钮原地换成批量控件
+  const [picking, setPicking] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  // 筛选条吸顶了没有：看它前面那条 0 高的哨兵滚出可视区没有
+  // 哨兵用回调 ref 记进 state：加载中、加载完它会重新挂上，要跟着换观察对象
+  const [sentinelEl, sentinel] = useState<HTMLDivElement | null>(null);
+  const [stuck, setStuck] = useState(false);
+  useEffect(() => {
+    const el = sentinelEl;
+    if (!el) return;
+    // 筛选条吸在离顶 64 的地方：看哨兵越过这条线没有
+    const io = new IntersectionObserver(([e]) => setStuck(!e.isIntersecting && e.boundingClientRect.top < (e.rootBounds?.top ?? 0)), { threshold: 0, rootMargin: `-${STICK_TOP}px 0px 0px 0px` });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [sentinelEl]);
 
-  const k = keyword.trim();
+  // 搜索框打完字停一会儿才搜（和探索页一样）
+  const k = useDebounced(keyword).trim();
   // 历史：生成出来的，新的在前
   const history = useMemo(() => assets.filter((a) => a.source !== 'upload').sort((a, b) => b.createdAt - a.createdAt), [assets]);
   const list = useMemo(
@@ -92,6 +78,11 @@ export function HistorySection() {
       }),
     [history, source, type, onlyCollected, range, k],
   );
+  // 首次进入、换筛选、搜索：先出骨架；往下滚到底再加载下一页
+  const filterKey = `${source}|${type}|${onlyCollected}|${k}|${range.start?.getTime()}|${range.end?.getTime()}`;
+  const filtering = useBriefLoading(filterKey);
+  const { count, loading: more } = usePaged(list.length, PAGE_SIZE, filterKey, moreRef);
+  const shown = useMemo(() => list.slice(0, count), [list, count]);
   const reset = () => {
     setSource('all');
     setType('all');
@@ -99,9 +90,26 @@ export function HistorySection() {
     setKeyword('');
     setRange({ start: null, end: null });
   };
-  const collect = (ids: string[], v: boolean) => void attempt(() => setCollected(ids, v));
-  // 查看大图里的收藏状态跟着数据走
-  const viewCollected = shownView ? (byId(assets, shownView.id)?.collected ?? shownView.collected) : false;
+  // 被删掉的素材从已选里去掉
+  useEffect(() => {
+    setPicked((p) => {
+      const ids = new Set(history.map((h) => h.id));
+      const next = new Set([...p].filter((id) => ids.has(id)));
+      return next.size === p.size ? p : next;
+    });
+  }, [history]);
+  const toggle = (id: string) =>
+    setPicked((p) => {
+      const next = new Set(p);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  const done = () => {
+    setPicking(false);
+    setPicked(new Set());
+  };
+  const { cell, extra } = useAssetCells(shown, { picking, picked, onToggle: toggle });
+  const pickedItems = shown.filter((h) => picked.has(h.id));
 
   return (
     <Fragment>
@@ -109,8 +117,9 @@ export function HistorySection() {
         <header className="tpl-as__head">
           <h2>生成历史</h2>
         </header>
-        {/* 筛选条：滚动时吸顶 */}
-        <div className="tpl-as__filters">
+        {/* 筛选条：滚动时吸在余额、头像那一排下面；最右边是批量编辑，点了原地换成批量控件，左边筛选照常（照线上），搜索框先收起 */}
+        <div ref={sentinel} className="tpl-as__sentinel" aria-hidden />
+        <div className="tpl-as__filters" data-stuck={stuck || undefined} data-picking={picking || undefined}>
           <span className="tpl-as__label">来源</span>
           <Dropdown
             haspopup="listbox"
@@ -158,13 +167,35 @@ export function HistorySection() {
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
           />
+          <div className="tpl-as__filters-end">
+            <BatchControls
+              label="批量操作"
+              picking={picking}
+              onStart={() => setPicking(true)}
+              canStart={history.length > 0}
+              total={shown.length}
+              picked={pickedItems.length}
+              onSelectAll={(all) => setPicked(all ? new Set(shown.map((h) => h.id)) : new Set())}
+              onDone={done}
+            >
+              <AssetBatchActions items={pickedItems} onChanged={() => setPicked(new Set())} />
+            </BatchControls>
+          </div>
         </div>
 
-        {list.length === 0 ? (
+        {filtering ? (
+          <div className="tpl-as__grid" aria-busy>
+            {Array.from({ length: SKELETON_COUNT }, (_, i) => (
+              <Skeleton key={i} style={{ width: '100%', aspectRatio: '1 / 1' }} />
+            ))}
+          </div>
+        ) : history.length === 0 ? (
+          <EmptyState type="empty" size={160} title="没有任何资产" className="tpl-as__empty" />
+        ) : list.length === 0 ? (
           <EmptyState
             type={onlyCollected ? 'favorite' : 'empty'}
             size={160}
-            title={onlyCollected ? '暂无符合条件的收藏' : '没有找到相关生成记录'}
+            title={k ? '没有搜索到符合条件的内容' : onlyCollected ? '暂无符合条件的收藏' : '没有找到相关生成记录'}
             action={
               <Button variant="secondary-muted" onClick={reset}>
                 重置筛选
@@ -174,7 +205,7 @@ export function HistorySection() {
           />
         ) : (
           GROUPS.map((g) => {
-            const items = list.filter((h) => groupOf(h.createdAt) === g);
+            const items = shown.filter((h) => groupOf(h.createdAt) === g);
             if (!items.length) return null;
             return (
               <section key={g} className="tpl-as__day" aria-label={`${g}的生成记录`}>
@@ -182,45 +213,16 @@ export function HistorySection() {
                   <h3>{g}</h3>
                 </header>
                 <div className="tpl-as__grid">
-                  {items.map((h) => (
-                    <HistoryCard key={h.id} item={h} onCollect={(v) => collect([h.id], v)} onOpen={() => setView(h)} />
-                  ))}
+                  {items.map(cell)}
                 </div>
               </section>
             );
           })
         )}
+        {!filtering && more && <Loading className="tpl-as__more">加载中</Loading>}
       </section>
 
-      <MediaViewer
-        media={view && { type: view.media === 'video' ? 'video' : 'image', src: view.src, poster: view.media === 'video' ? view.poster : undefined, alt: view.name ?? '' }}
-        onClose={() => setView(null)}
-        head={shownView && <ViewerAuthor name="KIVI" avatar={placeholderImageSrc('ip-peek', '1:1')} date={`${groupOf(shownView.createdAt)} ${timeOf(shownView.createdAt)}`} />}
-        actions={
-          shownView && (
-            <>
-              <IconButton icon="Download" label="下载" variant="secondary" size={36} onClick={() => toast.info('已开始下载')} />
-              <IconButton
-                icon={viewCollected ? 'CollectSolid' : 'Collect'}
-                label={viewCollected ? '取消收藏' : '收藏'}
-                variant="secondary"
-                size={36}
-                data-collected={viewCollected || undefined}
-                onClick={() => collect([shownView.id], !viewCollected)}
-              />
-            </>
-          )
-        }
-      >
-        {shownView && (
-          <ViewerSection title="来源">
-            <GenPrompt>
-              <Tag icon={shownView.media === 'video' ? 'VideoGeneration' : 'ImageGeneration'}>{shownView.name}</Tag>
-              <Tag>{SOURCE_LABEL[shownView.source]}</Tag>
-            </GenPrompt>
-          </ViewerSection>
-        )}
-      </MediaViewer>
+      {extra}
     </Fragment>
   );
 }

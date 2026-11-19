@@ -32,6 +32,11 @@ export class ApiError extends Error {
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const between = (a: number, b: number) => a + Math.random() * (b - a);
 
+/** 列表加载（分页、骨架）的等待时长：平时 0.5–0.9 秒，演示开关「慢网」开了 1.5–3 秒。加载态都从这里取，页面不自己写计时 */
+export function listDelay(): number {
+  return demo.get().slow ? between(1500, 3000) : between(500, 900);
+}
+
 /** 模拟一次请求：等一会儿再执行 fn；演示开关开了断网就报错 */
 export async function request<T>(fn: () => T | Promise<T>): Promise<T> {
   const d = demo.get();

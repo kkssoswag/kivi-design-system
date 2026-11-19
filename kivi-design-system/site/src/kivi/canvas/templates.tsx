@@ -1,11 +1,14 @@
 import { forwardRef, useLayoutEffect, useRef, useState, type FormEvent, type HTMLAttributes, type ReactNode } from 'react';
 import { IconButton } from '../button';
+import { toast } from '../feedback';
 import { useControllable } from '../hooks';
 import { AttachmentStrip, type AttachmentItem } from '../reference/AttachmentStrip';
 import { ReferenceFramePair, type ReferenceFrameSlot } from '../reference/ReferenceFramePair';
 import { referenceLabels } from '../reference/ReferenceStack';
 import { GenActions, GenToolbar } from '../generation/gen-controls';
-import { GEN_NODE_PLACEHOLDER, genBlockedReason, genCost, isFramesMode, type GenNodeType } from '../generation/gen-rules';
+import { GEN_NODE_PLACEHOLDER, PROMPT_MAX_LENGTH, genBlockedReason, genCost, isFramesMode, type GenNodeType } from '../generation/gen-rules';
+import { GEN_PARAM_DEFAULTS, type GenParamValues } from '../generation/GenParams';
+import { fallbackParams } from '../generation/model-caps';
 import { DEFAULT_MODEL } from '../generation/options';
 import { PromptInput } from '../generation/PromptInput';
 import { insertMention, promptText, syncMentions } from '../generation/mentions';
@@ -52,14 +55,38 @@ export interface NodePanelProps extends Omit<HTMLAttributes<HTMLDivElement>, 'on
   defaultRefMode?: string;
   /** 换了参考方式 */
   onRefModeChange?: (mode: string) => void;
-  /** 点了生成。不能生成时（按钮置灰）不触发 */
-  onGenerate?: () => void;
+  /** 参数（比例、分辨率、时长…）。传了就是受控；画布里每个节点记住自己的参数 */
+  params?: GenParamValues;
+  /** 非受控时一开始的参数，不传用这个类型的默认值 */
+  defaultParams?: GenParamValues;
+  /** 改了参数（换模型回落时也会触发） */
+  onParamsChange?: (params: GenParamValues) => void;
+  /** 张数（图片、视频，'1'–'4'）。传了就是受控 */
+  count?: string;
+  /** 非受控时一开始的张数，默认 '1' */
+  defaultCount?: string;
+  onCountChange?: (count: string) => void;
+  /** 点了生成，带上这次的提示词、模型、参考方式、实际生效的参数、是不是首尾帧。不能生成时（按钮置灰）不触发 */
+  onGenerate?: (submit: NodePanelSubmit) => void;
   /** 正在生成：生成按钮置灰 */
   generating?: boolean;
   /** 消耗的猕猴桃数。不传按类型和模型取示例数字 */
   cost?: number;
   /** 没输入时的占位文字，默认「描述任何你想要生成的内容」 */
   placeholder?: string;
+}
+
+/** 点生成时带出来的东西 */
+export interface NodePanelSubmit {
+  text: string;
+  model: string;
+  refMode: string;
+  /** 按当前模型实际生效的参数（不支持的已回落到默认） */
+  params: GenParamValues;
+  /** 张数：图片、视频按选的，文字、音频是 1 */
+  count: number;
+  /** 视频是不是首尾帧方式；是的话 frames 是首帧、尾帧的上游 id（互换过就是换过的顺序） */
+  frames?: { first?: string; last?: string };
 }
 
 /** 生成面板：选中节点后出现在节点下方。竖排三块：参考素材（AttachmentStrip，首尾帧时 ReferenceFramePair）、PromptInput（提示词）、NodePanelBar（模型选择栏） */
@@ -80,6 +107,12 @@ export const NodePanel = forwardRef<HTMLDivElement, NodePanelProps>(function Nod
     refMode: refModeProp,
     defaultRefMode = 'omni',
     onRefModeChange,
+    params: paramsProp,
+    defaultParams = {},
+    onParamsChange,
+    count: countProp,
+    defaultCount = '1',
+    onCountChange,
     onGenerate,
     generating,
     cost,
@@ -92,6 +125,22 @@ export const NodePanel = forwardRef<HTMLDivElement, NodePanelProps>(function Nod
 ) {
   const [model, setModel] = useControllable(modelProp, defaultModel ?? (type ? DEFAULT_MODEL[type] : ''), onModelChange);
   const [refMode, setRefMode] = useControllable(refModeProp, defaultRefMode, onRefModeChange);
+  // 参数面板的值：换模型时新模型不支持的值改回默认并提示一声（和主站输入框一样）。实际在用的值按当前模型支持的算
+  const [rawParams, setRawParams] = useControllable(paramsProp, defaultParams, onParamsChange);
+  const [count, setCount] = useControllable(countProp, defaultCount, onCountChange);
+  const params = type && type !== 'text' ? fallbackParams(type, model, { ...GEN_PARAM_DEFAULTS[type], ...rawParams }).values : {};
+  const changeModel = (m: string) => {
+    if (type && type !== 'text') {
+      const { values, changed } = fallbackParams(type, m, params);
+      if (changed) {
+        setRawParams(values);
+        toast.info('所选模型不支持当前参数，已调整为默认值');
+      }
+    }
+    setModel(m);
+    // 换模型时参考方式回到全能参考（照线上）
+    setRefMode('omni');
+  };
   const [text, setText] = useState(typeof defaultValue === 'string' ? defaultValue : '');
   const inputRef = useRef<HTMLDivElement>(null);
   // 参考素材按连接顺序、每种类型各自编号（图片1、视频1…），和右上角、@ 出来的一致
@@ -153,7 +202,7 @@ export const NodePanel = forwardRef<HTMLDivElement, NodePanelProps>(function Nod
               />
             )
           ))}
-        <PromptInput ref={inputRef} placeholder={placeholder} onInput={onInput} mentions={frames ? undefined : named}>
+        <PromptInput ref={inputRef} placeholder={placeholder} maxLength={PROMPT_MAX_LENGTH} onInput={onInput} mentions={frames ? undefined : named}>
           {defaultValue}
         </PromptInput>
         <NodePanelBar
@@ -161,13 +210,11 @@ export const NodePanel = forwardRef<HTMLDivElement, NodePanelProps>(function Nod
             <GenToolbar
               kind={type}
               model={model}
-              // 换模型时参考方式回到全能参考（照线上）
-              onModelChange={(m) => {
-                setModel(m);
-                setRefMode('omni');
-              }}
+              onModelChange={changeModel}
               refMode={refMode}
               onRefModeChange={setRefMode}
+              params={type === 'text' ? undefined : params}
+              onParamsChange={setRawParams}
             />
           }
           right={
@@ -178,7 +225,20 @@ export const NodePanel = forwardRef<HTMLDivElement, NodePanelProps>(function Nod
               cost={cost ?? genCost(type, model)}
               reason={reason}
               generating={generating}
-              onSubmit={() => !reason && !generating && onGenerate?.()}
+              count={count}
+              onCountChange={setCount}
+              onSubmit={() =>
+                !reason &&
+                !generating &&
+                onGenerate?.({
+                  text,
+                  model,
+                  refMode,
+                  params,
+                  count: type === 'image' || type === 'video' ? Number(count) : 1,
+                  frames: frames ? { first: firstImg?.id, last: lastImg?.id } : undefined,
+                })
+              }
             />
           }
         />

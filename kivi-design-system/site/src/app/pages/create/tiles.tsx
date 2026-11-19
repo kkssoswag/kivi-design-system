@@ -1,3 +1,4 @@
+import type { Task } from '../../data/types';
 import type { MouseEvent, ReactNode } from 'react';
 import { ResultTile, type PlaceholderImageRatio, type ResultTileAction, type ResultTileStatus } from '@kivi';
 import { TOOLS, toolOf, type ToolId } from '../../data/tools';
@@ -50,6 +51,12 @@ export interface TileContext {
   openMenu: (t: TileRef, at: { x: number; y: number }) => void;
   remove: (t: TileRef) => void;
   collect: (t: TileRef, collected: boolean) => void;
+  /** 记录下面那排按钮：重新编辑（参数填回输入框）、再次生成（原参数直接提交）、删除整组 */
+  record: {
+    edit: (task: Task) => void;
+    rerun: (task: Task) => Promise<unknown>;
+    remove: (task: Task) => void;
+  };
 }
 
 export interface RecordTileProps {
