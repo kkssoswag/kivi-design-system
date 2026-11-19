@@ -989,3 +989,20 @@
   font-size: var(--font-size-12);
   line-height: var(--font-line-height-20);
 }
+
+/* 生成按钮等请求时（GenerateButton loading，11-19 用户定）：只在正中转圈，不显示猕猴桃和消耗数。
+   宽度不变：数字藏起来但留着占位，左边让出原来猕猴桃图标 16 + 间距 4 的位置；转圈绝对定位在正中（它自己在转，不能用 transform 居中） */
+.kv-generate-button[aria-busy="true"] {
+  position: relative;
+}
+
+.kv-generate-button[aria-busy="true"] > .kv-button__label {
+  visibility: hidden;
+  margin-left: calc(16px + var(--spacing-4));
+}
+
+.kv-generate-button[aria-busy="true"] > .kv-icon[data-spinner] {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+}

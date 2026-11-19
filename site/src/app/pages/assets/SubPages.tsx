@@ -217,7 +217,7 @@ export function CanvasesPage({
               onSelectAll={(all) => setPicked(all ? new Set(canvases.map((c) => c.id)) : new Set())}
               onDone={done}
             >
-              <Button size={32} variant="secondary-muted" leftIcon="Delete" disabled={ids.length === 0} onClick={() => void removeMany()}>
+              <Button size={32} variant="ghost-muted" leftIcon="Delete" disabled={ids.length === 0} onClick={() => void removeMany()}>
                 删除
               </Button>
             </BatchControls>

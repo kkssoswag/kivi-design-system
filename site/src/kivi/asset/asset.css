@@ -302,7 +302,6 @@
   cursor: pointer;
   -webkit-user-select: none;
   user-select: none;
-  transition: background-color var(--motion-duration-150) var(--motion-ease-out);
 }
 
 .kv-create-card:where(:hover, :focus-visible, .is-hover) {

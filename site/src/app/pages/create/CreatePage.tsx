@@ -21,6 +21,7 @@ import { INITIAL_STATE } from '../../parts/tool-workbench/types';
 import { useBriefLoading } from '../../hooks/useBriefLoading';
 import { useOlderPages } from '../../hooks/useOlderPages';
 import { TaskTags } from '../../parts/task-tags';
+import { AssetInfo, CopyPrompt } from '../../parts/asset-info';
 import { RecordFeed } from './RecordFeed';
 import { TileMenus, type TileMenuState } from './TileMenus';
 import { genTaskInput } from './submit';
@@ -101,6 +102,7 @@ function ChatView({ chat }: { chat: Chat }) {
   const viewIndex = view ? (foundAt >= 0 ? foundAt : Math.min(view.index, viewGroup.length - 1)) : 0;
   const viewNow = view && viewGroup.length ? viewGroup[viewIndex] : null;
   const shownView = useLastShown(viewNow);
+  const shownAsset = shownView?.assetId ? assets.find((a) => a.id === shownView.assetId && a.taskId) : undefined;
   // 都删光了：关掉
   useEffect(() => {
     if (view && !viewGroup.length) setView(null);
@@ -121,9 +123,11 @@ function ChatView({ chat }: { chat: Chat }) {
   const [composerH, setComposerH] = useState(220);
 
   /** 提交一个任务：成功后排到对话最后（出错交给 attempt） */
+  /** 提交一次生成，成功返回 true（页面的生成按钮等它的时候转圈） */
   const run = async (input: TaskInput) => {
     const t = await attempt(() => submitTask(input));
     if (t) addChatTask(chat.id, t.id);
+    return !!t;
   };
 
   const addRef = (t: TileRef) =>
@@ -133,9 +137,9 @@ function ChatView({ chat }: { chat: Chat }) {
     ]);
 
   // 弹窗里点生成：关弹窗，记录流最后多一条工具任务（只有参数，没有提示词）
-  const runJob = (job: ToolJob) => {
-    setTool(null);
-    void run(toolTaskInput(job, where));
+  // 工具弹窗：提交成功再关（等请求时弹窗里的生成按钮转圈），失败留着能再点
+  const runJob = async (job: ToolJob) => {
+    if (await run(toolTaskInput(job, where))) setTool(null);
   };
   // 抠图、视频抠图不开弹窗，点了直接生成（11-11 用户定）；视频抠图用默认输出模式透明视频
   const openTool = (id: ToolId, t: TileRef) => {
@@ -208,12 +212,10 @@ function ChatView({ chat }: { chat: Chat }) {
   };
 
   const submit = (s: PromptBoxSubmit) => {
-    if (s.task === 'agent') {
-      void ask(s.text, s.references);
-      return;
-    }
+    // 返回请求的 Promise：输入框等它的时候生成按钮转圈、不能重复提交
+    if (s.task === 'agent') return ask(s.text, s.references);
     const input = genTaskInput(s, where);
-    if (input) void run(input);
+    if (input) return run(input);
   };
 
   // 输入框浮在记录流上，记录流底部留出它的高度；输入框变高（加参考、打长字）跟着变
@@ -380,10 +382,26 @@ function ChatView({ chat }: { chat: Chat }) {
           )
         }
       >
-        {shownView && (
-          <ViewerSection title={shownView.info.prompt ? '提示词' : '参数'}>
-            <GenPrompt prompt={shownView.info.prompt}>{shownView.info.tags}</GenPrompt>
-          </ViewerSection>
+        {/* 有素材的（自己生成的）照资产页那套：同任务几张、提示词、参数、参考；Agent 那一轮写死的格子没有素材，只放提示词和标签 */}
+        {shownAsset ? (
+          <AssetInfo
+            asset={shownAsset}
+            pickable={(id) => viewGroup.some((g) => g.assetId === id)}
+            onPick={(id) => setView((v) => (v ? { ...v, assetId: id, index: viewGroup.findIndex((g) => g.assetId === id) } : v))}
+          />
+        ) : (
+          shownView && (
+            <>
+              {shownView.info.prompt && (
+                <ViewerSection title="提示词" action={<CopyPrompt text={shownView.info.prompt} />}>
+                  <p className="tpl-viewer__prompt">{shownView.info.prompt}</p>
+                </ViewerSection>
+              )}
+              <ViewerSection title="参数">
+                <GenPrompt>{shownView.info.tags}</GenPrompt>
+              </ViewerSection>
+            </>
+          )
         )}
       </MediaViewer>
     </>

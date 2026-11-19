@@ -152,6 +152,23 @@ const NATIVE_SCROLL_MARK = '原生滚动';
   }
 }
 
+// 悬停、按下的底色不做过渡（11-19 用户定，动效页「时长」）：Chrome 跑底色过渡偶尔丢一帧，鼠标快速划过时闪。
+// 点了才变的状态切换（开关、叠放卡片这类）可以过渡，在那一行注释「状态切换」
+const STATE_MARK = '状态切换';
+{
+  const src = fileURLToPath(new URL('../src/', import.meta.url));
+  for (const file of walk(src)) {
+    if (!file.endsWith('.css') && !file.endsWith('.tsx')) continue;
+    const lines = readFileSync(file, 'utf8').split('\n');
+    lines.forEach((raw, i) => {
+      // 写在 transition 里的 background / background-color（单行或多行 transition 的续行）
+      const inTransition = /transition(-property)?\s*:/.test(raw) || (i > 0 && /^\s+[a-z-]+ (var|calc|\d)/.test(raw) && /transition\s*:\s*$/.test(lines.slice(Math.max(0, i - 4), i).join('\n').split('\n').filter((l) => /transition\s*:/.test(l)).pop() ?? ''));
+      if (inTransition && /\bbackground(-color)?\s+(var|calc|\d)/.test(raw) && !raw.includes(STATE_MARK) && !(lines[i - 1] ?? '').includes(STATE_MARK))
+        problems.push(`${relative(src, file)}:${i + 1}  底色做了过渡：${raw.trim()}（悬停、按下的底色直接切换；点了才变的状态切换在这一行或上一行注释「${STATE_MARK}」）`);
+    });
+  }
+}
+
 // tokens.css 里的值也一律十六进制（11-05 用户定）
 {
   const file = files.find((f) => f.endsWith('tokens.css'));

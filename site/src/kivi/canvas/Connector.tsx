@@ -95,21 +95,20 @@ export const Connector = forwardRef<HTMLDivElement, ConnectorProps>(function Con
 
   useEffect(() => () => cancelAnimationFrame(frame.current), []);
 
-  /** 鼠标的屏幕坐标换成 SVG 坐标再找线上最近的点。画布缩放时连线被 scale 过，按实际显示的大小换算 */
-  const pointOf = (clientX: number, clientY: number, box: DOMRect) => {
+  /** 鼠标的屏幕坐标换成 SVG 坐标再找线上最近的点。用 SVG 自己的屏幕矩阵反算：画布缩放、
+   *  拉伸（preserveAspectRatio none）、往回连时外面套的左右翻转（scaleX(-1)）都算进去，按钮落在鼠标下面的那段线上 */
+  const pointOf = (clientX: number, clientY: number) => {
     const path = lineRef.current;
-    if (!path || box.width === 0 || box.height === 0) return null;
-    return closestOnPath(path, {
-      x: ((clientX - box.left) / box.width) * width,
-      y: ((clientY - box.top) / box.height) * height,
-    });
+    const m = path?.ownerSVGElement?.getScreenCTM();
+    if (!path || !m || m.a === 0 || m.d === 0) return null;
+    const p = new DOMPoint(clientX, clientY).matrixTransform(m.inverse());
+    return closestOnPath(path, { x: p.x, y: p.y });
   };
   const follow = (e: MouseEvent<HTMLDivElement>) => {
     const { clientX, clientY } = e;
-    const box = e.currentTarget.getBoundingClientRect();
     cancelAnimationFrame(frame.current);
     frame.current = requestAnimationFrame(() => {
-      const p = pointOf(clientX, clientY, box);
+      const p = pointOf(clientX, clientY);
       if (p) {
         setAt(p);
         setFollowing(true);
@@ -117,7 +116,7 @@ export const Connector = forwardRef<HTMLDivElement, ConnectorProps>(function Con
     });
   };
   const enter = (e: MouseEvent<HTMLDivElement>) => {
-    const p = pointOf(e.clientX, e.clientY, e.currentTarget.getBoundingClientRect());
+    const p = pointOf(e.clientX, e.clientY);
     if (p) setAt(p);
     // 一直显示的按钮本来就在线上，进来时滑过去；悬停才出现的直接出现在鼠标处
     setFollowing(remove === true);

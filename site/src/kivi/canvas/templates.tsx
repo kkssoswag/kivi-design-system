@@ -1,12 +1,12 @@
 import { forwardRef, useLayoutEffect, useRef, useState, type FormEvent, type HTMLAttributes, type ReactNode } from 'react';
 import { IconButton } from '../button';
 import { toast } from '../feedback';
-import { useControllable } from '../hooks';
+import { useControllable, usePending } from '../hooks';
 import { AttachmentStrip, type AttachmentItem } from '../reference/AttachmentStrip';
 import { ReferenceFramePair, type ReferenceFrameSlot } from '../reference/ReferenceFramePair';
 import { referenceLabels } from '../reference/ReferenceStack';
 import { GenActions, GenToolbar } from '../generation/gen-controls';
-import { GEN_NODE_PLACEHOLDER, PROMPT_MAX_LENGTH, genBlockedReason, genCost, isFramesMode, type GenNodeType } from '../generation/gen-rules';
+import { GEN_NODE_PLACEHOLDER, PROMPT_MAX_LENGTH, genBlockedReason, genTotalCost, isFramesMode, type GenNodeType } from '../generation/gen-rules';
 import { GEN_PARAM_DEFAULTS, type GenParamValues } from '../generation/GenParams';
 import { fallbackParams } from '../generation/model-caps';
 import { DEFAULT_MODEL } from '../generation/options';
@@ -66,8 +66,9 @@ export interface NodePanelProps extends Omit<HTMLAttributes<HTMLDivElement>, 'on
   /** 非受控时一开始的张数，默认 '1' */
   defaultCount?: string;
   onCountChange?: (count: string) => void;
-  /** 点了生成，带上这次的提示词、模型、参考方式、实际生效的参数、是不是首尾帧。不能生成时（按钮置灰）不触发 */
-  onGenerate?: (submit: NodePanelSubmit) => void;
+  /** 点了生成，带上这次的提示词、模型、参考方式、实际生效的参数、是不是首尾帧。不能生成时（按钮置灰）不触发。
+   *  返回请求的 Promise 时，等它的这段时间生成按钮转圈、不能重复点 */
+  onGenerate?: (submit: NodePanelSubmit) => void | Promise<unknown>;
   /** 正在生成：生成按钮置灰 */
   generating?: boolean;
   /** 消耗的猕猴桃数。不传按类型和模型取示例数字 */
@@ -128,6 +129,7 @@ export const NodePanel = forwardRef<HTMLDivElement, NodePanelProps>(function Nod
   // 参数面板的值：换模型时新模型不支持的值改回默认并提示一声（和主站输入框一样）。实际在用的值按当前模型支持的算
   const [rawParams, setRawParams] = useControllable(paramsProp, defaultParams, onParamsChange);
   const [count, setCount] = useControllable(countProp, defaultCount, onCountChange);
+  const [submitting, runSubmit] = usePending();
   const params = type && type !== 'text' ? fallbackParams(type, model, { ...GEN_PARAM_DEFAULTS[type], ...rawParams }).values : {};
   const changeModel = (m: string) => {
     if (type && type !== 'text') {
@@ -222,22 +224,24 @@ export const NodePanel = forwardRef<HTMLDivElement, NodePanelProps>(function Nod
               kind={type}
               model={model}
               text={text}
-              cost={cost ?? genCost(type, model)}
+              cost={cost ?? genTotalCost(type, model, Number(count) || 1)}
               reason={reason}
               generating={generating}
+              loading={submitting}
               count={count}
               onCountChange={setCount}
               onSubmit={() =>
                 !reason &&
                 !generating &&
-                onGenerate?.({
+                !submitting &&
+                runSubmit(() => onGenerate?.({
                   text,
                   model,
                   refMode,
                   params,
                   count: type === 'image' || type === 'video' ? Number(count) : 1,
                   frames: frames ? { first: firstImg?.id, last: lastImg?.id } : undefined,
-                })
+                }))
               }
             />
           }

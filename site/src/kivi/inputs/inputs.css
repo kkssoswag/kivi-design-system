@@ -50,7 +50,6 @@
   font-size: var(--font-size-13);
   font-weight: var(--font-weight-regular);
   cursor: text;
-  transition: background-color var(--motion-duration-100) var(--motion-ease-in-out);
 }
 
 /* 里面真正输入的框：没有自己的底色、描边，光标 primary */

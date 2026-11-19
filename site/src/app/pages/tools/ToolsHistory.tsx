@@ -1,11 +1,14 @@
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { Dropdown, EmptyState, IconButton, Menu, MenuItem, ResultTile, ScrollArea, toast } from '@kivi';
 import { countdownLabel, useNow } from '../../data/tasks';
 import { TOOLS, toolOf, type Media, type ToolId } from '../../data/tools';
+import { useFlip } from '../../hooks/useFlip';
 import type { HistoryItem } from './history';
 
 /*
   右栏通到顶：上面是余额和头像（11-17 用户定，从公共的头并进来），下面是历史（按工具筛选、右键菜单）。
+  - 生成中、结果、失败都只在这里（舞台只用来提交任务，11-19 用户定）；结果不会自己回到舞台，右键「加入当前工具」换掉当前工具的原图。新任务加在最上面：它淡入，下面的往下顶（useFlip）。
+  - 看大图：完成的图片点格子；图片、视频悬停右上角都有「查看大图」（视频的播放器全屏也是）。
 */
 
 export interface ToolsHistoryProps {
@@ -15,6 +18,7 @@ export interface ToolsHistoryProps {
   /** 当前工具的类型：只有同类型的能「加入当前工具」 */
   media: Media;
   onPreview: (item: HistoryItem) => void;
+  /** 右键「加入当前工具」：换掉当前工具的原图 */
   onUseInTool: (item: HistoryItem) => void;
   onRemove: (item: HistoryItem) => void;
 }
@@ -25,12 +29,14 @@ export function ToolsHistory({ account, items, media, onPreview, onUseInTool, on
   const [menu, setMenu] = useState<{ x: number; y: number; id: string } | null>(null);
   const menuOf = menu ? items.find((r) => r.id === menu.id) ?? null : null;
   const now = useNow(items.some((r) => r.status === 'generating'));
+  const listRef = useRef<HTMLElement>(null);
+  useFlip(listRef, shown.map((r) => r.id), filter);
 
   return (
     <div className="tpl-at__side">
       {account}
       <ScrollArea className="tpl-at__history">
-        <aside className="tpl-at__history-body" aria-label="历史记录">
+        <aside ref={listRef} className="tpl-at__history-body" aria-label="历史记录">
           <div className="tpl-at__history-head">
             <span className="tpl-at__history-title">历史记录</span>
             <Dropdown
@@ -60,6 +66,7 @@ export function ToolsHistory({ account, items, media, onPreview, onUseInTool, on
             return (
               <figure
                 key={r.id}
+                data-flip-key={r.id}
                 className="tpl-at__record"
                 onContextMenu={(e) => {
                   e.preventDefault();
@@ -72,7 +79,14 @@ export function ToolsHistory({ account, items, media, onPreview, onUseInTool, on
                   src={r.src}
                   poster={r.poster}
                   badge={r.status === 'generating' ? countdownLabel(r.task, now) : undefined}
-                  topActions={done ? [{ icon: 'Download', label: '下载', onClick: () => toast.success('已开始下载') }] : undefined}
+                  topActions={
+                    done
+                      ? [
+                          { icon: 'FullScreen', label: '查看大图', onClick: () => onPreview(r) },
+                          { icon: 'Download', label: '下载', onClick: () => toast.success('已开始下载') },
+                        ]
+                      : undefined
+                  }
                   style={{ aspectRatio: '1 / 1', cursor: done && r.media === 'image' ? 'zoom-in' : undefined }}
                   onClick={done && r.media === 'image' ? (e) => !(e.target as HTMLElement).closest('button') && onPreview(r) : undefined}
                   onPreview={done ? () => onPreview(r) : undefined}

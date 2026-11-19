@@ -1,5 +1,6 @@
-import { DEFAULT_MODEL, GEN_PARAM_DEFAULTS, compatibleModel, countInputs, genCost, toast, type NodePanelSubmit } from '@kivi';
-import { CANVAS_TEXT, GROUP_PAD, NODE_NAME, SCATTER_GAP, connectProblem, nodeSize } from '../rules/canvas';
+import { DEFAULT_MODEL, GEN_PARAM_DEFAULTS, compatibleModel, countInputs, genCost, genTotalCost, toast, type NodePanelSubmit } from '@kivi';
+import { CANVAS_TEXT, GROUP_PAD, isMediaNode, NODE_NAME, SCATTER_GAP, connectProblem, nodeSize } from '../rules/canvas';
+import { GROUP_TEXT, MAX_NODES } from '../rules/canvas-group';
 import { listDelay } from './api';
 import { db, useDB } from './db';
 import { nearestRatio } from './mock';
@@ -54,8 +55,8 @@ export function useHistory(canvasId: string) {
   return { canUndo: !!h?.past.length, canRedo: !!h?.future.length };
 }
 
-/** 改一次画布：进撤销栈 */
-function commit(canvasId: string, fn: (doc: CanvasDoc) => CanvasDoc) {
+/** 改一次画布：进撤销栈（canvas-layout.ts、canvas-group.ts 也用） */
+export function commit(canvasId: string, fn: (doc: CanvasDoc) => CanvasDoc) {
   const prev = getDoc(canvasId);
   const next = fn(prev);
   if (next === prev) return;
@@ -68,7 +69,7 @@ function commit(canvasId: string, fn: (doc: CanvasDoc) => CanvasDoc) {
 }
 
 /** 改一次画布：不进撤销栈（提示词、参数、生成结果、视角） */
-function patch(canvasId: string, fn: (doc: CanvasDoc) => CanvasDoc, touch = true) {
+export function patch(canvasId: string, fn: (doc: CanvasDoc) => CanvasDoc, touch = true) {
   const prev = getDoc(canvasId);
   const next = fn(prev);
   if (next !== prev) put(canvasId, next, touch);
@@ -141,8 +142,20 @@ export function makeNode(type: CanvasNodeType, at: { x: number; y: number }, ext
   return { id: uid('n'), type, name: NODE_NAME[type], x: Math.round(at.x), y: Math.round(at.y), ...size, ratio, ...extra };
 }
 
-/** 加几个节点（和它们之间的连线）；返回新节点 id */
+/** 节点上限（照线上 node-limit-guard）：再加 n 个会超 500 就提示、返回 false。提示 1 秒内只出一次 */
+let limitWarnedAt = 0;
+export function roomForNodes(canvasId: string, n: number): boolean {
+  if (getDoc(canvasId).nodes.length + n <= MAX_NODES) return true;
+  if (Date.now() - limitWarnedAt > 1000) {
+    limitWarnedAt = Date.now();
+    toast.warning(GROUP_TEXT.nodeLimit(MAX_NODES));
+  }
+  return false;
+}
+
+/** 加几个节点（和它们之间的连线）；返回新节点 id。超过节点上限就不加，返回空 */
 export function addNodes(canvasId: string, nodes: CanvasNode[], edges: Omit<CanvasEdge, 'id'>[] = []): string[] {
+  if (!roomForNodes(canvasId, nodes.length)) return [];
   commit(canvasId, (d) => ({
     ...d,
     nodes: [...d.nodes, ...nodes],
@@ -159,8 +172,13 @@ export function updateNode(canvasId: string, nodeId: string, p: Partial<CanvasNo
 }
 
 /** 改生成面板里的东西（提示词、模型、参数、张数），不进撤销栈 */
-export function setNodeInputs(canvasId: string, nodeId: string, p: Pick<Partial<CanvasNode>, 'prompt' | 'model' | 'refMode' | 'params' | 'count'>) {
+export function setNodeInputs(canvasId: string, nodeId: string, p: Pick<Partial<CanvasNode>, 'prompt' | 'model' | 'refMode' | 'params' | 'count' | 'clip' | 'pack'>) {
   patch(canvasId, (d) => ({ ...d, nodes: d.nodes.map((n) => (n.id === nodeId ? { ...n, ...p } : n)) }));
+}
+
+/** 记下节点最近一次的任务（处理器导出：剪辑 / 封装节点和它的结果节点都记，生成中就是忙的），不进撤销栈 */
+export function setNodeTask(canvasId: string, nodeIds: string[], taskId: string) {
+  patch(canvasId, (d) => ({ ...d, nodes: d.nodes.map((n) => (nodeIds.includes(n.id) ? { ...n, taskId } : n)) }));
 }
 
 /** 视角：不进撤销栈，也不算「改过画布」 */
@@ -190,7 +208,7 @@ export function moveNodes(canvasId: string, moves: Record<string, { x: number; y
 }
 
 /** 组的大小跟着里面的节点：包住所有子节点，加内边距；空组保持原样 */
-function fitGroups(nodes: CanvasNode[]): CanvasNode[] {
+export function fitGroups(nodes: CanvasNode[]): CanvasNode[] {
   return nodes.map((g) => {
     if (g.type !== 'group') return g;
     const kids = nodes.filter((n) => n.parentId === g.id);
@@ -285,6 +303,7 @@ export function copyNodes(canvasId: string, ids: string[]): boolean {
     return false;
   }
   clipboard = cloneNodes(d, ids, { x: 0, y: 0 });
+  toast.success(GROUP_TEXT.copied);
   return true;
 }
 
@@ -318,6 +337,7 @@ export function scatterImages(canvasId: string, nodeId: string): string[] {
   const node = nodeById(d, nodeId);
   if (!node?.items || node.items.length < 2) return [nodeId];
   if (isBusy(node)) return [nodeId];
+  if (!roomForNodes(canvasId, node.items.length - 1)) return [nodeId];
   const [first, ...rest] = node.items;
   const nodes = rest.map((item, i) => {
     const j = i + 1;
@@ -334,27 +354,28 @@ export function scatterImages(canvasId: string, nodeId: string): string[] {
 
 // ---------- 组 ----------
 
-/** 打组：选中的里有组就是解组（照线上）。返回新组 id */
+/**
+ * 打组（照线上多选浮条「打组」）：忙的不能打；选中的里有组就「拍平重组」——选中的组都解开，
+ * 组里的节点和选中的节点一起放进一个新组（叫「新建组」）。返回新组 id（画布选中它）
+ */
 export function groupNodes(canvasId: string, ids: string[]): string | undefined {
   const d = getDoc(canvasId);
-  const picked = d.nodes.filter((n) => ids.includes(n.id));
-  if (picked.some((n) => n.type === 'group')) {
-    picked.filter((n) => n.type === 'group').forEach((g) => ungroup(canvasId, g.id));
-    return undefined;
-  }
   if (anyBusy(d, ids)) {
-    toast.error(CANVAS_TEXT.busyGroup);
+    toast.warning(CANVAS_TEXT.busyGroup);
     return undefined;
   }
-  if (!picked.length) {
-    toast.error(CANVAS_TEXT.cannotGroup);
+  const picked = d.nodes.filter((n) => ids.includes(n.id));
+  const groups = new Set(picked.filter((n) => n.type === 'group').map((n) => n.id));
+  const members = new Set([...picked.filter((n) => n.type !== 'group').map((n) => n.id), ...d.nodes.filter((n) => n.parentId && groups.has(n.parentId)).map((n) => n.id)]);
+  if (!members.size) {
+    toast.warning(CANVAS_TEXT.cannotGroup);
     return undefined;
   }
-  const group = makeNode('group', { x: 0, y: 0 });
+  const group = makeNode('group', { x: 0, y: 0 }, { name: GROUP_TEXT.newGroup });
   commit(canvasId, (doc) => ({
     ...doc,
-    // 组放在最前面，画在节点下面
-    nodes: fitGroups([group, ...doc.nodes.map((n) => (ids.includes(n.id) ? { ...n, parentId: group.id } : n))]),
+    // 组放在最前面（画布上组单独画在节点下面）
+    nodes: fitGroups([group, ...doc.nodes.filter((n) => !groups.has(n.id)).map((n) => (members.has(n.id) ? { ...n, parentId: group.id } : n))]),
   }));
   return group.id;
 }
@@ -427,7 +448,7 @@ export async function replaceNodeFile(canvasId: string, nodeId: string, file: Fi
 export async function generateNode(canvasId: string, nodeId: string, s: NodePanelSubmit) {
   const d = getDoc(canvasId);
   const node = nodeById(d, nodeId);
-  if (!node || node.type === 'group') return;
+  if (!node || !isMediaNode(node)) return;
   const ups = upstreamOf(d, nodeId);
   const refs = ups
     .filter((n) => n.type !== 'text' && n.items?.[0])
@@ -468,6 +489,11 @@ function applyResult(task: Task) {
   const { assets } = db.get();
   const node = nodeById(getDoc(canvasId), nodeId);
   if (!node) return;
+  // 视频封装导出的压缩包：不进素材，节点记「导出完成」
+  if (node.type === 'archive') {
+    patch(canvasId, (d) => ({ ...d, nodes: d.nodes.map((n) => (n.id === nodeId ? { ...n, archive: { fileName: n.archive?.fileName ?? '视频封装.zip', done: true } } : n)) }));
+    return;
+  }
   if (task.media === 'text') {
     const text = task.outputs.find((o) => o.text)?.text;
     if (text) patch(canvasId, (d) => ({ ...d, nodes: d.nodes.map((n) => (n.id === nodeId ? { ...n, text } : n)) }));
@@ -527,20 +553,33 @@ export function agentCreateNode(
 
 /**
  * 工作流「应用」（照线上 applyWorkflowTemplate）：整段节点和连线复制进来，中心对准视口中心；
- * 和已有节点叠上了整段往右下错开。返回新节点 id（画布再选中、把它们放进视野）。
- * 线上会再套一个以工作流名命名的组，演示里组还没画，先不套
+ * 和已有节点叠上了整段往右下错开。给了 groupTitle（工作流名）就套一个组（照线上 wrapWorkflowJSONWithGroup）：
+ * 模板里本来就有外层组的，组改名叫工作流名；没有的，整段套进一个新组。
+ * 返回要选中的 id：套了组就是组，没套就是全部新节点（画布再选中、把它们放进视野）
  */
-export function insertTemplate(canvasId: string, t: { nodes: CanvasNode[]; edges: { from: string; to: string }[] }): string[] {
+export function insertTemplate(canvasId: string, t: { nodes: CanvasNode[]; edges: { from: string; to: string }[] }, groupTitle?: string): string[] {
   if (!t.nodes.length) return [];
   const d = getDoc(canvasId);
-  const x0 = Math.min(...t.nodes.map((n) => n.x));
-  const y0 = Math.min(...t.nodes.map((n) => n.y));
-  const w = Math.max(...t.nodes.map((n) => n.x + n.w)) - x0;
-  const h = Math.max(...t.nodes.map((n) => n.y + n.h)) - y0;
+  const title = groupTitle?.trim();
+  let nodes = t.nodes;
+  if (title) {
+    const outer = nodes.filter((n) => n.type === 'group' && !n.parentId);
+    if (outer.length) nodes = nodes.map((n) => (n.type === 'group' && !n.parentId ? { ...n, name: title } : n));
+    else {
+      const group = makeNode('group', { x: 0, y: 0 }, { name: title });
+      nodes = fitGroups([group, ...nodes.map((n) => ({ ...n, parentId: group.id }))]);
+    }
+  }
+  const x0 = Math.min(...nodes.map((n) => n.x));
+  const y0 = Math.min(...nodes.map((n) => n.y));
+  const w = Math.max(...nodes.map((n) => n.x + n.w)) - x0;
+  const h = Math.max(...nodes.map((n) => n.y + n.h)) - y0;
   const center = viewCenters.get(canvasId)?.() ?? { x: 0, y: 0 };
   const at = freeSpot(d, { x: center.x - w / 2, y: center.y - h / 2 }, { w, h });
-  const nodes = t.nodes.map((n) => ({ ...n, x: Math.round(n.x - x0 + at.x), y: Math.round(n.y - y0 + at.y) }));
-  return addNodes(canvasId, nodes, t.edges);
+  nodes = nodes.map((n) => ({ ...n, x: Math.round(n.x - x0 + at.x), y: Math.round(n.y - y0 + at.y) }));
+  const ids = addNodes(canvasId, nodes, t.edges);
+  if (!ids.length || !title) return ids;
+  return nodes.filter((n) => n.type === 'group' && !n.parentId).map((n) => n.id);
 }
 
 /**
@@ -564,7 +603,7 @@ export function placeAsset(canvasId: string, a: { id: string; media: Media; src:
 /** 按节点自己记的提示词、模型、参数执行一次（Agent 确认生成、自动生成时） */
 export function executeNode(canvasId: string, nodeId: string) {
   const node = nodeById(getDoc(canvasId), nodeId);
-  if (!node || node.type === 'group') return Promise.resolve();
+  if (!node || !isMediaNode(node)) return Promise.resolve();
   const defaults = node.type === 'text' ? {} : GEN_PARAM_DEFAULTS[node.type];
   return generateNode(canvasId, nodeId, {
     text: node.prompt ?? '',
@@ -577,8 +616,8 @@ export function executeNode(canvasId: string, nodeId: string) {
 
 /** 这个节点生成一次要多少猕猴桃（确认卡上写） */
 export function nodeCost(node: CanvasNode) {
-  if (node.type === 'group') return 0;
-  return genCost(node.type, node.model ?? DEFAULT_MODEL[node.type]) * (node.type === 'image' || node.type === 'video' ? Number(node.count ?? 1) : 1);
+  if (!isMediaNode(node)) return 0;
+  return genTotalCost(node.type, node.model ?? DEFAULT_MODEL[node.type], Number(node.count ?? 1));
 }
 
 /** 找个空位：从 at 开始往右下错开 40，避开已有节点（组除外） */
@@ -587,4 +626,21 @@ function freeSpot(d: CanvasDoc, at: { x: number; y: number }, size: { w: number;
   const hit = (q: { x: number; y: number }) => d.nodes.some((n) => n.type !== 'group' && q.x < n.x + n.w && q.x + size.w > n.x && q.y < n.y + n.h && q.y + size.h > n.y);
   for (let i = 0; i < 20 && hit(p); i++) p = { x: p.x + 40, y: p.y + 40 };
   return p;
+}
+
+// ---------- 给工具节点用（节点工具栏：抠图、高清、循环…，逻辑在 data/canvas-tools.ts） ----------
+
+/** 把一次任务记到节点上（生成中、失败、出结果都从任务读），不进撤销栈 */
+export function attachTask(canvasId: string, nodeId: string, taskId: string, extra: Partial<CanvasNode> = {}) {
+  patch(canvasId, (d) => ({ ...d, nodes: d.nodes.map((n) => (n.id === nodeId ? { ...n, ...extra, taskId } : n)) }));
+}
+
+/** 改工具节点的参数（高清倍数、帧速率…），不进撤销栈 */
+export function setToolParams(canvasId: string, nodeId: string, params: Record<string, string>) {
+  patch(canvasId, (d) => ({ ...d, nodes: d.nodes.map((n) => (n.id === nodeId ? { ...n, params: { ...n.params, ...params } } : n)) }));
+}
+
+/** 让画布选中这些节点（工具栏建了工具节点后；和 Agent 建节点走同一条通道，不移镜头） */
+export function requestSelect(canvasId: string, ids: string[]) {
+  agentSelectListeners.forEach((l) => l(canvasId, ids));
 }

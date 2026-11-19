@@ -28,14 +28,21 @@ import {
 import { useDB } from '../../data/db';
 import { useNow } from '../../data/tasks';
 import type { CanvasItem, CanvasNode, CanvasNodeType } from '../../data/types';
-import { ALIGN_THRESHOLD, CANVAS_MAX_UPLOAD, CANVAS_TEXT, DROP_STAGGER, SNAP_GRID, ZOOM_MAX, ZOOM_MIN, connectProblem, nodeSize } from '../../rules/canvas';
+import { ALIGN_THRESHOLD, CANVAS_MAX_UPLOAD, CANVAS_TEXT, DROP_STAGGER, SNAP_GRID, ZOOM_MAX, ZOOM_MIN, canDragFrom, isMediaNode, isProcessor, manualBlocked, manualConnectProblem, nodeSize } from '../../rules/canvas';
 import { edgeBox, edgeHits, fitView, inPort, intersects, outPort, rectFrom, rectOf, toWorld, boundsOf, type Pt, type Rect, type View } from './geometry';
+import { LIP_TEXT } from '../../rules/lip-sync';
 import { AddNodeMenu, BlankMenu, NodeMenu } from './menus';
 import { NodeFloat } from './NodeFloat';
+import { canOpenClip, canOpenPack } from '../../data/canvas-processor';
 import { NodeView } from './NodeView';
 import { useCanvasKeys } from './useCanvasKeys';
 import { ViewBar } from './ViewBar';
 import { EmptyHint } from './EmptyHint';
+import { GroupFloat, GroupFrame } from './GroupView';
+import { SelectionBar } from './SelectionBar';
+import { TextNodeEdit } from './TextNodeEdit';
+import { cancelTidy, isTidyPreviewing, keepTidy, previewTidy, resizeNode } from '../../data/canvas-layout';
+import { TEXT_NODE_MAX, TEXT_NODE_MIN } from '../../rules/canvas-group';
 // 浮层（节点工具栏、生成面板）、视图工具栏的样式和业务页的小画布同一份
 import '../../../docs/business/canvas.demos.css';
 
@@ -49,11 +56,14 @@ import '../../../docs/business/canvas.demos.css';
   - 拖动中的位置只在本地，松手才写进数据（撤销一步回到拖之前）。
 */
 
+/** 多选外框离选中节点的距离 */
+const SELECT_PAD = 12;
+
 export interface CanvasBoardHandle {
   /** 选中这些节点、视角移过去（单个居中，缩放不超过 1.3；多个适配） */
   focus: (ids: string[]) => void;
   /** 在视口中心加一个节点（底部「添加」） */
-  addAtCenter: (type: Exclude<CanvasNodeType, 'group'>) => void;
+  addAtCenter: (type: Exclude<CanvasNodeType, 'group'>, preset?: CanvasNode['preset']) => void;
   /** 打开选文件，传完在视口中心建节点（底部「上传」） */
   upload: () => void;
   /** 只选中，不动视角（Agent 建了节点） */
@@ -72,7 +82,9 @@ type Drag =
   | { kind: 'pan'; id: number; sx: number; sy: number; vx: number; vy: number }
   | { kind: 'marquee'; id: number; start: Pt; base: Sel }
   | { kind: 'move'; id: number; start: Pt; ids: string[]; moved: boolean; node: string; shift: boolean }
-  | { kind: 'connect'; id: number; from: string };
+  | { kind: 'connect'; id: number; from: string }
+  /** 拖文字节点的右边、下边、右下角改大小 */
+  | { kind: 'resize'; id: number; node: string; dir: string; sx: number; sy: number; w: number; h: number };
 
 interface Sel {
   nodes: string[];
@@ -128,6 +140,14 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, CanvasBoardProps>(funct
   const [hideLines, setHideLines] = useState(false);
   const [minimap, setMinimap] = useState(false);
   const [space, setSpace] = useState(false);
+  /** 正在改字的文字节点 */
+  const [editing, setEditing] = useState<string | null>(null);
+  /** 文字节点拖着改大小：松手前的大小只在本地 */
+  const [sizing, setSizing] = useState<{ id: string; w: number; h: number } | null>(null);
+  /** 正在改名的组 */
+  const [renaming, setRenaming] = useState<string | null>(null);
+  /** 整理画布预览中 */
+  const [tidying, setTidying] = useState(() => isTidyPreviewing(canvasId));
   const drag = useRef<Drag | null>(null);
   const running = tasks.some((t) => t.status === 'running' && t.where.page === 'canvas');
   const now = useNow(running);
@@ -179,7 +199,7 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, CanvasBoardProps>(funct
     const el = vp.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
-      if ((e.target as HTMLElement).closest('.cv-float, .tpl-cb__ui')) return;
+      if ((e.target as HTMLElement).closest('.cv-float, .tpl-cb__ui, .app-cv-text-edit')) return;
       e.preventDefault();
       const r = el.getBoundingClientRect();
       if (e.ctrlKey || e.metaKey) zoomAt({ x: e.clientX - r.left, y: e.clientY - r.top }, viewRef.current.k * Math.exp(-e.deltaY * 0.01));
@@ -202,7 +222,7 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, CanvasBoardProps>(funct
         setView({ k, x: w / 2 - (b.x + b.w / 2) * k, y: h / 2 - (b.y + b.h / 2) * k }, true);
       } else setView(fitView(b, w, h, 80, 1.3, ZOOM_MIN), true);
     },
-    addAtCenter: (type) => addAt(type, centerWorld(), true),
+    addAtCenter: (type, preset) => addAt(type, centerWorld(), true, undefined, preset),
     select: (ids) => setSel({ nodes: ids, edges: [] }),
     upload: () => {
       uploadAt.current = centerWorld();
@@ -213,10 +233,10 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, CanvasBoardProps>(funct
   // ---------- 加节点 ----------
 
   /** 在 at 加一个节点（center：at 是节点中心；否则是左边入口的位置）；from 给了就连上 */
-  const addAt = (type: Exclude<CanvasNodeType, 'group'>, at: Pt, center: boolean, from?: string) => {
+  const addAt = (type: Exclude<CanvasNodeType, 'group'>, at: Pt, center: boolean, from?: string, preset?: CanvasNode['preset']) => {
     const s = nodeSize(type, type === 'image' ? '1:1' : type === 'video' ? '16:9' : undefined);
     const pos = center ? { x: at.x - s.w / 2, y: at.y - s.h / 2 } : { x: at.x + 16, y: at.y - s.h / 2 };
-    const node = makeNode(type, pos);
+    const node = makeNode(type, pos, preset === 'lip-sync' ? { preset, name: LIP_TEXT.title } : {});
     addNodes(canvasId, [node], from ? [{ from, to: node.id }] : []);
     setSel({ nodes: [node.id], edges: [] });
   };
@@ -245,7 +265,8 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, CanvasBoardProps>(funct
     return { x: e.clientX - r.left, y: e.clientY - r.top };
   };
   const worldOf = (e: { clientX: number; clientY: number }) => toWorld(local(e), viewRef.current);
-  const nodeAt = (x: number, y: number) => (document.elementFromPoint(x, y) as HTMLElement | null)?.closest<HTMLElement>('[data-node]')?.dataset.node;
+  // 连线落点：组不接线，落在组的底上按空白处算
+  const nodeAt = (x: number, y: number) => (document.elementFromPoint(x, y) as HTMLElement | null)?.closest<HTMLElement>('[data-node]:not([data-group])')?.dataset.node;
 
   /** 菜单、弹窗是挂在 body 上的，React 事件会顺着组件树冒到画布上来：不在画布里的不管 */
   const outside = (t: HTMLElement) => !vp.current?.contains(t);
@@ -269,9 +290,18 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, CanvasBoardProps>(funct
       return;
     }
     if (e.button !== 0) return;
+    // 文字节点的右边、下边、右下角：拖着改大小
+    const handle = t.closest<HTMLElement>('[data-resize]');
+    const sized = handle ? doc.nodes.find((n) => n.id === handle.dataset.for) : undefined;
+    if (handle && sized) {
+      drag.current = { kind: 'resize', id: e.pointerId, node: sized.id, dir: handle.dataset.resize!, sx: e.clientX, sy: e.clientY, w: sized.w, h: sized.h };
+      setSel({ nodes: [sized.id], edges: [] });
+      capture();
+      return;
+    }
     const nodeId = t.closest<HTMLElement>('[data-node]')?.dataset.node;
     // 右边的连接点：拖出连线
-    if (nodeId && t.closest('.kv-node-wrapper__dot--right')) {
+    if (nodeId && t.closest('.kv-node-wrapper__dot--right') && canDragFrom(doc.nodes.find((n) => n.id === nodeId) ?? { type: 'text' })) {
       drag.current = { kind: 'connect', id: e.pointerId, from: nodeId };
       setWire({ from: nodeId, to: worldOf(e) });
       capture();
@@ -283,7 +313,7 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, CanvasBoardProps>(funct
       else if (!already) setSel({ nodes: [nodeId], edges: [] });
       if (stackOpen && stackOpen !== nodeId) setStackOpen(null);
       // 点在节点里的按钮、播放器上：只选中，不拖
-      if (t.closest('button, a, input, textarea, [contenteditable="true"], .kv-audio-wave, .kv-video-player__bar')) return;
+      if (t.closest('button, a, input, textarea, [contenteditable]:not([contenteditable="false"]), .kv-audio-wave, .kv-video-player__bar')) return;
       if (e.shiftKey && already) return;
       const picked = e.shiftKey || already ? [...new Set([...sel.nodes, nodeId])] : [nodeId];
       drag.current = { kind: 'move', id: e.pointerId, start: worldOf(e), ids: withChildren(doc, picked), moved: false, node: nodeId, shift: e.shiftKey };
@@ -304,6 +334,15 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, CanvasBoardProps>(funct
       setView((v) => ({ ...v, x: d.vx + e.clientX - d.sx, y: d.vy + e.clientY - d.sy }));
       return;
     }
+    if (d.kind === 'resize') {
+      const clamp = (v: number) => Math.round(Math.min(TEXT_NODE_MAX, Math.max(TEXT_NODE_MIN, v)));
+      setSizing({
+        id: d.node,
+        w: d.dir.includes('e') ? clamp(d.w + (e.clientX - d.sx) / view.k) : d.w,
+        h: d.dir.includes('s') ? clamp(d.h + (e.clientY - d.sy) / view.k) : d.h,
+      });
+      return;
+    }
     const p = worldOf(e);
     if (d.kind === 'marquee') {
       const r = rectFrom(d.start, p);
@@ -322,7 +361,7 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, CanvasBoardProps>(funct
     }
     if (d.kind === 'connect') {
       const over = nodeAt(e.clientX, e.clientY);
-      const target = over && over !== d.from && !connectProblem(doc, d.from, over) ? over : undefined;
+      const target = over && over !== d.from && !manualConnectProblem(doc, d.from, over) ? over : undefined;
       const tn = target ? doc.nodes.find((n) => n.id === target) : undefined;
       setWire({ from: d.from, to: tn ? inPort(tn) : p, target });
       return;
@@ -369,6 +408,10 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, CanvasBoardProps>(funct
     if (!d || d.id !== e.pointerId) return;
     drag.current = null;
     if (d.kind === 'marquee') setMarquee(null);
+    if (d.kind === 'resize') {
+      if (sizing && (sizing.w !== d.w || sizing.h !== d.h)) resizeNode(canvasId, sizing.id, { w: sizing.w, h: sizing.h });
+      setSizing(null);
+    }
     if (d.kind === 'move') {
       if (d.moved && offset) {
         const moves: Record<string, Pt> = {};
@@ -381,13 +424,29 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, CanvasBoardProps>(funct
     if (d.kind === 'connect') {
       const over = nodeAt(e.clientX, e.clientY);
       setWire(null);
-      if (over && over !== d.from) connect(canvasId, d.from, over);
+      if (over && over !== d.from) {
+        if (!manualBlocked(doc, d.from, over)) connect(canvasId, d.from, over);
+      }
       else if (!over) setMenu({ kind: 'add', x: e.clientX, y: e.clientY, at: worldOf(e), from: d.from });
     }
   };
 
   const onDoubleClick = (e: ReactMouseEvent<HTMLDivElement>) => {
-    const t = e.target as HTMLElement;
+    // 按下时画布捕获了指针，双击的 target 是画布自己：按坐标找真正点到的元素
+    const t = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null) ?? (e.target as HTMLElement);
+    // 双击组名：原地改名
+    const groupId = t.closest('.app-cv-group__name') && t.closest<HTMLElement>('[data-group]')?.dataset.node;
+    if (groupId) {
+      setRenaming(groupId);
+      return;
+    }
+    // 双击有字的文字节点：原地改字（生成中不能改）
+    const textNode = doc.nodes.find((n) => n.id === t.closest<HTMLElement>('[data-node]')?.dataset.node);
+    if (!outside(t) && textNode?.type === 'text' && textNode.text && !busyOf(textNode) && !t.closest('.cv-float, .tpl-cb__ui, button')) {
+      setSel({ nodes: [textNode.id], edges: [] });
+      setEditing(textNode.id);
+      return;
+    }
     if (outside(t) || t.closest('[data-node], .cv-float, .tpl-cb__ui')) return;
     setMenu({ kind: 'add', x: e.clientX, y: e.clientY, at: worldOf(e) });
   };
@@ -425,10 +484,20 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, CanvasBoardProps>(funct
 
   // ---------- 画 ----------
 
-  const posOf = (n: CanvasNode) => (offset?.ids.has(n.id) ? { ...n, x: n.x + offset.dx, y: n.y + offset.dy } : n);
-  const shown = useMemo(() => doc.nodes.map(posOf), [doc.nodes, offset]); // eslint-disable-line react-hooks/exhaustive-deps
+  const posOf = (n: CanvasNode) => {
+    const m = offset?.ids.has(n.id) ? { ...n, x: n.x + offset.dx, y: n.y + offset.dy } : n;
+    return sizing?.id === n.id ? { ...m, w: sizing.w, h: sizing.h } : m;
+  };
+  const shown = useMemo(() => doc.nodes.map(posOf), [doc.nodes, offset, sizing]); // eslint-disable-line react-hooks/exhaustive-deps
   const byId = (id: string) => shown.find((n) => n.id === id);
   const selNode = sel.nodes.length === 1 && !offset ? byId(sel.nodes[0]) : undefined;
+  // 多选外框（照线上 selector-box）：选中两个及以上，把它们包起来，四周留 SELECT_PAD；拖动时跟着走，框选中不画
+  const selFrame = useMemo(() => {
+    if (sel.nodes.length < 2 || marquee) return null;
+    const ids = new Set(sel.nodes);
+    const b = boundsOf(shown.filter((n) => ids.has(n.id)).map(rectOf));
+    return b && { x: b.x - SELECT_PAD, y: b.y - SELECT_PAD, w: b.w + SELECT_PAD * 2, h: b.h + SELECT_PAD * 2 };
+  }, [sel.nodes, shown, marquee]);
   const selected = new Set(sel.nodes);
   const linkedIn = new Set(doc.edges.map((e) => e.to));
   const linkedOut = new Set(doc.edges.map((e) => e.from));
@@ -462,6 +531,13 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, CanvasBoardProps>(funct
           transition: gliding ? 'transform var(--motion-duration-300) var(--motion-ease-in-out)' : undefined,
         }}
       >
+        {/* 组画在最下面：连线、节点都在它上面 */}
+        {shown
+          .filter((n) => n.type === 'group')
+          .map((g) => (
+            <GroupFrame key={g.id} canvasId={canvasId} group={g} selected={selected.has(g.id)} renaming={renaming === g.id} onRenameEnd={() => setRenaming(null)} />
+          ))}
+        {selFrame && <div className="app-cv-select" style={{ left: selFrame.x, top: selFrame.y, width: selFrame.w, height: selFrame.h, '--cb-k': view.k } as CSSProperties} />}
         {doc.edges.map((ed) => {
           const a = byId(ed.from);
           const b = byId(ed.to);
@@ -505,6 +581,18 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, CanvasBoardProps>(funct
           .filter((n) => n.type !== 'group')
           .map((n) => (
             <div key={n.id} data-node={n.id} className="tpl-cb__node" style={{ left: n.x, top: n.y }}>
+              {editing === n.id && n.type === 'text' ? (
+                <TextNodeEdit
+                  node={n}
+                  selected={selected.has(n.id)}
+                  inLinked={linkedIn.has(n.id)}
+                  outLinked={linkedOut.has(n.id)}
+                  onDone={(text) => {
+                    setEditing(null);
+                    if (text !== (n.text ?? '')) updateNode(canvasId, n.id, { text });
+                  }}
+                />
+              ) : (
               <NodeView
                 node={n}
                 task={taskOf(n)}
@@ -529,8 +617,13 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, CanvasBoardProps>(funct
                 }}
                 onView={(item) => onView(item, n)}
                 onDownload={download}
-                onGuideSelect={() => toast.info('在下面的面板里写提示词，点生成')}
+                onGuideSelect={(option) => (n.type === 'text' && option === '自己编写内容' ? setEditing(n.id) : toast.info('在下面的面板里写提示词，点生成'))}
+                ready={isProcessor(n) ? (n.type === 'clip' ? canOpenClip(doc, n) : canOpenPack(doc, n)) : undefined}
               />
+              )}
+              {/* 文字节点选中时：拖右边、下边、右下角改大小（256–1024，照线上） */}
+              {n.type === 'text' && selected.has(n.id) && !busyOf(n) &&
+                ['e', 's', 'se'].map((dir) => <div key={dir} className="app-cv-resize" data-resize={dir} data-for={n.id} />)}
             </div>
           ))}
         {guides.map((g, i) => (
@@ -542,7 +635,12 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, CanvasBoardProps>(funct
         ))}
         {marquee && <div className="tpl-cb__marquee" style={{ left: marquee.x, top: marquee.y, width: marquee.w, height: marquee.h, '--cb-k': view.k } as CSSProperties} />}
         {selNode && selNode.type !== 'group' && (
-          <NodeFloat canvasId={canvasId} doc={doc} node={selNode} busy={busyOf(selNode)} zoom={view.k} onView={(item) => onView(item, selNode)} onDownload={download} />
+          <NodeFloat canvasId={canvasId} doc={doc} node={selNode} busy={busyOf(selNode)} zoom={view.k} onView={(item) => onView(item, selNode)} onDownload={download} onAddToChat={onAddToChat} />
+        )}
+        {selNode?.type === 'group' && <GroupFloat canvasId={canvasId} doc={doc} group={selNode} zoom={view.k} />}
+        {/* 多选浮条：选中两个及以上，在选区上方 */}
+        {selFrame && !offset && (
+          <SelectionBar canvasId={canvasId} doc={doc} ids={sel.nodes} bounds={selFrame} zoom={view.k} onSelect={(ids) => setSel({ nodes: ids, edges: [] })} onAddToChat={onAddToChat} />
         )}
       </div>
 
@@ -562,6 +660,19 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, CanvasBoardProps>(funct
         onFit={() => fit(true)}
         onZoom={(dir) => zoomCenter((k) => (dir === 0 ? 1 : dir > 0 ? k * 1.25 : k / 1.25))}
         onPan={(c) => setView((v) => ({ ...v, x: size().w / 2 - c.x * v.k, y: size().h / 2 - c.y * v.k }))}
+        tidying={tidying}
+        onTidy={() => {
+          previewTidy(canvasId);
+          setTidying(isTidyPreviewing(canvasId));
+        }}
+        onTidyCancel={() => {
+          cancelTidy(canvasId);
+          setTidying(false);
+        }}
+        onTidyKeep={() => {
+          keepTidy(canvasId);
+          setTidying(false);
+        }}
       />
 
       <DropOverlay active={dragging} rejected={rejected} />
@@ -588,8 +699,8 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, CanvasBoardProps>(funct
           <AddNodeMenu
             doc={doc}
             from={menu.from}
-            onPick={(type) => {
-              addAt(type, menu.at, !menu.from, menu.from);
+            onPick={(type, preset) => {
+              addAt(type, menu.at, !menu.from, menu.from, preset);
               setMenu(null);
             }}
             onUpload={() => {
@@ -621,7 +732,7 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, CanvasBoardProps>(funct
             busy={menuNodes.some(isBusy)}
             canScatter={!!one && one.type === 'image' && (one.items?.length ?? 0) > 1}
             copyLabel={one?.type === 'text' && one.text ? '复制文本' : one?.type === 'image' && one.items?.length ? '复制图片' : undefined}
-            canChat={menuNodes.some((n) => n.type !== 'group')}
+            canChat={menuNodes.some(isMediaNode)}
             onCopy={() => {
               copyNodes(canvasId, sel.nodes);
               setMenu(null);

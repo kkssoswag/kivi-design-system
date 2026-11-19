@@ -1,4 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { usePending } from '@kivi/hooks';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   Button,
   CropHandles,
@@ -16,14 +17,13 @@ import { cx } from '@kivi/utils';
 import { TOOL_INTRO, toolOf, type ToolId } from '../../data/tools';
 import { ratioNum } from '../../data/mock';
 import { uid } from '../../data/store';
-import type { Task } from '../../data/types';
 import { confirm } from '../../flows/dialogs';
 import { confirmDelete } from '../../flows/delete';
 import { MaskLayer } from './mask-layer';
-import { BRUSH, EDIT_MODES, toolCost, toolParams, type CostContext } from './options';
+import { BRUSH, EDIT_MODES, EXPAND_DEFAULT, EXPAND_SCALES, toolCost, toolParams, type CostContext } from './options';
 import { ToolPanel } from './panels';
 import { PaintBar, StageActions, ZoomBadge, type BrushTool } from './stage-bars';
-import { StageFailed, StageGenerating, StageUploading } from './stage-parts';
+import { StageUploading } from './stage-parts';
 import { StitchStage } from './stitch-stage';
 import { checkToolFile, loadToolFile, mediaOfFile } from './upload';
 import { useStageView } from './use-stage-view';
@@ -46,21 +46,10 @@ function fitRect(ratio: number, w: number, h: number, scale = 1): CropRect {
   return { x: (w - fw) / 2, y: (h - fh) / 2, w: fw, h: fh };
 }
 
-/** 页面传进来的运行状态：这个工具有没有在生成、失败了没有、生成成功几次。创作页弹窗不传 */
+/** 页面传进来的运行状态。舞台只用来提交任务（11-19 用户定）：生成中、结果、失败都只在页面的历史里，成功了也不动舞台。创作页弹窗不传 */
 export interface ToolRuntime {
-  /** 这个工具最近一条生成中的任务：舞台盖生成中的样子、中间写倒计时 */
-  running?: Task | null;
-  /** 刚失败的任务：舞台出生成失败 +「重试」「取消」 */
-  failed?: Task | null;
-  onRetry?: () => void;
-  onCancelFail?: () => void;
   /** 视频原素材正在上传（视频1） */
   uploading?: boolean;
-  /** 这个工具成功了几次：扩图成功后比例回自由比例 */
-  successCount?: number;
-  /** 视频拼接刚生成好的结果：出「继续拼接」，点了放进视频1、视频2 清空 */
-  stitchResult?: Source | null;
-  onContinue?: (result: Source) => void;
 }
 
 export interface ToolWorkbenchProps {
@@ -74,20 +63,25 @@ export interface ToolWorkbenchProps {
   /** 视频拼接：拖了一个文件到视频1的位上 */
   onFile?: (file: File) => void;
   /** 点生成 */
-  onGenerate: (job: ToolJob) => void;
+  onGenerate: (job: ToolJob) => void | Promise<unknown>;
   /** 工具页里每个工具一块，不是当前的藏起来（参数、扩图框、涂抹、提示词都还在） */
   hidden?: boolean;
   /** 扩图、智能编辑的提示词放成一横条（左边下拉、中间一行输入、右边生成），给图多留地方：创作页工具弹窗用（11-12 用户定） */
   promptBar?: boolean;
+  /** AI 工具页（11-19 用户定）：坑铺满整栏高、和两边的框一样高，涂抹工具条、下载 / 换一张 / 删除浮在坑里顶上，参数面板浮在坑里底下，
+   *  图放在它们中间（离坑四边至少 16）。不传是原来的排法（工具条在坑上面、参数面板在坑下面，创作页工具弹窗用） */
+  floating?: boolean;
+  /** 智能编辑固定成这一种方式、不能切（画布节点工具栏的「重绘」「元素去除」是两个工具）。不传就是自己切 */
+  editMode?: 'inpaint' | 'remove';
   runtime?: ToolRuntime;
   className?: string;
 }
 
-export function ToolWorkbench({ tool, source, onUpload, onRemove, onFile, onGenerate, hidden, promptBar, runtime = {}, className }: ToolWorkbenchProps) {
+export function ToolWorkbench({ tool, source, onUpload, onRemove, onFile, onGenerate, hidden, promptBar, floating, editMode, runtime = {}, className }: ToolWorkbenchProps) {
   const media = toolOf(tool).media;
   const cur = source;
   const stitching = tool === 'stitch';
-  const [st, setSt] = useState<ToolState>(INITIAL_STATE);
+  const [st, setSt] = useState<ToolState>(editMode ? { ...INITIAL_STATE, editMode } : INITIAL_STATE);
   const set = <K extends keyof ToolState>(k: K, v: ToolState[K]) => setSt((s) => ({ ...s, [k]: v }));
 
   // 提示词：智能编辑按编辑方式分开记
@@ -116,15 +110,6 @@ export function ToolWorkbench({ tool, source, onUpload, onRemove, onFile, onGene
   useEffect(() => {
     if (stitching && cur && second && Math.abs(cur.ratio / second.ratio - 1) > 0.05) toast.warning('两段视频的比例差别较大，拼接后画面可能有黑边');
   }, [stitching, cur?.id, second?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  // 拼接生成好后出「继续拼接」；两段视频一变就收起
-  const [canContinue, setCanContinue] = useState(false);
-  useEffect(() => setCanContinue(false), [cur?.id, second?.id]);
-  useEffect(() => {
-    if (runtime.stitchResult) setCanContinue(true);
-  }, [runtime.stitchResult]);
-
-  const generating = !!runtime.running;
-  const failed = !!runtime.failed && !generating;
   const uploading = !!runtime.uploading || (stitching && uploading2);
   // 视频拼接一打开就露出两个上传位（照线上），不出工具介绍
   const slots = stitching;
@@ -140,47 +125,93 @@ export function ToolWorkbench({ tool, source, onUpload, onRemove, onFile, onGene
     return () => ro.disconnect();
   }, []);
 
+  // 浮在坑里的东西让出来的地方：顶上工具条 16 + 44 + 16，底下参数面板（量它实际的高，切编辑方式时跟着过渡逐帧变）+ 上下 16，左右 16
+  const [dockEl, setDockEl] = useState<HTMLDivElement | null>(null);
+  const [dockH, setDockH] = useState(0);
+  useLayoutEffect(() => {
+    if (!dockEl) return setDockH(0);
+    const ro = new ResizeObserver(() => dockEl.offsetParent && setDockH(dockEl.offsetHeight));
+    ro.observe(dockEl);
+    if (dockEl.offsetParent) setDockH(dockEl.offsetHeight);
+    return () => ro.disconnect();
+  }, [dockEl]);
+  const EDGE = 16;
+  const inset = floating
+    ? { top: cur && !stitching ? EDGE + 44 + EDGE : EDGE, bottom: dockEl ? dockH + EDGE * 2 : EDGE, side: EDGE }
+    : { top: 0, bottom: 0, side: 0 };
+  /** 放图的那块（坑里去掉浮着的东西） */
+  const inner: CropRect = {
+    x: inset.side,
+    y: inset.top,
+    w: Math.max(0, area.w - inset.side * 2),
+    h: Math.max(0, area.h - inset.top - inset.bottom),
+  };
+  const fitIn = (ratio: number, scale = 1): CropRect => {
+    const r = fitRect(ratio, inner.w, inner.h, scale);
+    return { ...r, x: r.x + inner.x, y: r.y + inner.y };
+  };
+
   const expanding = tool === 'expand' && !!cur;
   const painting = tool === 'edit' && st.editMode !== 'redraw' && !!cur;
-  const stageOn = !!cur && !stitching && !failed && !uploading;
-  const view = useStageView(areaRef, stageOn, cur?.id);
-  const rect = cur && !stitching ? view.apply(fitRect(cur.ratio, area.w, area.h, expanding ? 0.6 : 1)) : null;
-  const bounds: CropRect = { x: 0, y: 0, w: area.w, h: area.h };
-
-  // 扩图框：按原图的比例记（舞台变大变小、缩放、切走再切回来都对得上），换了原图才回到贴着原图
+  const stageOn = !!cur && !stitching && !uploading;
+  // 滚轮缩放、拖动平移只给要涂蒙版的（局部重绘、元素去除）：别的工具看整张图就够（11-19 用户定）
+  const view = useStageView(areaRef, stageOn && painting, `${cur?.id}|${painting}`);
+  // 扩图框：按原图的比例记（舞台变大变小、缩放、切走再切回来都对得上）
   const [frameRel, setFrameRel] = useState<CropRect>({ x: 0, y: 0, w: 1, h: 1 });
+  // 舞台按「选比例时的扩图框」缩放：原图最多占舞台 60%，框大了原图跟着缩，让整个框放得下（拖框时不跟着变）。
+  // 原比例按最大倍数放：切倍数时原图不动、只有框变大变小（照即梦）
+  const [fitRel, setFitRel] = useState({ w: 1, h: 1 });
+  const stageScale = (() => {
+    if (!expanding || !cur || !inner.w || !inner.h) return expanding ? 0.6 : 1;
+    const box = fitRect((cur.ratio * fitRel.w) / fitRel.h, inner.w, inner.h, 0.92);
+    return Math.min(0.6, box.w / fitRel.w / fitRect(cur.ratio, inner.w, inner.h).w);
+  })();
+  const rect = cur && !stitching ? view.apply(fitIn(cur.ratio, stageScale)) : null;
+  const bounds: CropRect = inner;
+
   const frame: CropRect | null =
     expanding && rect ? { x: rect.x + frameRel.x * rect.w, y: rect.y + frameRel.y * rect.h, w: frameRel.w * rect.w, h: frameRel.h * rect.h } : null;
   const setFrame = (f: CropRect) => {
     if (!rect) return;
     setFrameRel({ x: (f.x - rect.x) / rect.w, y: (f.y - rect.y) / rect.h, w: f.w / rect.w, h: f.h / rect.h });
+    // 原比例下手动拖了框，就不是哪个整倍数了
+    if (st.expandRatio === 'original' && st.expandScale) set('expandScale', '');
   };
   const frameMoved = [frameRel.x, frameRel.y].some((v) => Math.abs(v) > 0.002) || [frameRel.w, frameRel.h].some((v) => Math.abs(v - 1) > 0.002);
+  // 选比例 / 倍数：按原图的比例算（原图宽高比 = cur.ratio）。原比例：四周一起扩到几倍；别的比例：框的宽高比 = v，贴着原图往外长；自由比例：框不动
+  // 选比例、倍数时扩图框（和原图）滑到新位置，300ms；拖框、换原图不动画
+  const [framing, setFraming] = useState(false);
+  const framingTimer = useRef<number>();
+  useEffect(() => () => window.clearTimeout(framingTimer.current), []);
+  const pickExpand = (ratio: string, scale = st.expandScale || EXPAND_DEFAULT.scale, animate = true) => {
+    if (animate) {
+      setFraming(true);
+      window.clearTimeout(framingTimer.current);
+      framingTimer.current = window.setTimeout(() => setFraming(false), 300);
+    }
+    set('expandRatio', ratio);
+    set('expandScale', ratio === 'original' ? scale : st.expandScale);
+    if (!cur || ratio === 'free') return;
+    let w: number;
+    let h: number;
+    if (ratio === 'original') {
+      w = h = Number(scale);
+    } else {
+      const r = ratioNum(ratio);
+      w = r >= cur.ratio ? r / cur.ratio : 1;
+      h = r >= cur.ratio ? 1 : cur.ratio / r;
+    }
+    setFrameRel({ x: 0.5 - w / 2, y: 0.5 - h / 2, w, h });
+    const most = Number(EXPAND_SCALES[EXPAND_SCALES.length - 1]);
+    setFitRel(ratio === 'original' ? { w: most, h: most } : { w, h });
+  };
+  const pickExpandRatio = (v: string | null) => pickExpand(v ?? 'free');
+  const resetExpand = (animate = true) => pickExpand(EXPAND_DEFAULT.ratio, EXPAND_DEFAULT.scale, animate);
+  // 换了原图：回到默认（原比例、往外扩 1.5 倍，照即梦一打开就扩一点）
   useEffect(() => {
-    setFrameRel({ x: 0, y: 0, w: 1, h: 1 });
-    set('expandRatio', 'free');
+    resetExpand(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cur?.id]);
-  const pickExpandRatio = (v: string | null) => {
-    set('expandRatio', v ?? 'free');
-    if (!rect || !cur || !v || v === 'free') return;
-    // 按原图的比例算（原图宽高比 = cur.ratio）：框的宽高比 = v，贴着原图往外长，再缩到舞台放得下
-    const r = ratioNum(v);
-    let w = r >= cur.ratio ? r / cur.ratio : 1;
-    let h = r >= cur.ratio ? 1 : cur.ratio / r;
-    const fit = Math.min(1, area.w / (w * rect.w), area.h / (h * rect.h));
-    w *= fit;
-    h *= fit;
-    setFrameRel({ x: 0.5 - w / 2, y: 0.5 - h / 2, w, h });
-  };
-  // 扩图成功后比例回「自由比例」（11-18 用户定）
-  const successes = runtime.successCount ?? 0;
-  const lastSuccesses = useRef(successes);
-  useEffect(() => {
-    if (successes === lastSuccesses.current) return;
-    lastSuccesses.current = successes;
-    if (tool === 'expand') set('expandRatio', 'free');
-  }, [successes]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 涂抹：换了原图才清掉
   const paint = useStrokes();
@@ -239,10 +270,13 @@ export function ToolWorkbench({ tool, source, onUpload, onRemove, onFile, onGene
               ? '请拖动扩图框'
               : undefined;
 
+  // 等提交请求回来：生成按钮转圈、不能重复点（状态记在这里：按钮放在参数面板里，面板换排版时按钮会重新挂上，记在按钮里会丢）
+  const [submitting, runSubmit] = usePending();
   const generate = () => {
-    if (!cur || reason) return;
+    if (!cur || reason || submitting) return;
     const label = tool === 'edit' ? (EDIT_MODES.find((m) => m.value === st.editMode)!.label as string) : toolOf(tool).name;
-    onGenerate({
+    // 页面返回请求的 Promise 时，等它的时候生成按钮转圈
+    return runSubmit(() => onGenerate({
       tool,
       label,
       media: cur.media,
@@ -251,23 +285,10 @@ export function ToolWorkbench({ tool, source, onUpload, onRemove, onFile, onGene
       targetRatio: tool === 'expand' && frame ? frame.w / frame.h : cur.ratio,
       params: toolParams(tool, st, ctx),
       cost,
-    });
+    }));
   };
 
-  const gen = <GenerateButton cost={cost} disabledReason={reason} onClick={generate} />;
-  const continueButton =
-    canContinue && runtime.stitchResult ? (
-      <Button
-        variant="secondary-muted"
-        onClick={() => {
-          runtime.onContinue?.(runtime.stitchResult!);
-          setSecond(null);
-          setCanContinue(false);
-        }}
-      >
-        继续拼接
-      </Button>
-    ) : undefined;
+  const gen = <GenerateButton cost={cost} disabledReason={reason} loading={submitting} onClick={generate} />;
   const panel = (
     <ToolPanel
       tool={tool}
@@ -278,8 +299,9 @@ export function ToolWorkbench({ tool, source, onUpload, onRemove, onFile, onGene
       prompt={prompt}
       setPrompt={setPrompt}
       promptBar={promptBar}
-      continueButton={continueButton}
+      lockEdit={!!editMode}
       pickExpandRatio={pickExpandRatio}
+      pickExpandScale={(v) => pickExpand('original', v)}
     />
   );
 
@@ -306,9 +328,7 @@ export function ToolWorkbench({ tool, source, onUpload, onRemove, onFile, onGene
 
   // 舞台上的东西
   let stage: ReactNode = null;
-  if (failed) {
-    stage = <StageFailed onRetry={() => runtime.onRetry?.()} onCancel={() => runtime.onCancelFail?.()} />;
-  } else if (uploading && !slots) {
+  if (uploading && !slots) {
     stage = <StageUploading />;
   } else if (slots) {
     stage = (
@@ -316,10 +336,8 @@ export function ToolWorkbench({ tool, source, onUpload, onRemove, onFile, onGene
         <StitchStage
           first={{ title: '视频1', source: cur, uploading: runtime.uploading, onPick: onUpload, onFile, onRemove }}
           second={{ title: '视频2', source: second, uploading: uploading2, onPick: () => secondRef.current?.click(), onFile: (f) => void takeSecond(f), onRemove: () => setSecond(null) }}
-          area={area}
-          ratio={cur?.ratio}
+          area={{ w: inner.w, h: inner.h }}
         />
-        {generating && runtime.running && cur && <StageGenerating media="video" src={cur.src} box={bounds} task={runtime.running} />}
       </>
     );
   } else if (!cur) {
@@ -349,29 +367,27 @@ export function ToolWorkbench({ tool, source, onUpload, onRemove, onFile, onGene
     stage = (
       <>
         {expanding && frame && <div className="tpl-at__expand-fill" style={{ left: frame.x, top: frame.y, width: frame.w, height: frame.h }} />}
-        {/* 生成中盖上去的那层自己带原素材（遮罩下面的原图 / 视频首帧），底下的原图、播放器先撤掉，不然视频还在播、控制条透出来 */}
-        {!generating &&
-          (cur.media === 'image' ? (
-            <img key={cur.id} className="tpl-at__media tpl-at__media--in" style={box} src={cur.src} alt="" />
-          ) : (
-            <div key={cur.id} className="tpl-at__media tpl-at__media--in" style={box}>
-              <VideoPlayer variant="preview" src={cur.src} fit="contain" loop />
-            </div>
-          ))}
-        {expanding && frame && !generating && (
+        {cur.media === 'image' ? (
+          <img key={cur.id} className="tpl-at__media tpl-at__media--in" style={box} src={cur.src} alt="" />
+        ) : (
+          <div key={cur.id} className="tpl-at__media tpl-at__media--in" style={box}>
+            <VideoPlayer variant="preview" src={cur.src} fit="contain" loop />
+          </div>
+        )}
+        {expanding && frame && (
           <CropHandles
             aria-label="扩图框"
             value={frame}
             onValueChange={setFrame}
-            ratio={st.expandRatio === 'free' ? null : ratioNum(st.expandRatio)}
+            ratio={st.expandRatio === 'free' ? null : st.expandRatio === 'original' ? cur.ratio : ratioNum(st.expandRatio)}
             bounds={bounds}
             contain={rect}
             min={0}
             onConfirm={() => generate()}
-            onCancel={() => (setFrameRel({ x: 0, y: 0, w: 1, h: 1 }), set('expandRatio', 'free'))}
+            onCancel={() => resetExpand()}
           />
         )}
-        {painting && !generating && (
+        {painting && (
           <MaskLayer
             rect={rect}
             strokes={paint.strokes}
@@ -381,15 +397,14 @@ export function ToolWorkbench({ tool, source, onUpload, onRemove, onFile, onGene
             onStroke={paint.add}
           />
         )}
-        {generating && runtime.running && <StageGenerating media={cur.media} src={cur.src} box={rect} task={runtime.running} />}
       </>
     );
   }
 
-  const interactive = stageOn && !generating;
+  const interactive = stageOn;
 
   return (
-    <section className={cx('tpl-at__stage', className)} hidden={hidden}>
+    <section className={cx('tpl-at__stage', className)} hidden={hidden} data-floating={floating || undefined}>
       {/* 涂抹工具条：只在局部重绘、元素去除时出，浮在舞台上方正中 */}
       {painting && interactive && (
         <PaintBar
@@ -405,7 +420,7 @@ export function ToolWorkbench({ tool, source, onUpload, onRemove, onFile, onGene
           onReset={() => (paint.reset(), setBrushTool('brush'))}
         />
       )}
-      {cur && onUpload && !stitching && !failed && !uploading && (
+      {cur && onUpload && !stitching && !uploading && (
         <StageActions
           onDownload={download}
           onReupload={() => void reupload()}
@@ -416,10 +431,12 @@ export function ToolWorkbench({ tool, source, onUpload, onRemove, onFile, onGene
       <div
         ref={areaRef}
         className="tpl-at__area"
+        data-framing={framing ? '' : undefined}
         data-painting={painting ? '' : undefined}
         data-hand={painting && activeTool === 'hand' ? '' : undefined}
         data-panning={panning ? '' : undefined}
         data-zoomed={view.z !== 1 ? '' : undefined}
+        style={floating ? ({ '--tpl-at-inset-top': `${inset.top}px`, '--tpl-at-inset-bottom': `${inset.bottom}px` } as CSSProperties) : undefined}
         onContextMenu={(e) => {
           if (!stageOn) return;
           e.preventDefault();
@@ -443,9 +460,9 @@ export function ToolWorkbench({ tool, source, onUpload, onRemove, onFile, onGene
         }}
       >
         {!hidden && stage}
-        {!hidden && stageOn && <ZoomBadge z={view.z} onReset={view.reset} />}
+        {!hidden && stageOn && painting && <ZoomBadge z={view.z} onReset={view.reset} />}
       </div>
-      {(cur || (stitching && second)) && <Dock>{panel}</Dock>}
+      {(cur || (stitching && second)) && <Dock outerRef={setDockEl}>{panel}</Dock>}
 
       {stitching && <input ref={secondRef} type="file" hidden accept="video/*" onChange={(e) => (e.target.files?.[0] && void takeSecond(e.target.files[0]), (e.target.value = ''))} />}
 
@@ -469,20 +486,24 @@ export function ToolWorkbench({ tool, source, onUpload, onRemove, onFile, onGene
  * 面板底边钉住不动、上边沿上下移：面板框（底色、圆角）的高度跟着外层走、加过渡，里面的内容贴底排，
  * 新出来的提示词从上边沿露出来 / 收进去。坑是剩下的高度，跟着一起逐帧变，图也跟着坑走。第一次出现不动画
  */
-function Dock({ children }: { children: ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
+function Dock({ children, outerRef }: { children: ReactNode; outerRef?: (el: HTMLDivElement | null) => void }) {
+  const ref = useRef<HTMLDivElement | null>(null);
   const [height, setHeight] = useState<number>();
   const [ready, setReady] = useState(false);
   useLayoutEffect(() => {
     const dock = ref.current;
     const panel = dock?.firstElementChild as HTMLElement | null;
     if (!dock || !panel) return;
-    // 内容本来要多高：内容贴底排，第一个子元素离面板顶的距离就是多出来（或不够）的那段
+    // 内容本来要多高：内容贴底排，最上面那个子元素离面板顶的距离就是多出来（或不够）的那段（一横条面板换排版后第一个子元素不一定在最上面）
     const measure = () => {
-      const first = panel.firstElementChild as HTMLElement | null;
-      if (!first) return;
+      // 工具没显示（切走了、藏着）时量出来是 0，不记：不然切过来时面板从 0 长高、舞台跟着抖（11-19 用户报）。
+      // 第一次显示时外层还没写高度（auto），直接到位不过渡
+      if (!dock.offsetParent) return;
+      const kids = Array.from(panel.children) as HTMLElement[];
+      if (!kids.length) return;
+      const top = Math.min(...kids.map((k) => k.offsetTop));
       const pad = parseFloat(getComputedStyle(panel).paddingTop) || 0;
-      setHeight(Math.round(panel.clientHeight - first.offsetTop + pad));
+      setHeight(Math.round(panel.clientHeight - top + pad));
     };
     const ro = new ResizeObserver(measure);
     const watch = () => {
@@ -502,7 +523,13 @@ function Dock({ children }: { children: ReactNode }) {
     };
   }, []);
   return (
-    <div ref={ref} className="tpl-at__dock" data-ready={ready || undefined} style={height != null ? { height } : undefined}>
+    <div
+      ref={(el) => {
+        ref.current = el;
+        outerRef?.(el);
+      }}
+      className="tpl-at__dock"
+      data-ready={ready || undefined} style={height != null ? { height } : undefined}>
       {children}
     </div>
   );

@@ -22,6 +22,15 @@ export interface ViewerMedia {
 
 /** 素材的宽高比，按地址记住：切回看过的那张不用再等加载 */
 const RATIOS = new Map<string, number>();
+/** 已经加载过的图片（浏览器有缓存）：换到它时直接出，不先闪骨架屏、不再淡入 */
+const LOADED = new Set<string>();
+
+/** 别处（比如信息栏的同任务缩略图）已经加载好的图片：记下比例，切到它时大图直接出 */
+export function rememberImage(src: string, w: number, h: number) {
+  if (!src || !w || !h) return;
+  RATIOS.set(src, w / h);
+  LOADED.add(src);
+}
 /** 有上下切换时作品右边让出按钮那一列 */
 const NAV_SPACE = 96;
 
@@ -34,11 +43,11 @@ function useFitBox(src: string, reserve: number, fallback: number) {
   const [el, ref] = useState<HTMLDivElement | null>(null);
   const [area, setArea] = useState({ w: 0, h: 0 });
   const [ratio, setRatio] = useState(() => RATIOS.get(src) ?? 0);
-  // 出来了没有：每换一个都重新等（看过的比例记住了、框先摆好，但画面还是等加载完再淡入）
-  const [ready, setReady] = useState(false);
+  // 出来了没有：每换一个都重新等（看过的比例记住了、框先摆好）；加载过的图片直接算出来了，不闪骨架屏
+  const [ready, setReady] = useState(() => LOADED.has(src));
   useLayoutEffect(() => {
     setRatio(RATIOS.get(src) ?? 0);
-    setReady(false);
+    setReady(LOADED.has(src));
   }, [src]);
   useLayoutEffect(() => {
     if (!el) return;
@@ -137,7 +146,10 @@ export function MediaViewer({ media, onClose, head, actions, children, footer, g
                 {shown.type === 'video' ? (
                   <VideoPlayer key={`${shownIndex}:${shown.src}`} variant="preview" src={shown.src} poster={shown.poster} autoPlay loop />
                 ) : (
-                  <img key={shown.src} src={shown.src} alt={shown.alt ?? ''} onLoad={(e) => fit.measure(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight)} />
+                  <img key={shown.src} src={shown.src} alt={shown.alt ?? ''} onLoad={(e) => {
+                      rememberImage(shown.src, e.currentTarget.naturalWidth, e.currentTarget.naturalHeight);
+                      fit.measure(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight);
+                    }} />
                 )}
               </div>
             )}
@@ -183,10 +195,18 @@ export function ViewerAuthor({ name, avatar, date }: { name: string; avatar?: st
 }
 
 /** 信息栏里的一节：小标题 + 内容 */
-export function ViewerSection({ title, children }: { title: string; children: ReactNode }) {
+export function ViewerSection({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return (
     <section className="tpl-viewer__section">
-      <h4>{title}</h4>
+      {/* 小标题右边可以放一个操作（提示词的「复制」，照线上） */}
+      {action ? (
+        <div className="tpl-viewer__section-head">
+          <h4>{title}</h4>
+          {action}
+        </div>
+      ) : (
+        <h4>{title}</h4>
+      )}
       {children}
     </section>
   );

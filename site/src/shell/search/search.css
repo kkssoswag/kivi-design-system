@@ -104,7 +104,6 @@
   font-family: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background-color var(--motion-duration-100) var(--motion-ease-in-out);
 }
 
 /* 悬停、键盘选中：和菜单、左侧目录的悬停同一个底色 */

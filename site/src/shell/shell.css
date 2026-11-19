@@ -213,7 +213,6 @@ a {
   font-size: var(--font-size-14);
   line-height: var(--font-line-height-20);
   text-decoration: none;
-  transition: background-color var(--motion-duration-100) var(--motion-ease-in-out);
 }
 
 .shell-nav-label {
@@ -692,7 +691,6 @@ main.doc {
   font: inherit;
   font-size: var(--font-size-13);
   cursor: pointer;
-  transition: background-color var(--motion-duration-100) var(--motion-ease-in-out);
 }
 
 .shell-seg button:hover:not(:disabled) {
@@ -720,6 +718,7 @@ main.doc {
   border-radius: var(--border-radius-round);
   background: var(--color-bg-fill-container-light-1-pressed);
   cursor: pointer;
+  /* 状态切换：开、关时轨道变色 */
   transition: background-color var(--motion-duration-150) var(--motion-ease-in-out);
 }
 
@@ -759,7 +758,6 @@ main.doc {
   color: var(--color-text-fill-primary);
   font: inherit;
   font-size: var(--font-size-14);
-  transition: background-color var(--motion-duration-100) var(--motion-ease-in-out);
 }
 
 .shell-input:hover,
@@ -836,7 +834,6 @@ main.doc {
   line-height: var(--font-line-height-20);
   white-space: nowrap;
   cursor: pointer;
-  transition: background-color var(--motion-duration-100) var(--motion-ease-in-out);
 }
 
 .tk-chip:hover {
@@ -966,7 +963,6 @@ main.doc {
   font-weight: var(--font-weight-medium);
   list-style: none;
   cursor: pointer;
-  transition: background-color var(--motion-duration-100) var(--motion-ease-in-out);
 }
 
 .doc details > summary::-webkit-details-marker {
@@ -1015,7 +1011,6 @@ main.doc {
   border-radius: var(--border-radius-12);
   background: var(--color-bg-fill-container-light-2);
   text-decoration: none;
-  transition: background-color var(--motion-duration-100) var(--motion-ease-in-out);
 }
 
 a.shell-card:hover {

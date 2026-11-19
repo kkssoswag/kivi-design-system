@@ -1,77 +1,24 @@
-import { type CSSProperties, type ReactElement } from 'react';
-import { Button, ButtonGroup, Divider, IconButton, NodePanel, toast, type AttachmentItem, type GenNodeType } from '@kivi';
+import { type CSSProperties } from 'react';
+import { NodePanel, type AttachmentItem, type GenNodeType } from '@kivi';
 import { disconnectPair, generateNode, reorderInputs, setNodeInputs, upstreamOf } from '../../data/canvas-doc';
+import type { ToolId } from '../../data/tools';
 import { attempt } from '../../flows/errors';
+import { isGenNode } from '../../rules/canvas';
 import type { CanvasDoc, CanvasItem, CanvasNode } from '../../data/types';
+import { NodeToolbar } from './NodeToolbar';
+import { LipSyncPanel } from './LipSyncPanel';
+import { NodeToolPanel, PANEL_TOOLS } from './NodeToolPanel';
 
 /*
   选中一个节点时浮在它上下的东西（照线上，同原来的小画布）：
-  - 上面是节点工具栏：有结果、不在生成或上传时才出；文字节点没有（编辑文字以后做）；音频没有。
+  - 上面是节点工具栏（NodeToolbar）：图片、视频有结果、不在生成或上传时才出；文字、音频没有。
   - 下面是生成面板：生成节点才有（素材没有），空的、生成中也出（生成中按钮不能点）。
+    工具节点（抠图、高清、循环…）下面是它自己的参数面板（NodeToolPanel）；扩图、重绘这类弹窗里编辑的、裁剪出来的没有面板。
   两个都和节点水平居中，大小不跟画布缩放（缩到 50% 以下才跟着小）。
-  工具栏里的工具（抠图、扩图、视频高清…）下一步接，现在点了提示一声。
 */
 
 const TOOLBAR_GAP = 40;
 const PANEL_GAP = 12;
-
-const soon = () => toast.info('这个工具下一步接上');
-
-function toolbarOf(node: CanvasNode, onDownload: () => void, onView: () => void): ReactElement | null {
-  const tail = (
-    <>
-      <Divider orientation="vertical" />
-      <IconButton icon="ImageToText" label={node.type === 'video' ? '视频推词' : '图推词'} onClick={soon} />
-      <IconButton icon="Download" label="下载" onClick={onDownload} />
-      <IconButton icon="FullScreen" label="全屏" onClick={onView} />
-    </>
-  );
-  if (node.type === 'image') {
-    return (
-      <ButtonGroup variant="glass" size={44} aria-label="节点工具栏">
-        {(
-          [
-            ['Rmbg', '抠图'],
-            ['Crop', '裁剪'],
-            ['Expand', '扩图'],
-            ['HD', '高清'],
-            ['SmartEditing', '重绘'],
-            ['RemoveEle', '元素去除'],
-            ['DragSelect', '框选'],
-            ['TextEditing', '编辑文字'],
-          ] as const
-        ).map(([icon, label]) => (
-          <Button key={label} variant="ghost" leftIcon={icon} onClick={soon}>
-            {label}
-          </Button>
-        ))}
-        {tail}
-      </ButtonGroup>
-    );
-  }
-  if (node.type === 'video') {
-    return (
-      <ButtonGroup variant="glass" size={44} aria-label="节点工具栏">
-        {(
-          [
-            ['VideoLoop', '循环'],
-            ['HD', '高清'],
-            ['Connecting', '拼接'],
-            ['Rmbg', '抠图'],
-            ['Pack', '封装'],
-            ['Cutting', '剪辑'],
-          ] as const
-        ).map(([icon, label]) => (
-          <Button key={label} variant="ghost" leftIcon={icon} onClick={soon}>
-            {label}
-          </Button>
-        ))}
-        {tail}
-      </ButtonGroup>
-    );
-  }
-  return null;
-}
 
 export interface NodeFloatProps {
   canvasId: string;
@@ -83,13 +30,15 @@ export interface NodeFloatProps {
   zoom: number;
   onView: (item: CanvasItem) => void;
   onDownload: () => void;
+  /** 节点工具栏的框选：把节点加进对话 */
+  onAddToChat?: (ids: string[]) => void;
 }
 
-export function NodeFloat({ canvasId, doc, node, busy, zoom, onView, onDownload }: NodeFloatProps) {
+export function NodeFloat({ canvasId, doc, node, busy, zoom, onView, onDownload, onAddToChat }: NodeFloatProps) {
   const fixed = { '--cv-unzoom': 1 / Math.max(zoom, 0.5) } as CSSProperties;
   const center = node.x + node.w / 2;
   const hasResult = node.type === 'text' ? !!node.text : !!node.items?.length;
-  const toolbar = hasResult && !busy && node.items?.[0] ? toolbarOf(node, onDownload, () => onView(node.items![0])) : null;
+  const toolbar = hasResult && !busy && node.items?.[0] && (node.type === 'image' || node.type === 'video');
 
   // 参考素材：连进来的上游（文字节点的上游文字拼进提示词，不进附件条）
   const references: AttachmentItem[] = upstreamOf(doc, node.id)
@@ -100,10 +49,21 @@ export function NodeFloat({ canvasId, doc, node, busy, zoom, onView, onDownload 
     <>
       {toolbar && (
         <div className="cv-float cv-float--toolbar" style={{ ...fixed, left: center, top: node.y - TOOLBAR_GAP }}>
-          {toolbar}
+          <NodeToolbar canvasId={canvasId} node={node} onDownload={onDownload} onView={() => onView(node.items![0])} onAddToChat={onAddToChat} />
         </div>
       )}
-      {!node.upload && node.type !== 'group' && (
+      {node.tool ? (
+        PANEL_TOOLS.includes(node.tool as ToolId) && (
+          <div className="cv-float cv-float--panel" style={{ ...fixed, left: center, top: node.y + node.h + PANEL_GAP }}>
+            <NodeToolPanel key={node.id} canvasId={canvasId} doc={doc} node={node} busy={busy} />
+          </div>
+        )
+      ) : node.preset === 'lip-sync' ? (
+        <div className="cv-float cv-float--panel" style={{ ...fixed, left: center, top: node.y + node.h + PANEL_GAP }}>
+          <LipSyncPanel key={node.id} canvasId={canvasId} doc={doc} node={node} busy={busy} />
+        </div>
+      ) : (
+        isGenNode(node) && (
         <div className="cv-float cv-float--panel" style={{ ...fixed, left: center, top: node.y + node.h + PANEL_GAP }}>
           <NodePanel
             key={node.id}
@@ -122,10 +82,11 @@ export function NodeFloat({ canvasId, doc, node, busy, zoom, onView, onDownload 
             onCountChange={(count) => setNodeInputs(canvasId, node.id, { count })}
             onRemoveReference={(from) => disconnectPair(canvasId, from, node.id)}
             onReorderReference={(from, target) => reorderInputs(canvasId, node.id, from, target)}
-            onGenerate={(s) => void attempt(() => generateNode(canvasId, node.id, s))}
+            onGenerate={(s) => attempt(() => generateNode(canvasId, node.id, s))}
             generating={busy}
           />
         </div>
+        )
       )}
     </>
   );

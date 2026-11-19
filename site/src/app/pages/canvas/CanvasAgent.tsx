@@ -19,6 +19,7 @@ import { getDoc, onAgentSelect } from '../../data/canvas-doc';
 import { db, useDB } from '../../data/db';
 import type { AgentTurn as AgentTurnData, Task } from '../../data/types';
 import { attempt } from '../../flows/errors';
+import { isMediaNode } from '../../rules/canvas';
 import { AgentComposer, type AgentComposerMessage } from '../../parts/agent-composer';
 import { AgentTurn } from '../create/AgentTurn';
 
@@ -293,7 +294,7 @@ function KimoPet({ from, leaving, leaveTo, onLeft, onClick }: { from: DOMRect | 
 /** 画布节点 → 输入框附件（「添加到对话」）：记着节点 id，发出去时当上游 */
 export function nodeAttachment(canvasId: string, nodeId: string): AttachmentItem | undefined {
   const n = getDoc(canvasId).nodes.find((x) => x.id === nodeId);
-  if (!n || n.type === 'group') return undefined;
+  if (!n || !isMediaNode(n)) return undefined;
   const item = n.items?.[0];
   return { id: `${NODE_PREFIX}${n.id}`, type: n.type === 'text' ? 'file' : n.type, name: n.name, src: item?.poster ?? item?.src, duration: item?.duration, ext: n.type === 'text' ? 'TXT' : undefined };
 }

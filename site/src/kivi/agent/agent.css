@@ -193,9 +193,7 @@
   font-size: var(--font-size-14);
   text-align: left;
   cursor: pointer;
-  transition:
-    background-color var(--motion-duration-100) var(--motion-ease-in-out),
-    color var(--motion-duration-100) var(--motion-ease-in-out);
+  transition: color var(--motion-duration-100) var(--motion-ease-in-out);
 }
 
 /* 编号框 20，圆角 6 */

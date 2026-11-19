@@ -22,7 +22,7 @@ const CSS = `
 .mo-ease.is-end .mo-dot { left: calc(100% - 20px); }
 .mo-dur .mo-dot { transition: left var(--dur) var(--motion-ease-in-out); }
 .mo-dur.is-end .mo-dot { left: min(calc(4px + var(--to)), calc(100% - 20px)); }
-.mo-dur .mo-dot.is-color { transition: background-color var(--dur) var(--motion-ease-in-out); }
+.mo-dur .mo-dot.is-color { transition: background-color var(--dur) var(--motion-ease-in-out); } /* 状态切换：演示换色的时长 */
 .mo-dur.is-end .mo-dot.is-color { left: 4px; background: var(--color-text-fill-primary); }
 .mo-dur .mo-dot.is-fade { transition: opacity var(--dur) var(--motion-ease-in); }
 .mo-dur.is-end .mo-dot.is-fade { left: 4px; opacity: 0; transition: opacity var(--dur) var(--motion-ease-in); }
@@ -63,7 +63,6 @@ const CSS = `
   display: flex; align-items: center; gap: var(--spacing-8); width: 100%; height: 36px; padding: 0 var(--spacing-12);
   border: 0; border-radius: var(--border-radius-8); background: transparent; color: var(--color-text-fill-primary);
   font: inherit; font-size: var(--font-size-13); line-height: var(--font-line-height-20); text-align: left; cursor: pointer;
-  transition: background-color var(--motion-duration-100) var(--motion-ease-in-out);
 }
 .mo-menu-item:hover { background: var(--color-bg-fill-container-light-2-hover); }
 .mo-menu-item.is-danger { color: var(--color-status-danger); }
