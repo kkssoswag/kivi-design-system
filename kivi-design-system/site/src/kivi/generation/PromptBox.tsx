@@ -7,6 +7,7 @@ import {
   type ChangeEvent,
   type FormEvent,
   type HTMLAttributes,
+  type ReactNode,
   type Ref,
 } from 'react';
 import { toast } from '../feedback';
@@ -128,6 +129,10 @@ export interface PromptBoxProps extends Omit<HTMLAttributes<HTMLDivElement>, 'on
   onPickSkill?: AgentControlsProps['onPickSkill'];
   /** 没输入时的占位文字。不传跟着任务变 */
   placeholder?: string;
+  /** Agent 模式内容区上面一行：放专家条（ExpertBar）。图片、视频、音频不显示 */
+  agentHeader?: ReactNode;
+  /** Agent 模式的占位文字（不传 placeholder 时用）：邀请了专家换成「告诉 XX 你想做什么，可以上传参考」 */
+  agentPlaceholder?: string;
   /** 提示词最高多高，超过就在里面滚动，数字按 px。默认 240 */
   maxHeight?: number;
   /** 把文件拖进输入框、选文件、粘贴时触发，参数是通过 `accept` 和上传要求（大小、时长、宽高，见 gen-rules 的 UPLOAD_SPECS）检查、也没超过模型参考上限的文件列表。不传就直接加进参考区（首尾帧时图片填空着的格）。拖进来时盖一层 DropOverlay「松手上传」，类型不收的显示「不支持这种文件」、不接收，放下后弹 toast（页面上要放 `<Toaster />`） */
@@ -190,6 +195,8 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(function Pro
     skillCategories,
     onPickSkill,
     placeholder,
+    agentHeader,
+    agentPlaceholder,
     maxHeight = 240,
     onDropFiles,
     accept = DEFAULT_ACCEPT,
@@ -399,6 +406,7 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(function Pro
         onPasteCapture={composeHandlers(onPasteCapture, paste.onPasteCapture)}
         {...rest}
       >
+        {task === 'agent' && agentHeader != null && agentHeader !== false && <div className="kv-prompt-box__header">{agentHeader}</div>}
         <div className="kv-prompt-box__content">
           <div className="kv-prompt-box__refs">
             {framesNow ? (
@@ -435,7 +443,7 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(function Pro
             ref={setRefs}
             className="kv-prompt-box__input"
             aria-label={inputLabel}
-            placeholder={placeholder ?? GEN_PLACEHOLDER[task]}
+            placeholder={placeholder ?? (task === 'agent' && agentPlaceholder ? agentPlaceholder : GEN_PLACEHOLDER[task])}
             maxLength={PROMPT_MAX_LENGTH}
             style={{ maxHeight }}
             onInput={onInput}

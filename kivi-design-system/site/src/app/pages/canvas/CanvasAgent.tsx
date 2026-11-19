@@ -3,6 +3,7 @@ import {
   ActionCard,
   Button,
   Dropdown,
+  ExpertRecord,
   GeneratingDots,
   Icon,
   IconButton,
@@ -21,6 +22,8 @@ import type { AgentTurn as AgentTurnData, Task } from '../../data/types';
 import { attempt } from '../../flows/errors';
 import { isMediaNode } from '../../rules/canvas';
 import { AgentComposer, type AgentComposerMessage } from '../../parts/agent-composer';
+import { useExpertSession } from '../../parts/expert-session';
+import { startExpert } from '../../data/experts';
 import { AgentTurn } from '../create/AgentTurn';
 
 /*
@@ -44,12 +47,14 @@ export interface CanvasAgentProps {
   onLocate: (nodeIds: string[]) => void;
   /** 进来就发的一句话（创作首页「画布」输入框里发的） */
   intro?: AgentComposerMessage;
+  /** 新建的对话带上这位专家（专家模式：新建画布带首页当前的专家）。已有的对话各记各的 */
+  expert?: string;
   /** 「添加到对话」的节点（父组件往这里加） */
   attachments: AttachmentItem[];
   onAttachmentsChange: (attachments: AttachmentItem[]) => void;
 }
 
-export function CanvasAgent({ canvasId, skill, intro, onLocate, attachments, onAttachmentsChange }: CanvasAgentProps) {
+export function CanvasAgent({ canvasId, skill, intro, expert = 'none', onLocate, attachments, onAttachmentsChange }: CanvasAgentProps) {
   const allChats = useDB((s) => s.canvasChats);
   const turns = useDB((s) => s.agentTurns);
   const tasks = useDB((s) => s.tasks);
@@ -59,7 +64,9 @@ export function CanvasAgent({ canvasId, skill, intro, onLocate, attachments, onA
   const [picked, setChatId] = useState<string | undefined>(chats[0]?.id);
   useEffect(() => {
     if (picked || db.get().canvasChats.some((c) => c.canvasId === canvasId)) return;
-    setChatId(newCanvasChat(canvasId));
+    const id = newCanvasChat(canvasId);
+    startExpert({ kind: 'canvas', id }, expert);
+    setChatId(id);
   }, [canvasId, picked]);
   const chatId = picked ?? chats[0]?.id ?? '';
   const chat = chats.find((c) => c.id === chatId);
@@ -106,10 +113,21 @@ export function CanvasAgent({ canvasId, skill, intro, onLocate, attachments, onA
   useEffect(() => {
     if (!intro || !chatId || sentIntros.has(intro)) return;
     sentIntros.add(intro);
-    send(intro);
+    sendChecked(intro);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId, intro]);
 
+  // 专家模式：输入框顶上的专家条、对话里的记录、需求不对口时的确认卡（parts/expert-session.tsx）
+  const [fill, setFill] = useState<{ text: string; key: number }>();
+  const expertSession = useExpertSession({
+    target: { kind: 'canvas', id: chatId },
+    scope: '仅当前画布',
+    fill: (text) => setFill({ text, key: Date.now() }),
+    disabled: !!active,
+  });
+
+  /** 发给 Agent 之前过一下专家：需求明显属于别的专家就先问 */
+  const sendChecked = (m: AgentComposerMessage) => expertSession.guard(m.text, () => send(m));
   const send = ({ text, attachments: atts, mode }: AgentComposerMessage) =>
     void attempt(() =>
       sendAgent(
@@ -188,15 +206,28 @@ export function CanvasAgent({ canvasId, skill, intro, onLocate, attachments, onA
       </div>
 
       <ScrollArea className="tpl-cv__stream" viewportRef={stream}>
-        <div className="tpl-cv__stream-body" data-empty={chatTurns.length === 0 || undefined}>
-          {chatTurns.length === 0 ? (
+        <div className="tpl-cv__stream-body" data-empty={(chatTurns.length === 0 && expertSession.notes.length === 0) || undefined}>
+          {chatTurns.length === 0 && expertSession.notes.length === 0 ? (
             <div className="tpl-ca__empty">
               {/* 小 Kimo 在外面飞的时候，面板里这个先藏着，免得出现两个 */}
               <Kimo ref={emptyKimo} size={160} style={{ visibility: petShown ? 'hidden' : undefined }} />
               <span>今天一起创作点什么？</span>
             </div>
           ) : (
-            chatTurns.map((t: AgentTurnData) => <AgentTurn key={t.id} turn={t} tasks={taskMap} assets={assetMap} renderTask={renderTask} />)
+            // 专家记录按时间和 Agent 的回合排在一起
+            [
+              ...chatTurns.map((t: AgentTurnData) => ({ at: t.createdAt, el: <AgentTurn key={t.id} turn={t} tasks={taskMap} assets={assetMap} renderTask={renderTask} /> })),
+              ...expertSession.notes.map((n) => ({
+                at: n.createdAt,
+                el: (
+                  <ExpertRecord key={n.id} avatar={n.avatar}>
+                    {n.text}
+                  </ExpertRecord>
+                ),
+              })),
+            ]
+              .sort((a, b) => a.at - b.at)
+              .map((x) => x.el)
           )}
         </div>
       </ScrollArea>
@@ -227,16 +258,23 @@ export function CanvasAgent({ canvasId, skill, intro, onLocate, attachments, onA
         />
       )}
 
-      <div className="tpl-ca__composer-slot" hidden={!!(waiting && pending?.kind === 'confirm')}>
+      {/* 需求不对口：和生成确认卡一样换掉输入框 */}
+      {expertSession.askCard && <div className="tpl-ca__confirm">{expertSession.askCard}</div>}
+
+      <div className="tpl-ca__composer-slot" hidden={!!(waiting && pending?.kind === 'confirm') || expertSession.asking}>
         <AgentComposer
+          header={expertSession.bar()}
+          placeholder={expertSession.placeholder}
+          fill={fill}
           skill={skill}
           attachments={attachments}
           onAttachmentsChange={onAttachmentsChange}
           generating={!!active}
           onStop={() => active && stopAgent(active.id)}
-          onSend={send}
+          onSend={sendChecked}
         />
       </div>
+      {expertSession.detailDialog}
     </aside>
     </div>
     {petShown && (

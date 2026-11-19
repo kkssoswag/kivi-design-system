@@ -46,3 +46,4 @@ export * from './agent-process';
 export * from './main-site';
 export * from './asset';
 export * from './explore';
+export * from './expert';

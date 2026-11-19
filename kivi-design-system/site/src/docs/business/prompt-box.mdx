@@ -92,6 +92,8 @@ import { GenerateButtonPlayground, PromptBoxLab, PromptBoxPlayground, PromptInpu
 | `skillCategories` | — | — | Agent 技能面板里的分类 |
 | `onPickSkill` | — | — | Agent 点了一个技能 |
 | `placeholder` | `string` | — | 没输入时的占位文字。不传跟着任务变，比如视频是「描述你想生成的视频，@ 引用参考素材」 |
+| `agentHeader` | `ReactNode` | — | Agent 模式内容区上面一行，和内容区间距 12：放专家条 `ExpertBar`。图片、视频、音频不显示 |
+| `agentPlaceholder` | `string` | — | Agent 模式的占位文字（没传 `placeholder` 时用）：邀请了专家换成「告诉 XX 你想做什么，可以上传参考」 |
 | `maxHeight` | `number` | `240` | 提示词最高多高，单位 px，超过就在里面滚动 |
 | `onDropFiles` | `(files: File[]) => void` | — | 把文件拖进输入框、选文件、粘贴（焦点在输入框里 ⌘V，只取第一个符合的文件，粘的是字照常）后触发，参数是通过 `accept`、场景的上传要求（`UPLOAD_SPECS`：大小、时长、宽高、宽高比）和模型参考上限检查的文件。不合格、放不下（参考满了）的跳过并弹 toast 说第一个原因，合格的照常加；不传就直接加进参考区，首尾帧时图片按顺序填空着的首帧、尾帧。拖进来时整个输入框盖一层 `DropOverlay`；类型不收的显示「不支持这种文件」，不接收，放下后弹 toast（页面上要放一个 `<Toaster />`） |
 | `accept` | `string` | `"image/*,video/*,audio/*"` | 收哪些文件，写法同 `<input accept>`；首尾帧时只收图片。拖的过程中按类型提前判断 |

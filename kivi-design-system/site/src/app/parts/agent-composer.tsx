@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactElement } from 'react';
+import { useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { AttachmentStrip, DropOverlay, Dropdown, Menu, MenuItem, UPLOAD_SPECS, referenceTypeOf, GenModelPicker, IconButton, MentionChip, PromptInput, SendButton, SkillPicker, placeholderImageSrc, toast, type AttachmentItem, type IconName, type PlaceholderImageName } from '@kivi';
 import { checkFiles, rejectMessage, useControllable, useFileDrop, usePasteFiles } from '@kivi/hooks';
@@ -36,6 +36,12 @@ export interface AgentComposerProps {
   placement?: 'top-start' | 'bottom-start';
   /** 点发送（有字时）。不传就只能看 */
   onSend?: (message: AgentComposerMessage) => void;
+  /** 输入框顶上一行：专家条（ExpertBar） */
+  header?: ReactNode;
+  /** 占位文字，默认「描述任何你想要生成的内容」；邀请了专家换成「告诉 XX 你想做什么，可以上传参考」 */
+  placeholder?: string;
+  /** 把这句话填进输入框（专家详情里点示例提问，不发送），key 变了才填 */
+  fill?: { text: string; key: number };
   className?: string;
 }
 
@@ -46,7 +52,21 @@ const DROP_COVERS: PlaceholderImageName[] = ['ip-peek', 'bunny-gouache', 'monste
 const UP = 'top-start' as const;
 
 /** Agent 输入框：附件条、PromptInput、工具条（添加 / 模型偏好 / 技能 / 手 / 切换对话模型）、发送。拖文件进来盖一层「松手上传」 */
-export function AgentComposer({ attachments: attachmentsProp, defaultAttachments = [], onAttachmentsChange, generating, onStop, skillOpen, skill, placement = UP, onSend, className }: AgentComposerProps) {
+export function AgentComposer({
+  attachments: attachmentsProp,
+  defaultAttachments = [],
+  onAttachmentsChange,
+  generating,
+  onStop,
+  skillOpen,
+  skill,
+  placement = UP,
+  onSend,
+  header,
+  placeholder = '描述任何你想要生成的内容',
+  fill,
+  className,
+}: AgentComposerProps) {
   const [text, setText] = useState('');
   const [attachments, setAttachmentsRaw] = useControllable(attachmentsProp, defaultAttachments, onAttachmentsChange);
   const latestAttachments = useRef(attachments);
@@ -92,6 +112,16 @@ export function AgentComposer({ attachments: attachmentsProp, defaultAttachments
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 专家详情里点示例提问：这句话换掉输入框里的字（不发送）
+  useEffect(() => {
+    const el = input.current;
+    if (!fill || !el) return;
+    el.textContent = fill.text;
+    el.focus();
+    sync();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fill]);
+
   const send = () => {
     const el = input.current;
     const value = (el?.textContent ?? '').trim();
@@ -135,11 +165,12 @@ export function AgentComposer({ attachments: attachmentsProp, defaultAttachments
 
   return (
     <div className={className ? `tpl-cv__composer ${className}` : 'tpl-cv__composer'} {...bind} {...paste}>
+      {header}
       {attachments.length > 0 && <AttachmentStrip items={attachments} onRemove={(id) => setAttachments((list) => list.filter((a) => a.id !== id))} />}
       <PromptInput
         ref={input}
         className="tpl-cv__input"
-        placeholder="描述任何你想要生成的内容"
+        placeholder={placeholder}
         onInput={sync}
         // 回车发送，Shift + 回车换行；输入法选字时不算
         onKeyDown={(e) => {

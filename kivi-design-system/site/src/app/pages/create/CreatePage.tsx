@@ -22,6 +22,7 @@ import { useBriefLoading } from '../../hooks/useBriefLoading';
 import { useOlderPages } from '../../hooks/useOlderPages';
 import { TaskTags } from '../../parts/task-tags';
 import { AssetInfo, CopyPrompt } from '../../parts/asset-info';
+import { useExpertSession } from '../../parts/expert-session';
 import { RecordFeed } from './RecordFeed';
 import { TileMenus, type TileMenuState } from './TileMenus';
 import { genTaskInput } from './submit';
@@ -43,10 +44,10 @@ interface ViewItem {
   /** 信息栏：这一格所在记录的提示词和参数 */
   info: ViewerInfo;
 }
-/** 「重新编辑」要填回输入框的东西 */
+/** 「重新编辑」要填回输入框的东西；专家详情里点示例提问也走这里（Agent，只有文字） */
 interface ComposerFill {
   key: number;
-  task: Exclude<GenTask, 'agent'>;
+  task: GenTask;
   model?: string;
   refMode?: string;
   text: string;
@@ -117,6 +118,14 @@ function ChatView({ chat }: { chat: Chat }) {
   // 「更多」和右键各一个菜单，锚在点的位置
   const [more, setMore] = useState<TileMenuState | null>(null);
   const [menu, setMenu] = useState<TileMenuState | null>(null);
+
+  // 专家模式：输入框顶上的专家条、对话里的记录、需求不对口时的确认卡（parts/expert-session.tsx）
+  const expertSession = useExpertSession({
+    target: { kind: 'chat', id: chat.id },
+    scope: '仅当前会话',
+    fill: (text) => setFill({ key: Date.now(), task: 'agent', text, params: {}, count: 1 }),
+    disabled: !!active,
+  });
 
   const feed = useRef<HTMLDivElement>(null);
   const composer = useRef<HTMLDivElement>(null);
@@ -213,7 +222,8 @@ function ChatView({ chat }: { chat: Chat }) {
 
   const submit = (s: PromptBoxSubmit) => {
     // 返回请求的 Promise：输入框等它的时候生成按钮转圈、不能重复提交
-    if (s.task === 'agent') return ask(s.text, s.references);
+    // Agent：需求明显属于别的专家时先出确认卡，选了再发（不用重发）
+    if (s.task === 'agent') return expertSession.guard(s.text, () => void ask(s.text, s.references));
     const input = genTaskInput(s, where);
     if (input) return run(input);
   };
@@ -309,7 +319,11 @@ function ChatView({ chat }: { chat: Chat }) {
           </div>
         </ScrollArea>
         <div ref={composer} className="tpl-ms__composer">
+          {expertSession.askCard}
           <PromptBox
+            style={expertSession.asking ? { display: 'none' } : undefined}
+            agentHeader={expertSession.bar()}
+            agentPlaceholder={expertSession.placeholder}
             key={fill?.key}
             defaultValue={fill?.text}
             defaultTask={fill?.task}
@@ -327,6 +341,7 @@ function ChatView({ chat }: { chat: Chat }) {
             onStop={() => active && stopAgent(active.id)}
           />
         </div>
+        {expertSession.detailDialog}
       </main>
 
       <TileMenus
