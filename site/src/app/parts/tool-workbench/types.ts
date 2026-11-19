@@ -11,6 +11,8 @@ export interface Source {
   src: string;
   /** 宽 / 高 */
   ratio: number;
+  /** 视频时长（秒），按时长算消耗用；读不出来不写 */
+  duration?: number;
 }
 
 /** 生成一次要交出去的东西：工具页提交成任务，创作页弹窗放进对话 */
@@ -37,10 +39,11 @@ export interface ToolState {
   /** 视频抠图的输出模式：透明视频 / 蒙版视频（照线上） */
   cutoutOutput: string;
   editMode: string;
+  /** 智能重绘用的模型 */
+  editModel: string;
   videoRes: string;
   fps: number;
   loop: string;
-  stitchExtra: boolean;
 }
 
 export const INITIAL_STATE: ToolState = {
@@ -48,8 +51,8 @@ export const INITIAL_STATE: ToolState = {
   hdScale: '2',
   cutoutOutput: 'alpha',
   editMode: 'inpaint',
+  editModel: 'nano-banana-2',
   videoRes: '1080P',
   fps: 30,
   loop: 'auto',
-  stitchExtra: false,
 };

@@ -11,7 +11,7 @@ import {
 } from 'react';
 import { toast } from '../feedback';
 import { cx } from '../utils';
-import { composeDropHandlers, rejectMessage, useControllable, useFileDrop, useMergedRef } from '../hooks';
+import { checkFiles, composeDropHandlers, composeHandlers, rejectMessage, useControllable, useFileDrop, useMergedRef, usePasteFiles } from '../hooks';
 import { ReferenceFramePair } from '../reference/ReferenceFramePair';
 import { ReferenceStack, referenceName, relabelReferences, type ReferenceStackItem } from '../reference/ReferenceStack';
 import { PromptInput } from './PromptInput';
@@ -20,7 +20,20 @@ import { DropOverlay } from './DropOverlay';
 import { PromptBoxContext } from './context';
 import type { AgentControlsProps } from './AgentControls';
 import { GenActions, GenToolbar } from './gen-controls';
-import { GEN_PLACEHOLDER, fileToReference, genBlockedReason, genCost, isFramesMode, type GenFrames, type GenTask } from './gen-rules';
+import {
+  GEN_PLACEHOLDER,
+  PROMPT_MAX_LENGTH,
+  fileToReference,
+  genBlockedReason,
+  genCost,
+  isFramesMode,
+  mainUploadSpec,
+  referenceFullMessage,
+  referenceTypeOf,
+  type GenFrames,
+  type GenTask,
+} from './gen-rules';
+import { countInputs, fallbackParams, inputLimits } from './model-caps';
 import { DEFAULT_MODEL } from './options';
 import { TaskSelect } from './GenSelects';
 import { GEN_PARAM_DEFAULTS, type GenParamValues } from './GenParams';
@@ -78,13 +91,25 @@ export interface PromptBoxProps extends Omit<HTMLAttributes<HTMLDivElement>, 'on
   defaultFrames?: GenFrames;
   /** 首尾帧变了（互换、拖进来、从参考区搬过来） */
   onFramesChange?: (frames: GenFrames) => void;
+  /** 参数面板选的值，每种任务各一份（键见 GEN_PARAM_DEFAULTS）。传了就是受控；「重新编辑」回填参数用 */
+  params?: Partial<Record<GenTask, GenParamValues>>;
+  /** 非受控时一开始的参数 */
+  defaultParams?: Partial<Record<GenTask, GenParamValues>>;
+  /** 改了任何一项参数，参数是所有任务的整组值 */
+  onParamsChange?: (params: Partial<Record<GenTask, GenParamValues>>) => void;
+  /** 张数（图片、视频）。传了就是受控 */
+  count?: number;
+  /** 非受控时一开始的张数，默认 1 */
+  defaultCount?: number;
+  /** 张数变了 */
+  onCountChange?: (count: number) => void;
   /** 点了参考区的添加格。不传就弹出选文件，选完加进参考区 */
   onAddReference?: () => void;
   /** 参考区固定展开（受控）。不传是鼠标移上去展开 */
   referencesExpanded?: boolean;
   /** 参考区展开收起 */
   onReferencesExpandedChange?: (expanded: boolean) => void;
-  /** 点了生成 / 发送，参数是现在的所有选择。不能生成时（按钮置灰）不触发。不受控的提示词发出后清空 */
+  /** 点了生成 / 发送，参数是现在的所有选择。不能生成时（按钮置灰）不触发。发出后提示词不清空（照线上，11-18 用户定），要清自己改 `value` */
   onSubmit?: (submit: PromptBoxSubmit) => void;
   /** 正在生成：生成按钮置灰，Agent 的发送按钮变停止 */
   generating?: boolean;
@@ -104,7 +129,7 @@ export interface PromptBoxProps extends Omit<HTMLAttributes<HTMLDivElement>, 'on
   placeholder?: string;
   /** 提示词最高多高，超过就在里面滚动，数字按 px。默认 240 */
   maxHeight?: number;
-  /** 把文件拖进输入框时触发，参数是通过 `accept` 检查的文件列表。不传就直接加进参考区（首尾帧时图片填空着的格）。拖进来时盖一层 DropOverlay「松手上传」，类型不收的显示「不支持这种文件」、不接收，放下后弹 toast（页面上要放 `<Toaster />`） */
+  /** 把文件拖进输入框、选文件、粘贴时触发，参数是通过 `accept` 和上传要求（大小、时长、宽高，见 gen-rules 的 UPLOAD_SPECS）检查、也没超过模型参考上限的文件列表。不传就直接加进参考区（首尾帧时图片填空着的格）。拖进来时盖一层 DropOverlay「松手上传」，类型不收的显示「不支持这种文件」、不接收，放下后弹 toast（页面上要放 `<Toaster />`） */
   onDropFiles?: (files: File[]) => void;
   /** 收哪些文件，写法同 `<input accept>`。默认图片、视频、音频；首尾帧时只收图片 */
   accept?: string;
@@ -146,6 +171,12 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(function Pro
     frames: framesProp,
     defaultFrames = {},
     onFramesChange,
+    params: paramsProp,
+    defaultParams = {},
+    onParamsChange,
+    count: countProp,
+    defaultCount = 1,
+    onCountChange,
     onAddReference,
     referencesExpanded,
     onReferencesExpandedChange,
@@ -168,6 +199,7 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(function Pro
     onDragOver,
     onDragLeave,
     onDrop,
+    onPasteCapture,
     ...rest
   },
   ref,
@@ -181,9 +213,13 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(function Pro
   const setReferences = (list: ReferenceStackItem[]) => setReferencesRaw(relabelReferences(list));
   const [frames, setFrames] = useControllable(framesProp, defaultFrames, onFramesChange);
   // 参数面板和张数：每种任务各记一份，切任务再切回来还在；发出时一起交出去
-  const [params, setParams] = useState<Partial<Record<GenTask, GenParamValues>>>({});
-  const [count, setCount] = useState('1');
+  const [params, setParams] = useControllable(paramsProp, defaultParams, onParamsChange);
+  const [countNum, setCountNum] = useControllable(countProp, defaultCount, onCountChange);
+  const count = String(countNum);
+  const setCount = (v: string) => setCountNum(Number(v));
   const paramsOf = (t: GenTask): GenParamValues => params[t] ?? (t in GEN_PARAM_DEFAULTS ? GEN_PARAM_DEFAULTS[t as keyof typeof GEN_PARAM_DEFAULTS] : {});
+  // 实际在用的参数：当前模型不支持的值按它支持的算（比如一开始就选了 Veo，时长是 4 而不是默认的 5）
+  const paramsNow = (t: GenTask): GenParamValues => fallbackParams(t, models[t] ?? (t === 'agent' ? '' : DEFAULT_MODEL[t]), paramsOf(t)).values;
   const textRef = useRef<HTMLDivElement | null>(null);
   const setRefs = useMergedRef(textRef, inputRef);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -214,7 +250,18 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(function Pro
     setRefMode(nextMode);
   };
   // 换模型时参考方式回到全能参考（照线上：模型支持的参考方式不一样）
-  const changeModel = (m: string) => (task === 'video' ? switchVideo(m, 'omni') : setModels({ ...models, [task]: m }));
+  // 新模型不支持当前参数值（比如 Veo 的时长只有 4 / 6 / 8）：改回默认并提示一声，都支持就不提示
+  const changeModel = (m: string) => {
+    if (task === 'image' || task === 'video' || task === 'audio') {
+      const { values, changed } = fallbackParams(task, m, paramsNow(task));
+      if (changed) {
+        setParams({ ...params, [task]: values });
+        toast.info('所选模型不支持当前参数，已调整为默认值');
+      }
+    }
+    if (task === 'video') switchVideo(m, 'omni');
+    else setModels({ ...models, [task]: m });
+  };
 
   // 加文件（选的、拖进来的）：首尾帧时图片按顺序填空着的首帧、尾帧；其余加进参考区
   // 点了首尾帧哪一格的添加格：选的第一张图放进这一格，多的再填另一格（空着的话）
@@ -233,7 +280,36 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(function Pro
     for (const f of files) list = [...list, await fileToReference(f, list)];
     setReferences(list);
   };
-  const dropFiles = onDropFiles ?? ((files: File[]) => void addFiles(files));
+  // 选的、拖进来的、粘贴的文件都走这里：先按场景的上传要求逐个检查（大小、时长、宽高），再看参考有没有满；
+  // 不合格、放不下的跳过，弹 Toast 说第一个原因，合格的照常加。首尾帧里的图不算参考，不看上限
+  const intake = async (files: File[]) => {
+    const spec = mainUploadSpec(task, model, refMode);
+    const checked = await checkFiles(files, (f) => spec[referenceTypeOf(f)]);
+    let first = checked.message;
+    let accepted = checked.accepted;
+    if (!framesNow && task !== 'agent') {
+      const limits = inputLimits(model, refMode);
+      const counts = countInputs(latestRefs.current.map((r) => r.type));
+      const omni = task === 'video' && refMode === 'omni';
+      accepted = accepted.filter((f) => {
+        const t = referenceTypeOf(f);
+        if (counts[t] >= limits[t].max) {
+          first ??= referenceFullMessage(t, limits[t].max, omni);
+          return false;
+        }
+        counts[t] += 1;
+        return true;
+      });
+    }
+    if (first) toast.error(first);
+    if (!accepted.length) {
+      frameTarget.current = null;
+      return;
+    }
+    if (onDropFiles) onDropFiles(accepted);
+    else void addFiles(accepted);
+  };
+  const dropFiles = (files: File[]) => void intake(files);
   const pickFiles = (e: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     e.target.value = '';
@@ -252,6 +328,13 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(function Pro
     onReject: (_, reason) => toast.error(rejectMessage(reason)),
   });
 
+  // 粘贴文件：焦点在输入框里时 ⌘V，只取第一个符合的，走同一套检查
+  const paste = usePasteFiles({
+    accept: fileAccept,
+    onFile: (file) => dropFiles([file]),
+    onUnsupported: () => toast.error('剪贴板中的文件类型不支持，请检查文件格式'),
+  });
+
   const reason = genBlockedReason({
     kind: task,
     text: value,
@@ -262,8 +345,7 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(function Pro
   });
   const submit = () => {
     if (generating || (task === 'agent' ? !value.trim() : reason)) return;
-    onSubmit?.({ task, model, refMode, text: value, references, frames, params: paramsOf(task), count: task === 'image' || task === 'video' ? Number(count) : 1 });
-    if (onSubmit && valueProp === undefined) setValue('');
+    onSubmit?.({ task, model, refMode, text: value, references, frames, params: paramsNow(task), count: task === 'image' || task === 'video' ? Number(count) : 1 });
   };
   const dropHandlers = composeDropHandlers({ onDragEnter, onDragOver, onDragLeave, onDrop }, bind);
 
@@ -312,6 +394,7 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(function Pro
         data-dragover={dragging && !rejected ? '' : undefined}
         data-rejected={dragging && rejected ? '' : undefined}
         {...dropHandlers}
+        onPasteCapture={composeHandlers(onPasteCapture, paste.onPasteCapture)}
         {...rest}
       >
         <div className="kv-prompt-box__content">
@@ -351,6 +434,7 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(function Pro
             className="kv-prompt-box__input"
             aria-label={inputLabel}
             placeholder={placeholder ?? GEN_PLACEHOLDER[task]}
+            maxLength={PROMPT_MAX_LENGTH}
             style={{ maxHeight }}
             onInput={onInput}
             // 打 @ 弹出参考区的素材（首尾帧时没有）
@@ -370,8 +454,8 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(function Pro
               skills={skills}
               skillCategories={skillCategories}
               onPickSkill={onPickSkill}
-              params={paramsOf(task)}
-              onParamsChange={(p) => setParams((all) => ({ ...all, [task]: p }))}
+              params={paramsNow(task)}
+              onParamsChange={(p) => setParams({ ...params, [task]: p })}
             />
           </div>
           <div className="kv-prompt-box__toolbar-end">

@@ -5,7 +5,7 @@ import { GenerateButton } from './GenerateButton';
 import { CountSelect, ModelSelect, RefModeSelect, type GenSelectProps } from './GenSelects';
 import { AudioModelControls, ImageModelControls, VideoModelControls } from './ModelControls';
 import type { GenParamValues } from './GenParams';
-import type { GenKind } from './gen-rules';
+import { charCount, type GenKind } from './gen-rules';
 
 /*
   PromptBox 和 NodePanel 共用的工具条内容（11-17 用户定，只写这一份，不导出给页面用）：
@@ -82,7 +82,7 @@ export function GenActions({ kind, model, text, cost, reason, generating, onSubm
   if (kind === 'text') return generate;
   return (
     <>
-      {kind === 'audio' ? <AudioCharCount count={text.length} model={model} /> : <CountSelect placement={placement} value={count} onChange={onCountChange} />}
+      {kind === 'audio' ? <AudioCharCount count={charCount(text)} model={model} /> : <CountSelect placement={placement} value={count} onChange={onCountChange} />}
       {generate}
     </>
   );

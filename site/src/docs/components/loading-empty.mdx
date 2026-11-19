@@ -70,5 +70,6 @@ import { EmptyStatePlayground, LoadingPlayground, SkeletonPlayground } from './l
 | `description` | `ReactNode` | — | 说明，写清楚下一步做什么。下拉里不要 |
 | `action` | `ReactNode` | — | 引导操作，放一个 32 的轻 `Button`（占位处的按钮都减弱一档，文字灰），离文字 24 |
 | `image` | `string` | — | 换一张插图的地址；不传就按 `type` 取 `EMPTY_STATE_IMAGES` |
+| `icon` | `IconName` | — | 用图标代替 IP 插图：窄栏、侧栏放不下 IP 时用（比如 AI 工具页右侧历史空了用 `History`）。160 配 64、96 配 40 的图标，颜色 `--color-text-fill-disabled`，不叠透明度 |
 
 四张 IP 图在 `assets/empty-state/`（`empty.png` · `no-favorites.png` · `offline.png` · `failed.png`，320×320），项目里放到自己的静态目录后改 `EMPTY_STATE_IMAGES`。插图背后有绿色光晕，脚下有地面阴影。其余原生 `<div>` 属性（除 `title`）都能传。

@@ -428,7 +428,9 @@
 
 .tpl-cv {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 500px; /* 照线上：默认 500，可拖 360–720；网站不做拖动 */
+  position: relative; /* Agent 收起后右下角的小 Kimo 按它定位 */
+  overflow: hidden; /* 小 Kimo 从右边滑进滑出时不撑出横向滚动 */
+  grid-template-columns: minmax(0, 1fr) auto; /* 照线上：Agent 侧栏默认 500，演示站可拖 360–720（宽度写在侧栏上） */
   height: 100%;
 }
 
@@ -463,6 +465,7 @@
 .tpl-cv__agent {
   display: flex;
   flex-direction: column;
+  width: 500px;
   min-height: 0;
   border-left: var(--border-width-1) solid var(--color-border-subtle);
   background: var(--color-bg-fill-base);
@@ -542,6 +545,210 @@
   gap: var(--spacing-4);
 }
 
+/* ---------- 演示站画布（app/pages/canvas）：画布本体 ---------- */
+
+/* 画布底：页面底色 + 点阵 18（照线上，同业务页的小画布）。拖空白是框选，按住空格是抓手 */
+.tpl-cb {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--color-bg-fill-base);
+  background-image: radial-gradient(circle, var(--color-border) 1px, transparent 1px);
+  background-size: 18px 18px;
+  touch-action: none;
+  user-select: none;
+}
+
+.tpl-cb[data-space] {
+  cursor: grab;
+}
+
+.tpl-cb[data-panning] {
+  cursor: grabbing;
+}
+
+.tpl-cb__world {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+
+.tpl-cb__world > * {
+  position: absolute;
+}
+
+.tpl-cb__node {
+  z-index: 1;
+}
+
+/* 拖着挪的时候对齐的辅助线：品牌绿 1 像素（照线上 #2BFF75），粗细不跟着缩放 */
+.tpl-cb__guide {
+  z-index: 2;
+  box-sizing: content-box;
+  border-top: calc(var(--border-width-1) / var(--cb-k, 1)) solid var(--color-brand-solid);
+  border-left: calc(var(--border-width-1) / var(--cb-k, 1)) solid var(--color-brand-solid);
+  pointer-events: none;
+}
+
+/* 框选：品牌浅底 + 品牌描边，粗细不跟着缩放 */
+.tpl-cb__marquee {
+  z-index: 3;
+  border: calc(var(--border-width-1) / var(--cb-k, 1)) solid var(--color-brand-solid);
+  background: var(--color-brand-subtle);
+  pointer-events: none;
+}
+
+/* 空画布：正中「双击 画布添加节点」，下面一排快捷标签；只有按钮接鼠标，别处照常双击、框选 */
+.tpl-cb__empty {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-16);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.tpl-cb__empty-text {
+  color: var(--color-text-fill-tertiary);
+  font-size: var(--font-size-14);
+}
+
+.tpl-cb__empty-text > span {
+  margin-right: var(--spacing-4);
+  color: var(--color-text-fill-secondary);
+}
+
+.tpl-cb__empty-tags {
+  display: flex;
+  gap: var(--spacing-8);
+  pointer-events: auto;
+}
+
+/* ---------- 演示站画布：右侧 Agent ---------- */
+
+.tpl-ca {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  /* 收起、展开：宽度过渡，里面的面板固定宽、整块往右滑走；画布跟着变宽，底部工具栏跟着挪。拖宽度时不过渡 */
+  transition: width var(--motion-duration-400) var(--motion-ease-in-out);
+}
+
+.tpl-ca[data-resizing] {
+  transition: none;
+}
+
+.tpl-ca__panel {
+  position: relative;
+  height: 100%;
+  box-sizing: border-box;
+  /* 展开时淡入（出现 ease-out），和宽度同时长 */
+  transition: opacity var(--motion-duration-400) var(--motion-ease-out);
+}
+
+/* 往右收的时候一边收一边淡出（消失 ease-in），和宽度同时长 */
+.tpl-ca[data-collapsed] > .tpl-ca__panel {
+  opacity: 0;
+  transition-timing-function: var(--motion-ease-in);
+}
+
+/* 左边缘拖宽度：8 宽的热区，鼠标是左右箭头 */
+.tpl-ca__resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 2;
+  width: var(--spacing-8);
+  cursor: col-resize;
+}
+
+.tpl-ca__title {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text-fill-primary);
+  cursor: pointer;
+}
+
+.tpl-ca__title > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tpl-ca__head-actions {
+  display: flex;
+  gap: var(--spacing-4);
+}
+
+/* 空态：Kimo + 一句话，在对话区上下左右都居中（对话区没内容时，滚动区里那层和对话列表都撑满高度） */
+.tpl-cv__stream .kv-scroll-area__content:has(> .tpl-cv__stream-body[data-empty]) {
+  display: flex;
+  min-height: 100%;
+}
+
+.tpl-cv__stream-body[data-empty] {
+  flex: 1;
+  box-sizing: border-box;
+}
+
+.tpl-ca__empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-12);
+  color: var(--color-text-fill-secondary);
+  font-size: var(--font-size-16);
+}
+
+/* 对话里生成中的结果：和结果组（MediaGroup）封面一样大，两列里的一列、按比例，圆角 16；生成中点阵铺满这一格 */
+.tpl-ca__generating {
+  position: relative;
+  width: calc((100% - var(--spacing-8)) / 2);
+  overflow: hidden;
+  border-radius: var(--border-radius-16);
+  background: var(--color-bg-fill-container-light-1);
+}
+
+/* 手动模式的确认卡：换掉输入框，放在输入框的位置（卡片默认撑满一行，这里减掉两边 16，离底 16 同输入框） */
+.tpl-ca__confirm {
+  width: auto;
+  margin: 0 var(--spacing-16) var(--spacing-16);
+}
+
+/* 输入框外面包一层：平时不占布局，出确认卡时藏起来（不卸载） */
+.tpl-ca__composer-slot {
+  display: contents;
+}
+
+.tpl-ca__composer-slot[hidden] {
+  display: none;
+}
+
+/* 收起后：右下角一个小 Kimo（照原站悬浮宠物，离右下 32），点了展开。
+   新对话：从面板里 Kimo 的位置飞过来、展开时飞回去；已经在聊：从右边滑进来、展开时滑出去。400ms ease-in-out，和面板收起同时长 */
+.tpl-ca__pet {
+  position: absolute;
+  right: var(--spacing-32);
+  bottom: var(--spacing-32);
+  z-index: 2;
+  padding: 0;
+  border: 0;
+  border-radius: var(--border-radius-round);
+  background: none;
+  cursor: pointer;
+  transform-origin: 50% 50%;
+  transition: transform var(--motion-duration-400) var(--motion-ease-in-out);
+}
+
 /* ---------- 技能面板 ---------- */
 
 /* 输入框放底部正中，面板摆开在它上面、和「技能」按钮左对齐（输入框内边距 16 + 前两个按钮 64） */
@@ -578,6 +785,81 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--spacing-16);
+}
+
+/* 画布底部「工作流」面板（照线上 workflow-panel 583 × 421）：放进 Popover 面板（玻璃，内边距 12），宽 584、高 420；
+   选项卡、分类、列表竖排间距 8；一行 3 张卡，间距 12 */
+.tpl-cv-wf {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-8);
+  width: 584px;
+  height: 420px;
+  max-height: calc(100vh - 120px);
+}
+
+.tpl-cv-wf__list {
+  flex: 1;
+  min-height: 0;
+}
+
+.tpl-cv-wf__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--spacing-12);
+}
+
+.tpl-cv-wf__empty {
+  display: flex;
+  justify-content: center;
+  padding: var(--spacing-32) 0;
+}
+
+/* 画布底部「历史」（照线上 history-panel「历史资产」）：Dialog 1200，内容高 640（矮屏跟着窗口缩），
+   筛选一行（类型、收藏、时间靠右）+ 列表；按天分组，一行 7 格，间距 4 */
+.tpl-cv-history {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-16);
+  height: min(640px, calc(100vh - 220px));
+}
+
+.tpl-cv-history__bar {
+  display: flex;
+  align-items: center;
+}
+
+.tpl-cv-history__time {
+  margin-left: auto;
+}
+
+.tpl-cv-history__list {
+  flex: 1;
+  min-height: 0;
+}
+
+.tpl-cv-history__day + .tpl-cv-history__day {
+  margin-top: var(--spacing-24);
+}
+
+.tpl-cv-history__day h3 {
+  margin: 0 0 var(--spacing-12);
+  color: var(--color-text-fill-secondary);
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--font-line-height-20);
+}
+
+.tpl-cv-history__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--spacing-4);
+}
+
+.tpl-cv-history__empty {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--spacing-32);
 }
 
 /* ---------- 画布工具 ---------- */
@@ -907,12 +1189,12 @@
 /* 生成历史筛选条：来源、类型、收藏，搜索紧跟在后面（左对齐）；滚动时贴在主区顶上，底色 base，不加下描边（11-10 用户定，探索页同一个类） */
 .tpl-as__filters {
   position: sticky;
-  top: 0;
+  top: calc(var(--spacing-32) * 2); /* 吸顶停在右上角余额、头像那一排（离顶 16–48）下面，不和它挤（11-18） */
   z-index: 2;
   display: flex;
   align-items: center;
   gap: var(--spacing-8);
-  margin: 0 calc(var(--spacing-32) * -1) var(--spacing-24);
+  margin: 0 calc(var(--spacing-32) * -1) calc(var(--spacing-24) - var(--spacing-12)); /* 下面减掉自己的下内边距 12：控件到内容是 24（11-18 用户嫌大，原来 12 + 24 = 36） */
   /* 左右：至少 32；内容区宽过 1600 时再加上两边空出来的一半，控件和下面的内容左对齐 */
   padding: var(--spacing-12) max(var(--spacing-32), calc(var(--spacing-32) + (100% - 1600px) / 2));
   background: var(--color-bg-fill-base);
@@ -974,6 +1256,111 @@
   padding: var(--spacing-32) 0;
 }
 
+/* 二级页（文件夹列表、文件夹内页、画布列表）：头左边是返回 + 标题 + 「⋯」，卡片网格和首页一排同宽（最小 240、间距 16） */
+.tpl-as__head-title {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-8);
+  min-width: 0;
+}
+
+.tpl-as__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--spacing-16);
+}
+
+/* 批量编辑：格子左上勾选框（Checkbox 圆形，自带 on-media 底），整格盖一层点击区，点哪都是选中 / 取消；「完成」靠右 */
+.tpl-as__pick {
+  position: relative;
+  isolation: isolate; /* 勾选框、点击层的层级只在这一格里比，滚到吸顶的筛选条下面时不盖到条上 */
+}
+
+.tpl-as__pick-hit {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  cursor: pointer;
+}
+
+.tpl-as__pick > .kv-checkbox {
+  position: absolute;
+  top: var(--spacing-12);
+  right: var(--spacing-12); /* 右上、方形（照线上，11-18 用户定） */
+  z-index: 4;
+}
+
+/* 判断筛选条吸顶用的哨兵，0 高 */
+.tpl-as__sentinel {
+  height: 0;
+}
+
+/* 吸顶后上面那 64（余额、头像那一排）也铺上页面底色，滚上去的内容不从筛选条上面露出来 */
+.tpl-as__filters[data-stuck]::before {
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  left: 0;
+  height: calc(var(--spacing-32) * 2);
+  background: var(--color-bg-fill-base);
+  content: "";
+}
+
+/* 批量编辑时搜索框先收起（选东西时用不上），筛选照常，一行放得下 */
+.tpl-as__filters[data-picking] > .tpl-as__search {
+  display: none;
+}
+
+/* 筛选行最右边：「批量编辑」，点了原地换成批量控件（全选 + 操作 + 取消编辑），控件之间隔 8 */
+.tpl-as__filters-end {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+.tpl-as__batch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-8);
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.tpl-as__batch > .kv-checkbox {
+  margin-right: var(--spacing-8);
+}
+
+/* 音频素材的格子（文件夹内页）：正方形，Container Light 1 底，音符图标 + 名字 + 时长。生成历史里没有音频 */
+.tpl-as__audio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-8);
+  box-sizing: border-box;
+  aspect-ratio: 1 / 1;
+  padding: var(--spacing-12);
+  border: var(--border-width-1) solid var(--color-border-subtle);
+  border-radius: var(--border-radius-6);
+  background: var(--color-bg-fill-container-light-1);
+  color: var(--color-text-fill-primary);
+}
+
+.tpl-as__audio-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-13);
+  line-height: var(--font-line-height-20);
+}
+
+.tpl-as__audio-time {
+  color: var(--color-text-fill-tertiary);
+  font-size: var(--font-size-12);
+  line-height: var(--font-line-height-20);
+}
+
 
 /* ---------- AI 工具：左工具 72 | 中舞台 | 右历史 200 ---------- */
 
@@ -1011,7 +1398,7 @@
   gap: var(--spacing-16);
   min-width: 0;
   min-height: 0;
-  padding: 76px var(--spacing-24) var(--spacing-24);
+  padding: 92px var(--spacing-24) var(--spacing-24); /* 上下一样离屏幕 24（11-18 用户定）：顶上 = 工具条离顶 24 + 高 44 + 下面空 24 = 92，底下 24 */
 }
 
 .tpl-at__main {
@@ -1041,15 +1428,24 @@
   justify-content: center;
 }
 
+/* 面板高度变了（切编辑方式）：外层高度 200ms ease-in-out 跟上，坑和图跟着一起动；第一次出现不动 */
+.tpl-at__dock[data-ready] {
+  transition: height var(--motion-duration-200) var(--motion-ease-in-out);
+}
+
+/* 面板框撑满外层的高度（底色、圆角跟着一起变），里面贴底排：底边不动，上边沿上下移，多出来的从上边沿裁掉 */
 .tpl-at__dock > .kv-node-panel {
   max-width: 100%;
+  height: 100%;
+  overflow: clip;
+  justify-content: flex-end;
 }
 
 /* 涂抹工具条在上方正中，下载 / 换一张在右上 */
 .tpl-at__top,
 .tpl-at__actions {
   position: absolute;
-  top: var(--spacing-16);
+  top: var(--spacing-24); /* 离顶 24，和底下参数面板离底一样（11-18 用户定） */
   z-index: 2;
 }
 
@@ -1233,7 +1629,7 @@
 
 .tpl-at__history-title {
   color: var(--color-text-fill-tertiary);
-  font-size: var(--font-size-12);
+  font-size: var(--font-size-13); /* 12 太小（11-18 用户定） */
 }
 
 /* 空的时候在整个右栏上下居中（11-12 用户定）：往上让掉标题行和间距、顶上余额那一排（离顶 16 + 高 32），按整栏的高度算中间 */
@@ -1305,16 +1701,27 @@
 }
 
 /* 图放在一个凹下去的坑里（照即梦），和标题、参数分开：设计规则「凹下去的用 container-dark」。
-   坑就是放图的那块，图按比例贴着坑的上下或左右 */
-.tpl-tool-dlg .tpl-at__area {
+   坑就是放图的那块，图按比例贴着坑的上下或左右。弹窗和 AI 工具页都有（AI 工具页 11-18 用户要的：放大了看得出边界） */
+.tpl-at__area {
   border-radius: var(--border-radius-12);
   background: var(--color-bg-fill-container-dark);
 }
 
+/* AI 工具页的底是 base，坑再暗也只差一点（对比度不到 1.12），加一圈 border-subtle 描边让边界看得出来；弹窗是 surface 底，不用 */
+.tpl-at__main .tpl-at__area::after {
+  position: absolute;
+  inset: 0;
+  z-index: 3; /* 盖在图、涂抹层上面：放大后图铺满坑也看得到边 */
+  border: var(--border-width-1) solid var(--color-border-subtle);
+  border-radius: inherit;
+  pointer-events: none;
+  content: "";
+}
+
 /* 坑里的图、涂抹层、扩出去的浅底都不要圆角：坑本身就是框（11-11 用户定） */
-.tpl-tool-dlg .tpl-at__media,
-.tpl-tool-dlg .tpl-at__mask,
-.tpl-tool-dlg .tpl-at__expand-fill {
+.tpl-at__media,
+.tpl-at__mask,
+.tpl-at__expand-fill {
   border-radius: 0;
 }
 
@@ -1325,6 +1732,112 @@
   --kv-nested-fill-hover: var(--color-bg-fill-container-light-2-hover);
   --kv-nested-fill-pressed: var(--color-bg-fill-container-light-2-pressed);
   background: var(--color-bg-fill-container-light-2);
+}
+
+/* 工具舞台的交互（11-18 用户定）：缩放后超出舞台的部分裁掉；拖动工具的手形光标；生成中盖在图上；视频拼接并排两个位；
+   舞台正中的状态（视频上传中、生成失败）；过渡时长旁的说明图标 */
+.tpl-at__area[data-zoomed] {
+  overflow: hidden;
+}
+
+.tpl-at__area[data-hand] .tpl-at__mask > canvas {
+  cursor: grab;
+}
+
+.tpl-at__area[data-panning] .tpl-at__mask > canvas {
+  cursor: grabbing;
+}
+
+.tpl-at__zoom {
+  position: absolute;
+  bottom: var(--spacing-16);
+  left: var(--spacing-16);
+  z-index: 2;
+}
+
+/* 生成中：ResultTile 生成中（原素材 + 遮罩 + 点阵）铺在图的位置上，圆角跟图一样；弹窗里图没有圆角 */
+.tpl-at__gen {
+  position: absolute;
+  z-index: 3; /* 盖过视频拼接的两个播放器 */
+  aspect-ratio: auto;
+  border: 0;
+  border-radius: var(--border-radius-12);
+}
+
+.tpl-tool-dlg .tpl-at__gen {
+  border-radius: 0;
+}
+
+.tpl-at__gen-label {
+  position: absolute;
+  z-index: 4;
+  display: flex;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.tpl-at__state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-16);
+}
+
+.tpl-at__state-actions {
+  display: flex;
+  gap: var(--spacing-8);
+}
+
+.tpl-at__slots {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-8);
+}
+
+/* 两个位中间的「+」：32 圆，Container Light 1 底，只是示意、不能点 */
+.tpl-at__slots-join {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--spacing-32);
+  height: var(--spacing-32);
+  border-radius: var(--border-radius-round);
+  background: var(--color-bg-fill-container-light-1);
+  color: var(--color-text-fill-secondary);
+}
+
+/* 两个位一样大，宽高由 StitchStage 按视频1 的比例算好写在 style 上 */
+.tpl-at__slot {
+  position: relative;
+  flex: none;
+  overflow: hidden;
+  border-radius: var(--border-radius-12);
+  background: var(--color-bg-fill-container-light-1);
+}
+
+.tpl-at__slot-remove {
+  position: absolute;
+  top: var(--spacing-8);
+  right: var(--spacing-8);
+  z-index: 2;
+}
+
+.tpl-at__label-tip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-4);
+}
+
+.tpl-at__label-info {
+  display: inline-flex;
+  color: var(--color-text-fill-tertiary);
 }
 
 /* ---------- 创作首页：标题、生成 / 画布、输入框、最近更新或最近项目、广场 ----------
@@ -1719,6 +2232,11 @@
   min-height: 0;
 }
 
+/* 作品和信息栏中间那条竖线：从上通到下（分割线竖向默认只有 16 高，这里撑满） */
+.tpl-viewer > .kv-divider--vertical {
+  --kv-divider-size: auto;
+}
+
 .tpl-viewer__media {
   display: flex;
   align-items: center;
@@ -1727,20 +2245,123 @@
   min-height: 0;
 }
 
-/* 图片：完整显示，圆角 8，描边 border */
-.tpl-viewer__media > img {
-  display: block;
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
+/* 图片、视频：放进按素材比例算好的框（media-viewer.tsx 的 useFitBox），撑满框；圆角 8，描边 border。比例量出来之前先藏着 */
+.tpl-viewer__frame {
+  position: relative;
+  overflow: hidden;
   border-radius: var(--border-radius-8);
-  outline: var(--border-width-1) solid var(--color-border);
-  outline-offset: calc(var(--border-width-1) * -1);
 }
 
-.tpl-viewer__media > .kv-video-player {
+/* 没加载好：骨架屏铺满框；画面先藏着，出来时淡入 200 ease-out */
+.tpl-viewer__skeleton {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
+}
+
+.tpl-viewer__frame > img,
+.tpl-viewer__frame > .kv-video-player {
+  opacity: 0;
+}
+
+.tpl-viewer__frame[data-ready] > img,
+.tpl-viewer__frame[data-ready] > .kv-video-player {
+  opacity: 1;
+  transition: opacity var(--motion-duration-200) var(--motion-ease-out);
+}
+
+.tpl-viewer__frame::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: var(--border-width-1) solid var(--color-border);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.tpl-viewer__frame > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tpl-viewer__frame > .kv-video-player {
+  width: 100%;
+  height: 100%;
+}
+
+/* 上一个 / 下一个：作品这一栏的右边、竖着居中（照即梦），平时无底，盖在作品上面 */
+.tpl-viewer__media {
+  position: relative;
+}
+
+/* 有上下切换时作品两边各让出 48（右边放按钮），在 useFitBox 里算 */
+.tpl-viewer__nav {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-8);
+  transform: translateY(-50%);
+}
+
+/* 音频的大图：宽 720 封顶，名字 → 频谱块（Container Light 1 底、圆角 12，高 200）→ 时间和播放，间距 16 */
+.tpl-viewer__audio {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-16);
+  width: min(720px, calc(100% - 96px)); /* 右边让出上下切换按钮 */
+}
+
+.tpl-viewer__audio-name {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-8);
+  min-width: 0;
+  color: var(--color-text-fill-primary);
+  font-size: var(--font-size-16);
+  font-weight: var(--font-weight-medium);
+}
+
+.tpl-viewer__audio-name > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tpl-viewer__audio-wave {
+  display: flex;
+  align-items: center;
+  height: 200px;
+  padding: var(--spacing-24) var(--spacing-32);
+  box-sizing: border-box;
+  border-radius: var(--border-radius-12);
+  background: var(--color-bg-fill-container-light-1);
+}
+
+.tpl-viewer__audio-wave > .kv-audio-wave {
+  width: 100%;
+  height: 100%;
+}
+
+.tpl-viewer__audio-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tpl-viewer__audio-time {
+  color: var(--color-text-fill-tertiary);
+  font-size: var(--font-size-13);
+  font-variant-numeric: tabular-nums;
+}
+
+.tpl-viewer__audio-time[data-failed] {
+  color: var(--color-status-danger);
 }
 
 /* 信息栏：作者行、横线、内容（自己滚）、点赞，间距 16 */
@@ -1905,3 +2526,21 @@
   background: var(--color-bg-fill-container-light-1);
 }
 
+
+/* 演示站列表加载：记录流顶上的「加载中」居中；首次进入的骨架记录（提示词一行 + 一张图）；资产页底部「加载中」 */
+.tpl-ms__older,
+.tpl-as__more {
+  align-self: center;
+}
+
+.tpl-ms__skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-12);
+}
+
+.tpl-as__more {
+  display: flex;
+  justify-content: center;
+  padding: var(--spacing-24) 0;
+}

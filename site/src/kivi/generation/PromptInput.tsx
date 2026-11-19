@@ -1,7 +1,7 @@
 import { forwardRef, useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent, type CSSProperties, type DragEvent, type HTMLAttributes, type ReactNode } from 'react';
 import { composeHandlers } from '../hooks/composeHandlers';
 import { useMergedRef } from '../hooks/useMergedRef';
-import { insertMention, trackCaret, type MentionSource } from './mentions';
+import { insertMention, promptText, trackCaret, type MentionSource } from './mentions';
 import { Dropdown, Menu, MenuItem } from '../menu';
 import { AssetThumb } from '../tags-avatar';
 import { cx } from '../utils';
@@ -18,6 +18,8 @@ export interface PromptInputProps extends Omit<HTMLAttributes<HTMLDivElement>, '
   maxRows?: number;
   /** 打 @ 能引用的素材（照线上）：打「@」弹出菜单列出这些素材（缩略图 + 名字），接着打字按名字筛，↑ ↓ 挑、回车或点一下插进 @ 标签，Esc 关。不传或空的就不弹 */
   mentions?: MentionSource[];
+  /** 最多多少个字符（一个表情算一个，@ 标签按「@图片1」算），照线上 MentionInput：超了输入前拦住、粘贴超了截掉，不弹提示。不传不限 */
+  maxLength?: number;
 }
 
 /** 打 @ 时的状态：@ 在哪个文字节点的第几个字，后面打了什么，@ 这个字在屏幕上的位置 */
@@ -35,7 +37,7 @@ const NO_RESULT_MAX = 7;
 
 /** 提示词输入：无底、无内边距，14 号字，可以插 @素材（MentionChip）。表单里的多行输入用 Textarea，不用它。Figma「画布」页 PromptInput */
 export const PromptInput = forwardRef<HTMLDivElement, PromptInputProps>(function PromptInput(
-  { placeholder, minRows = 4, maxRows = 6, mentions, className, style, children, onPaste, onDragStart, onDragEnd, onDrop, onInput, onKeyDown, onKeyUp, onClick, ...rest },
+  { placeholder, minRows = 4, maxRows = 6, mentions, maxLength, className, style, children, onPaste, onDragStart, onDragEnd, onDrop, onInput, onCompositionEnd, onKeyDown, onKeyUp, onClick, ...rest },
   ref,
 ) {
   // 框里自己拖动文字（挪位置）照浏览器默认，带的就是框里的样子
@@ -44,6 +46,32 @@ export const PromptInput = forwardRef<HTMLDivElement, PromptInputProps>(function
   const elRef = useRef<HTMLDivElement>(null);
   const setRef = useMergedRef(elRef, ref);
   useEffect(() => (elRef.current ? trackCaret(elRef.current) : undefined), []);
+
+  // ---------- 字数上限 ----------
+  // 输入前拦住：算上选中会被替换掉的字，超了就不让输入。输入法拼写中拦不住，等拼完（compositionend）再删掉超出的
+  const maxRef = useRef(maxLength);
+  maxRef.current = maxLength;
+  const room = (el: HTMLElement) => {
+    const max = maxRef.current;
+    if (max == null) return Infinity;
+    return max - (count(promptText(el)) - count(window.getSelection()?.toString() ?? ''));
+  };
+  useEffect(() => {
+    const el = elRef.current;
+    if (!el) return;
+    const block = (e: InputEvent) => {
+      if (maxRef.current == null || e.isComposing || !e.inputType.startsWith('insert')) return;
+      const incoming = e.inputType === 'insertParagraph' || e.inputType === 'insertLineBreak' ? 1 : count(e.data ?? e.dataTransfer?.getData('text/plain') ?? '');
+      if (incoming > room(el)) e.preventDefault();
+    };
+    el.addEventListener('beforeinput', block as EventListener);
+    return () => el.removeEventListener('beforeinput', block as EventListener);
+  }, []);
+  const trimOver = () => {
+    const el = elRef.current;
+    if (!el || maxRef.current == null) return;
+    for (let over = -room(el); over > 0; over -= 1) document.execCommand('delete');
+  };
 
   // ---------- 打 @ 弹出素材菜单 ----------
   const [at, setAt] = useState<AtState | null>(null);
@@ -98,7 +126,9 @@ export const PromptInput = forwardRef<HTMLDivElement, PromptInputProps>(function
     const text = e.clipboardData.getData('text/plain');
     if (!text) return; // 没有文字（比如粘贴图片）就照浏览器默认，交给外面处理
     e.preventDefault();
-    insertPlain(e.currentTarget, text);
+    // 超过上限的部分截掉
+    const fit = [...text].slice(0, Math.max(0, room(e.currentTarget))).join('');
+    if (fit) insertPlain(e.currentTarget, fit);
   };
   const dropPlain = (e: DragEvent<HTMLDivElement>) => {
     if (draggingInside.current || e.dataTransfer.types.includes('Files')) return; // 拖文件交给外面的 DropOverlay
@@ -113,7 +143,8 @@ export const PromptInput = forwardRef<HTMLDivElement, PromptInputProps>(function
       sel.addRange(range);
     }
     e.currentTarget.focus();
-    insertPlain(e.currentTarget, text);
+    const fit = [...text].slice(0, Math.max(0, room(e.currentTarget))).join('');
+    if (fit) insertPlain(e.currentTarget, fit);
   };
 
   return (
@@ -137,6 +168,7 @@ export const PromptInput = forwardRef<HTMLDivElement, PromptInputProps>(function
       })}
       onDrop={composeHandlers(onDrop, dropPlain)}
       onInput={composeHandlers(onInput, readAt)}
+      onCompositionEnd={composeHandlers(onCompositionEnd, trimOver)}
       onKeyDown={composeHandlers(onKeyDown, atKeys)}
       onKeyUp={composeHandlers(onKeyUp, (e: KeyboardEvent<HTMLDivElement>) => {
         // 方向键挑选项时不重读（重读会把高亮回到第一项）
@@ -184,6 +216,9 @@ export const PromptInput = forwardRef<HTMLDivElement, PromptInputProps>(function
   );
 });
 PromptInput.displayName = 'PromptInput';
+
+/** 字符数：一个表情、生僻字算一个 */
+const count = (s: string) => [...s].length;
 
 /** 在光标处插纯文字。insertText 会触发 input 事件、能撤销；它不可用时退回手动插入 */
 function insertPlain(el: HTMLElement, text: string) {

@@ -2,6 +2,7 @@ import { forwardRef, type ReactNode } from 'react';
 import { useControllable } from '../hooks';
 import { AudioParams, ImageParams, VideoParams, type GenParamValues } from './GenParams';
 import { BackgroundSelect, ModelSelect, RefModeSelect, VoiceSelect, type GenSelectProps } from './GenSelects';
+import { modelCaps } from './model-caps';
 import { DEFAULT_MODEL, VIDEO_FIRST_LAST_ONLY, VIDEO_WITH_AUDIO } from './options';
 
 /*
@@ -44,7 +45,7 @@ export const VideoModelControls = forwardRef<HTMLSpanElement, VideoModelControls
     <>
       <ModelSelect ref={ref} type="video" value={model} onChange={setModel} placement={placement} {...rest} />
       {!VIDEO_FIRST_LAST_ONLY.includes(model) && (refMode ?? <RefModeSelect placement={placement} />)}
-      <VideoParams audio={audio} placement={placement} values={params} onValuesChange={onParamsChange} />
+      <VideoParams audio={audio} allowed={modelCaps(model)?.params} placement={placement} values={params} onValuesChange={onParamsChange} />
     </>
   );
 });
@@ -68,7 +69,7 @@ export const ImageModelControls = forwardRef<HTMLSpanElement, ImageModelControls
   return (
     <>
       <ModelSelect ref={ref} type="image" value={model} onChange={setModel} placement={placement} {...rest} />
-      <ImageParams placement={placement} values={params} onValuesChange={onParamsChange} />
+      <ImageParams allowed={modelCaps(model)?.params} placement={placement} values={params} onValuesChange={onParamsChange} />
       {model.startsWith('gpt-image') && <BackgroundSelect placement={placement} />}
     </>
   );

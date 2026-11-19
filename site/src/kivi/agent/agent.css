@@ -278,6 +278,13 @@
   background: var(--color-bg-fill-surface);
 }
 
+/* 生成确认：换掉 Agent 输入框（照线上 GenerateConfirmPanel），最低 160 高，和输入框差不多高、换的时候不跳；
+   说明短时中间空着，按钮贴底 */
+.kv-action-card--confirm {
+  min-height: 160px;
+  justify-content: space-between;
+}
+
 .kv-action-card__text {
   display: flex;
   flex-direction: column;

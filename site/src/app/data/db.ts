@@ -3,6 +3,7 @@ import { ASSETS_SEED } from './seed/assets';
 import { CANVAS_SEED } from './seed/canvas';
 import { CREATE_SEED } from './seed/create';
 import type { Asset, DB } from './types';
+import { workflowSeed } from './seed/workflows';
 
 /*
   全站一份数据（假后端的「数据库」）。所有页面读它；改它只能通过 data/ 里的动作函数（tasks.ts、assets.ts…）。
@@ -10,7 +11,7 @@ import type { Asset, DB } from './types';
 */
 
 /** 改了 DB 的形状或种子数据就加 1，本机存的旧数据作废 */
-const VERSION = 6;
+const VERSION = 9;
 
 /** 初始余额 */
 export const INITIAL_BALANCE = 2000;
@@ -25,16 +26,26 @@ export const db = createStore<DB>({
     folders: ASSETS_SEED.folders,
     chats: CREATE_SEED.chats,
     canvases: CANVAS_SEED.canvases,
+    canvasDocs: CANVAS_SEED.canvasDocs,
+    canvasChats: CANVAS_SEED.canvasChats,
     agentTurns: CREATE_SEED.agentTurns,
+    workflows: workflowSeed(),
     // 探索页一开始收藏着的作品（照原来的演示）
     favorites: ['w2', 'w9', 'w15'],
     flags: {},
   }),
-  // 本次上传的本地文件刷新后就没了，不存
-  save: (s) => ({ ...s, assets: s.assets.filter((a: Asset) => !a.local) }),
+  // 本次上传的本地文件（blob: 地址）刷新后就没了：上传的素材、拿它当原图的任务、结果直接用原图的素材都不存，
+  // 不然刷新后历史里留一张「加载失败」
+  save: (s) => ({
+    ...s,
+    assets: s.assets.filter((a: Asset) => !a.local && !isBlob(a.src)),
+    tasks: s.tasks.filter((t) => !t.refs.some((r) => isBlob(r.src))),
+  }),
 });
 
 /** 读一部分数据，见 store.ts 的 useStore 说明 */
+const isBlob = (src?: string) => !!src && src.startsWith('blob:');
+
 export const useDB = <S,>(selector: (s: DB) => S) => useStore(db, selector);
 
 export const useBalance = () => useDB((s) => s.balance);

@@ -8,7 +8,7 @@ import { composeHandlers } from './composeHandlers';
  * 为什么拒收：类型不对 / 超过大小 / 时长 / 分辨率 / 宽高比。
  * 后三种要读了媒体信息才知道，hook 自己只判断前两种；业务读完媒体信息后自己用这三种调 rejectMessage
  */
-export type FileRejectReason = 'type' | 'size' | 'duration' | 'resolution' | 'ratio';
+export type FileRejectReason = 'type' | 'size' | 'duration' | 'resolution' | 'dimension' | 'ratio';
 
 /** 拒收文案里要写进去的数字（上限、下限），照线上的上传校验 */
 export interface FileLimits {
@@ -20,6 +20,11 @@ export interface FileLimits {
   /** 分辨率（短边像素）下限、上限 */
   minResolution?: number;
   maxResolution?: number;
+  /** 宽、高都要落在这个范围（像素），文案「上传文件最小宽高 / 最大宽高」 */
+  minDimension?: number;
+  maxDimension?: number;
+  /** 收的格式，写进「文件请上传…格式」，比如 `png、jpg、webp`。不传类型不对就只说「不支持这种文件」 */
+  formats?: string;
 }
 
 export interface FileRule {
@@ -70,7 +75,7 @@ export function filterFiles(files: File[], rule: FileRule): { accepted: File[]; 
 
 /** 拒收时提示的文字，文案照线上的上传校验：带上限、下限的数字 */
 export function rejectMessage(reason: FileRejectReason, limits: FileLimits = {}): string {
-  const { maxSize, minDuration, maxDuration, minResolution, maxResolution } = limits;
+  const { maxSize, minDuration, maxDuration, minResolution, maxResolution, minDimension, maxDimension, formats } = limits;
   switch (reason) {
     case 'size': {
       if (maxSize == null) return '不支持这种文件';
@@ -85,11 +90,92 @@ export function rejectMessage(reason: FileRejectReason, limits: FileLimits = {})
       if (maxResolution != null) return `上传失败 分辨率不能超过${maxResolution}p`;
       if (minResolution != null) return `上传失败 分辨率不能低于${minResolution}p`;
       return '上传失败 分辨率不符合要求';
+    case 'dimension':
+      if (minDimension != null) return `上传文件最小宽高${minDimension}px`;
+      if (maxDimension != null) return `上传文件最大宽高${maxDimension}px`;
+      return '上传失败 宽高不符合要求';
     case 'ratio':
       return '上传失败 图片宽高比需在 1:2.5～2.5:1 之间';
     default:
-      return '不支持这种文件';
+      return formats ? `上传失败 文件请上传${formats}格式` : '不支持这种文件';
   }
+}
+
+/** 一类文件的上传要求：类型、大小，加上要读了媒体信息才能判断的时长、宽高、宽高比 */
+export interface MediaRule extends FileRule, FileLimits {
+  /** 宽高比（宽 / 高）的范围，比如 `[0.4, 2.5]`（1:2.5 ～ 2.5:1） */
+  ratio?: [number, number];
+}
+
+/** 媒体信息：图片、视频有宽高，视频、音频有时长（秒）。读不出来的项是 undefined */
+export interface MediaMeta {
+  width?: number;
+  height?: number;
+  duration?: number;
+}
+
+/** 读文件的宽高、时长：图片、视频、音频各用自己的元素读元数据，读不出来（格式浏览器不认）返回空，当作没法判断、不拦 */
+export function readMediaMeta(file: File): Promise<MediaMeta> {
+  const kind = file.type.split('/')[0];
+  if (kind !== 'image' && kind !== 'video' && kind !== 'audio') return Promise.resolve({});
+  const url = URL.createObjectURL(file);
+  return new Promise((resolve) => {
+    const done = (meta: MediaMeta) => {
+      URL.revokeObjectURL(url);
+      resolve(meta);
+    };
+    if (kind === 'image') {
+      const img = new Image();
+      img.onload = () => done({ width: img.naturalWidth, height: img.naturalHeight });
+      img.onerror = () => done({});
+      img.src = url;
+      return;
+    }
+    const el = document.createElement(kind);
+    el.preload = 'metadata';
+    el.onloadedmetadata = () => {
+      const v = el as HTMLVideoElement;
+      done({ width: kind === 'video' ? v.videoWidth : undefined, height: kind === 'video' ? v.videoHeight : undefined, duration: Number.isFinite(el.duration) ? el.duration : undefined });
+    };
+    el.onerror = () => done({});
+    el.src = url;
+  });
+}
+
+/** 一个文件合不合规矩：先看类型、大小，再读媒体信息看时长、宽高、宽高比。合格返回 undefined，不合格返回原因和提示文字（照线上） */
+export async function checkFile(file: File, rule: MediaRule): Promise<{ reason: FileRejectReason; message: string } | undefined> {
+  const fail = (reason: FileRejectReason) => ({ reason, message: rejectMessage(reason, rule) });
+  const basic = filterFiles([file], rule);
+  if (basic.reason) return fail(basic.reason);
+  const needMeta = rule.minDuration != null || rule.maxDuration != null || rule.minDimension != null || rule.maxDimension != null || rule.ratio != null;
+  if (!needMeta) return undefined;
+  const { width, height, duration } = await readMediaMeta(file);
+  if (duration != null) {
+    if (rule.minDuration != null && duration < rule.minDuration) return { reason: 'duration', message: rejectMessage('duration', { minDuration: rule.minDuration }) };
+    if (rule.maxDuration != null && duration > rule.maxDuration) return { reason: 'duration', message: rejectMessage('duration', { maxDuration: rule.maxDuration }) };
+  }
+  if (width && height) {
+    if (rule.minDimension != null && Math.min(width, height) < rule.minDimension) return { reason: 'dimension', message: rejectMessage('dimension', { minDimension: rule.minDimension }) };
+    if (rule.maxDimension != null && Math.max(width, height) > rule.maxDimension) return { reason: 'dimension', message: rejectMessage('dimension', { maxDimension: rule.maxDimension }) };
+    if (rule.ratio && (width / height < rule.ratio[0] || width / height > rule.ratio[1])) return fail('ratio');
+  }
+  return undefined;
+}
+
+/**
+ * 一批文件逐个检查：合格的留下，不合格的跳过，message 是第一个不合格的原因（弹 Toast 用）。
+ * ruleOf 按文件挑规矩（图片、视频、音频各有各的），返回 undefined 就不检查
+ */
+export async function checkFiles(files: File[], ruleOf: (file: File) => MediaRule | undefined): Promise<{ accepted: File[]; message?: string }> {
+  const accepted: File[] = [];
+  let message: string | undefined;
+  for (const f of files) {
+    const rule = ruleOf(f);
+    const bad = rule && (await checkFile(f, rule));
+    if (bad) message ??= bad.message;
+    else accepted.push(f);
+  }
+  return { accepted, message };
 }
 
 export interface UseFileDropOptions extends FileRule {

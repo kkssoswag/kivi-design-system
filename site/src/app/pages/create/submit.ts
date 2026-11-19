@@ -30,6 +30,7 @@ export function genTaskInput(s: PromptBoxSubmit, where: Where): TaskInput | null
     params: s.params,
     refs,
     refLabel: media === 'video' && refs.length ? REF_MODES.find((m) => m.value === s.refMode)?.label : undefined,
+    refMode: media === 'video' ? s.refMode : undefined,
     ratio: media === 'audio' ? '1:1' : nearestRatio(ratioNum(s.params.ratio ?? '1:1')),
     count: s.count,
     cost: genCost(media, s.model) * s.count,
