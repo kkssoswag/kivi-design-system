@@ -23,7 +23,7 @@ interface Options {
 
 const typing = (el: EventTarget | null) => {
   const t = el as HTMLElement | null;
-  return !!t?.closest?.('input, textarea, select, [contenteditable="true"], [contenteditable=""]');
+  return !!t?.closest?.('input, textarea, select, [contenteditable="true"], [contenteditable=""], [contenteditable="plaintext-only"]');
 };
 
 export function useCanvasKeys(options: Options) {

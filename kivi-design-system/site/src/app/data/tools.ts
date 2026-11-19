@@ -24,6 +24,7 @@ export const TOOLS: ToolDef[] = [
   { id: 'video-hd', name: '视频高清', icon: 'HD', media: 'video' },
   { id: 'stitch', name: '视频拼接', icon: 'Connecting', media: 'video' },
   { id: 'video-cutout', name: '视频抠图', icon: 'Rmbg', media: 'video' },
+  /** 对口型：线上在「增长工具」页，演示里放这里，纯演示（11-19 用户说要准备上） */
 ];
 export const toolOf = (id: ToolId) => TOOLS.find((t) => t.id === id)!;
 

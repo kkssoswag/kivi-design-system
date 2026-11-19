@@ -66,6 +66,8 @@ export interface GenActionsProps {
   reason?: string;
   /** 正在生成：生成按钮不能点（置灰），发送按钮变停止 */
   generating?: boolean;
+  /** 提交了、请求还没回来：生成按钮转圈 */
+  loading?: boolean;
   onSubmit?: () => void;
   /** Agent 回复中点了停止 */
   onStop?: () => void;
@@ -76,9 +78,9 @@ export interface GenActionsProps {
 }
 
 /** 工具条右边：Agent 是发送按钮（没写字置灰）；文字只有生成按钮；音频是字数 / 上限 + 生成；图片、视频是张数 + 生成。不转发 ref：返回一两个并排的控件，没有自己的根元素 */
-export function GenActions({ kind, model, text, cost, reason, generating, onSubmit, onStop, placement, count, onCountChange }: GenActionsProps) {
+export function GenActions({ kind, model, text, cost, reason, generating, loading, onSubmit, onStop, placement, count, onCountChange }: GenActionsProps) {
   if (kind === 'agent') return <SendButton disabled={!generating && !text.trim()} generating={generating} onClick={generating ? onStop : onSubmit} />;
-  const generate = <GenerateButton cost={cost} disabled={generating} disabledReason={generating ? undefined : reason} onClick={onSubmit} />;
+  const generate = <GenerateButton cost={cost} disabled={generating} disabledReason={generating ? undefined : reason} loading={loading} onClick={onSubmit} />;
   if (kind === 'text') return generate;
   return (
     <>

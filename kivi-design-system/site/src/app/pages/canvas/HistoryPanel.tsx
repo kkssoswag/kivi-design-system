@@ -26,6 +26,7 @@ import { confirmDelete } from '../../flows/delete';
 import { useBriefLoading } from '../../hooks/useBriefLoading';
 import { usePaged } from '../../hooks/usePaged';
 import { MediaViewer, ViewerAuthor, useLastShown, type ViewerMedia } from '../../parts/media-viewer';
+import { AssetInfo } from '../../parts/asset-info';
 import { GROUPS, groupOf, startOfDay, timeOf } from '../assets/assetCells';
 import { collectAssets } from '../assets/ops';
 
@@ -155,36 +156,38 @@ export function HistoryPanel({ open, onClose, onApply }: HistoryPanelProps) {
             </TabItem>
             <DateRangeFilter className="tpl-cv-history__time" value={range} onChange={setRange} placeholder="全部" aria-label="历史时间" />
           </div>
-          <ScrollArea className="tpl-cv-history__list" onReachEnd={() => more.current?.()}>
-            {loading ? (
-              <div className="tpl-cv-history__grid" aria-busy>
-                {Array.from({ length: 14 }, (_, i) => (
-                  <Skeleton key={i} style={{ width: '100%', aspectRatio: '1 / 1' }} />
-                ))}
-              </div>
-            ) : list.length === 0 ? (
-              <EmptyState
-                type={onlyCollected ? 'favorite' : 'empty'}
-                size={160}
-                title={onlyCollected ? '暂无收藏，快去收藏喜欢的资产吧' : TYPES.find((t) => t.value === type)!.empty}
-                className="tpl-cv-history__empty"
-              />
-            ) : (
-              <>
-                {GROUPS.map((g) => {
-                  const items = shown.filter((a) => groupOf(a.createdAt) === g);
-                  if (!items.length) return null;
-                  return (
-                    <section key={g} className="tpl-cv-history__day" aria-label={`${g}的历史`}>
-                      <h3>{g}</h3>
-                      <div className="tpl-cv-history__grid">{items.map(cell)}</div>
-                    </section>
-                  );
-                })}
-                {paging && <Loading className="tpl-as__more">加载中</Loading>}
-              </>
-            )}
-          </ScrollArea>
+          {!loading && list.length === 0 ? (
+            <EmptyState
+              type={onlyCollected ? 'favorite' : 'empty'}
+              size={160}
+              title={onlyCollected ? '暂无收藏，快去收藏喜欢的资产吧' : TYPES.find((t) => t.value === type)!.empty}
+              className="tpl-cv-history__empty"
+            />
+          ) : (
+            <ScrollArea className="tpl-cv-history__list" onReachEnd={() => more.current?.()}>
+              {loading ? (
+                <div className="tpl-cv-history__grid" aria-busy>
+                  {Array.from({ length: 14 }, (_, i) => (
+                    <Skeleton key={i} style={{ width: '100%', aspectRatio: '1 / 1' }} />
+                  ))}
+                </div>
+              ) : (
+                <>
+                  {GROUPS.map((g) => {
+                    const items = shown.filter((a) => groupOf(a.createdAt) === g);
+                    if (!items.length) return null;
+                    return (
+                      <section key={g} className="tpl-cv-history__day" aria-label={`${g}的历史`}>
+                        <h3>{g}</h3>
+                        <div className="tpl-cv-history__grid">{items.map(cell)}</div>
+                      </section>
+                    );
+                  })}
+                  {paging && <Loading className="tpl-as__more">加载中</Loading>}
+                </>
+              )}
+            </ScrollArea>
+          )}
         </div>
       </Dialog>
 
@@ -222,7 +225,9 @@ export function HistoryPanel({ open, onClose, onApply }: HistoryPanelProps) {
             </>
           )
         }
-      />
+      >
+        {shownView && <AssetInfo asset={shownView} onPick={setViewId} pickable={(id) => list.some((a) => a.id === id)} />}
+      </MediaViewer>
     </>
   );
 }

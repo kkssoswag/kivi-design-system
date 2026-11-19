@@ -117,56 +117,58 @@ export function HistorySection({ moreRef }: { moreRef: MoreRef }) {
         <header className="tpl-as__head">
           <h2>生成历史</h2>
         </header>
-        {/* 筛选条：滚动时吸在余额、头像那一排下面；最右边是批量编辑，点了原地换成批量控件，左边筛选照常（照线上），搜索框先收起 */}
+        {/* 筛选条：滚动时吸在余额、头像那一排下面；最右边是批量编辑，点了原地换成批量控件，左边筛选和搜索照常；放不下时批量控件盖住左边，左边缘渐隐（11-19 用户定） */}
         <div ref={sentinel} className="tpl-as__sentinel" aria-hidden />
-        <div className="tpl-as__filters" data-stuck={stuck || undefined} data-picking={picking || undefined}>
-          <span className="tpl-as__label">来源</span>
-          <Dropdown
-            haspopup="listbox"
-            trigger={
-              <Select variant="plain" leftIcon={SOURCE_OPTIONS.find((o) => o.value === source)?.icon} aria-label="生成历史来源">
-                {SOURCE_OPTIONS.find((o) => o.value === source)?.label}
-              </Select>
-            }
-          >
-            <Menu role="listbox" aria-label="生成历史来源">
-              {SOURCE_OPTIONS.map((o) => (
-                <MenuItem key={o.value} icon={o.icon} selected={o.value === source} disabled={o.disabled} onClick={() => setSource(o.value)}>
-                  {o.label}
-                </MenuItem>
-              ))}
-            </Menu>
-          </Dropdown>
-          <span className="tpl-as__label">类型</span>
-          <Tabs value={type} onChange={setType} aria-label="生成历史类型">
-            <TabItem value="all">全部</TabItem>
-            <TabItem value="image">图片</TabItem>
-            <TabItem value="video">视频</TabItem>
-          </Tabs>
-          <span className="tpl-as__label">时间</span>
-          <DateRangeFilter value={range} onChange={setRange} placeholder="全部" aria-label="生成历史时间" />
-          {/* 收藏是开关，不是「类型」那组选项卡里的一项：和前面的筛选隔 16，不用分割线（11-18 用户定） */}
-          <TabItem
-            className="tpl-as__collect"
-            icon={onlyCollected ? 'CollectSolid' : 'Collect'}
-            selected={onlyCollected}
-            role="checkbox"
-            aria-selected={undefined}
-            aria-checked={onlyCollected}
-            data-collected={onlyCollected || undefined}
-            onClick={() => setOnlyCollected(!onlyCollected)}
-          >
-            收藏
-          </TabItem>
-          <Input
-            leftIcon="Search"
-            clearable
-            placeholder="搜索生成记录"
-            aria-label="搜索生成记录"
-            className="tpl-as__search"
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-          />
+        <div className="tpl-as__filters tpl-as__filters--batch" data-stuck={stuck || undefined} data-picking={picking || undefined}>
+          <div className="tpl-as__filters-main">
+            <span className="tpl-as__label">来源</span>
+            <Dropdown
+              haspopup="listbox"
+              trigger={
+                <Select variant="plain" leftIcon={SOURCE_OPTIONS.find((o) => o.value === source)?.icon} aria-label="生成历史来源">
+                  {SOURCE_OPTIONS.find((o) => o.value === source)?.label}
+                </Select>
+              }
+            >
+              <Menu role="listbox" aria-label="生成历史来源">
+                {SOURCE_OPTIONS.map((o) => (
+                  <MenuItem key={o.value} icon={o.icon} selected={o.value === source} disabled={o.disabled} onClick={() => setSource(o.value)}>
+                    {o.label}
+                  </MenuItem>
+                ))}
+              </Menu>
+            </Dropdown>
+            <span className="tpl-as__label">类型</span>
+            <Tabs value={type} onChange={setType} aria-label="生成历史类型">
+              <TabItem value="all">全部</TabItem>
+              <TabItem value="image">图片</TabItem>
+              <TabItem value="video">视频</TabItem>
+            </Tabs>
+            <span className="tpl-as__label">时间</span>
+            <DateRangeFilter value={range} onChange={setRange} placeholder="全部" aria-label="生成历史时间" />
+            {/* 收藏是开关，不是「类型」那组选项卡里的一项：和前面的筛选隔 16，不用分割线（11-18 用户定） */}
+            <TabItem
+              className="tpl-as__collect"
+              icon={onlyCollected ? 'CollectSolid' : 'Collect'}
+              selected={onlyCollected}
+              role="checkbox"
+              aria-selected={undefined}
+              aria-checked={onlyCollected}
+              data-collected={onlyCollected || undefined}
+              onClick={() => setOnlyCollected(!onlyCollected)}
+            >
+              收藏
+            </TabItem>
+            <Input
+              leftIcon="Search"
+              clearable
+              placeholder="搜索生成记录"
+              aria-label="搜索生成记录"
+              className="tpl-as__search"
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+            />
+          </div>
           <div className="tpl-as__filters-end">
             <BatchControls
               label="批量操作"

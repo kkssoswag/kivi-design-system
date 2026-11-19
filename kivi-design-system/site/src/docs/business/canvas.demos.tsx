@@ -23,7 +23,7 @@ import {
   type IconButtonProps,
   type MinimapRect,
   type NodeCardStatus,
-  type NodeMediaType,
+  type NodeCardType,
   type NodeWrapperRatio,
   ScrollArea,
 } from '@kivi';
@@ -55,7 +55,7 @@ type Phase = NodeCardStatus | 'uploading';
 interface NodeDef {
   key: Key;
   name: string;
-  type: NodeMediaType;
+  type: NodeCardType;
   ratio: NodeWrapperRatio;
   x: number;
   y: number;
@@ -226,7 +226,7 @@ function edgeBox(from: NodeDef, to: NodeDef) {
 // ---------- 选中后：节点工具栏、生成面板 ----------
 
 /** 节点工具栏：「模板 · 画布」页 4 条里按节点类型取。音频没有画 */
-function toolbarOf(type: NodeMediaType | 'group') {
+function toolbarOf(type: NodeCardType | 'group') {
   switch (type) {
     case 'group':
       return (
@@ -966,7 +966,7 @@ export function ToolbarPlayground() {
           ],
         },
       ]}
-      render={(s) => <PgScroll inner="cv-pg-wide__inner">{toolbarOf(s.type as NodeMediaType | 'group')!}</PgScroll>}
+      render={(s) => <PgScroll inner="cv-pg-wide__inner">{toolbarOf(s.type as NodeCardType | 'group')!}</PgScroll>}
     />
   );
 }
@@ -976,7 +976,7 @@ export function ToolbarPlayground() {
 type PanelPg = { type: string };
 
 /** 每种面板摆的参考图：图片面板连了一张素材图，视频面板连了两张图片和音频（两张图能拖着换顺序） */
-const PANEL_INPUTS: Record<NodeMediaType, Key[]> = {
+const PANEL_INPUTS: Record<NodeCardType, Key[]> = {
   text: [],
   image: ['upload'],
   video: ['image', 'upload', 'audio'],
@@ -1002,7 +1002,7 @@ export function PanelPlayground() {
         },
       ]}
       render={(s) => {
-        const type = s.type as NodeMediaType;
+        const type = s.type as NodeCardType;
         return (
           <PgScroll inner="cv-pg-wide__inner">
             <PanelDemo key={type} type={type} />
@@ -1014,7 +1014,7 @@ export function PanelPlayground() {
 }
 
 /** 属性面板里的生成面板：参考图能拖着换顺序（改的是连进来的顺序） */
-function PanelDemo({ type }: { type: NodeMediaType }) {
+function PanelDemo({ type }: { type: NodeCardType }) {
   const [inputs, setInputs] = useState(PANEL_INPUTS[type]);
   const move = (from: string, to: string) =>
     setInputs((list) => {

@@ -20,3 +20,4 @@ export * from './useCopy';
 export * from './useTruncated';
 export * from './useJustExpanded';
 export * from './useSortable';
+export * from './usePending';

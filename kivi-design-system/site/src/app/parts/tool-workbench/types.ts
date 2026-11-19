@@ -35,6 +35,8 @@ export interface ToolJob {
 /** 各工具的参数，整页记一份：切工具再切回来还在 */
 export interface ToolState {
   expandRatio: string;
+  /** 扩图倍数（原比例时用）：原图四周一起往外扩到几倍；手动拖了扩图框就是空的 */
+  expandScale: string;
   hdScale: string;
   /** 视频抠图的输出模式：透明视频 / 蒙版视频（照线上） */
   cutoutOutput: string;
@@ -47,7 +49,8 @@ export interface ToolState {
 }
 
 export const INITIAL_STATE: ToolState = {
-  expandRatio: 'free',
+  expandRatio: 'original',
+  expandScale: '1.5',
   hdScale: '2',
   cutoutOutput: 'alpha',
   editMode: 'inpaint',

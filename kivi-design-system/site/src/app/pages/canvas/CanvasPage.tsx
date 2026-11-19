@@ -10,7 +10,9 @@ import { MediaViewer, ViewerAuthor, ViewerSection, useLastShown } from '../../pa
 import { CanvasAgent, nodeAttachment, useAgentSelect } from './CanvasAgent';
 import { CanvasBoard, type CanvasBoardHandle } from './CanvasBoard';
 import { HistoryPanel } from './HistoryPanel';
+import { ProcessorHost } from './processor/ProcessorHost';
 import { AddNodeMenu } from './menus';
+import { ShareButton } from './ShareButton';
 import { WorkflowPanel } from './WorkflowPanel';
 
 /*
@@ -65,16 +67,19 @@ export function CanvasPage({ canvasId: id, onCanvasChange, skill, intro, onHome 
           onChange={(next) => onCanvasChange?.(next)}
           onLogoClick={onHome}
         />
+        {/* 右上角：分享 */}
+        <ShareButton canvasId={id} />
         {/* 底部正中：画布工具栏（ButtonGroup 实色 · 56）：添加（主要）、工作流、上传、历史 */}
         <ButtonGroup variant="surface" size={56} aria-label="画布工具栏" className="tpl-cv__toolbar">
           <Dropdown placement="top-start" trigger={<IconButton icon="Add" label="添加" variant="primary" />}>
-            <AddNodeMenu doc={doc} onPick={(type) => board.current?.addAtCenter(type)} />
+            <AddNodeMenu doc={doc} onPick={(type, preset) => board.current?.addAtCenter(type, preset)} />
           </Dropdown>
           <WorkflowPanel
             open={workflowOpen}
             onOpenChange={setWorkflowOpen}
             onApply={(wf) => {
-              const ids = insertTemplate(id, wf.template);
+              // 照线上：整段套进一个以工作流名命名的组，选中这个组
+              const ids = insertTemplate(id, wf.template, wf.name);
               // 下一帧再定位：等新节点画出来
               requestAnimationFrame(() => board.current?.focus(ids));
             }}
@@ -102,6 +107,8 @@ export function CanvasPage({ canvasId: id, onCanvasChange, skill, intro, onHome 
           requestAnimationFrame(() => board.current?.select([nid]));
         }}
       />
+
+      <ProcessorHost canvasId={id} />
 
       <MediaViewer
         media={viewing && { type: viewing.node.type === 'video' ? 'video' : viewing.node.type === 'audio' ? 'audio' : 'image', src: viewing.item.src, poster: viewing.item.poster, name: viewing.node.name }}

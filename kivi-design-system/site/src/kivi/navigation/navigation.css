@@ -55,9 +55,7 @@
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  transition:
-    background-color var(--motion-duration-100) var(--motion-ease-in-out),
-    color var(--motion-duration-100) var(--motion-ease-in-out);
+  transition: color var(--motion-duration-100) var(--motion-ease-in-out);
 }
 
 .kv-tab-item > .kv-icon {

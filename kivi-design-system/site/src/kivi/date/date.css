@@ -67,7 +67,6 @@
   font: inherit;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
-  transition: background-color var(--motion-duration-100) var(--motion-ease-in-out);
 }
 
 .kv-calendar__day[data-outside] {
@@ -141,7 +140,6 @@
   font-size: var(--font-size-13);
   text-align: left;
   cursor: pointer;
-  transition: background-color var(--motion-duration-100) var(--motion-ease-in-out);
 }
 
 .kv-date-range__field:where(:hover, :focus-visible, .is-hover) {

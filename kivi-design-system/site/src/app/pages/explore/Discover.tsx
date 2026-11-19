@@ -26,6 +26,7 @@ import { attempt } from '../../flows/errors';
 import { useDebounced } from '../../hooks/useDebounced';
 import { usePaged, type MoreRef } from '../../hooks/usePaged';
 import { MediaViewer, ViewerAuthor, ViewerSection, useLastShown } from '../../parts/media-viewer';
+import { CopyPrompt } from '../../parts/asset-info';
 import { CategoryTabs } from './shared';
 
 /*
@@ -224,8 +225,11 @@ export function Discover({ moreRef, initialKeyword = '' }: { moreRef: MoreRef; i
       >
         {shownDetail && (
           <>
-            <ViewerSection title="提示词">
-              <GenPrompt prompt={shownDetail.prompt}>
+            <ViewerSection title="提示词" action={<CopyPrompt text={shownDetail.prompt} />}>
+              <p className="tpl-viewer__prompt">{shownDetail.prompt}</p>
+            </ViewerSection>
+            <ViewerSection title="参数">
+              <GenPrompt>
                 <Tag>{shownDetail.video ? '视频生成' : '图片生成'}</Tag>
                 <Tag>{shownDetail.model}</Tag>
                 <Tag>{shownDetail.ratio}</Tag>

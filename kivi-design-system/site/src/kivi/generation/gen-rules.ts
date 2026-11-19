@@ -116,6 +116,11 @@ export function genCost(kind: GenKind, model: string): number {
   return COST[model] ?? (kind === 'image' ? 3 : 60);
 }
 
+/** 这次生成一共消耗多少：单张消耗 × 张数（只有图片、视频能选张数，照线上生成按钮显示的是总数） */
+export function genTotalCost(kind: GenKind, model: string, count = 1): number {
+  return genCost(kind, model) * (kind === 'image' || kind === 'video' ? count : 1);
+}
+
 // ---------- 上传要求 ----------
 // 各场景的上传要求写在这一份，不合格的文件不加进来、弹 Toast 说第一个原因（11-18 用户定，数字照线上）。
 

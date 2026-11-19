@@ -86,34 +86,36 @@ export function WorkflowPanel({ onApply, children, open, onOpenChange }: Workflo
         <TabItem value="private">我的工作流</TabItem>
       </Tabs>
       {tab === 'public' && <CategoryTabs label="工作流分类" value={category} options={WORKFLOW_CATEGORIES} onChange={setCategory} />}
-      <ScrollArea className="tpl-cv-wf__list" onReachEnd={() => more.current?.()}>
-        {loading ? (
-          <div className="tpl-cv-wf__grid" aria-busy>
-            {Array.from({ length: 6 }, (_, i) => (
-              <CardSkeleton key={i} short />
-            ))}
-          </div>
-        ) : list.length === 0 ? (
-          <EmptyState size={96} title="暂无工作流" className="tpl-cv-wf__empty" />
-        ) : (
-          <div className="tpl-cv-wf__grid">
-            {list.slice(0, count).map((wf) => (
-              <ExploreCard
-                key={wf.id}
-                name={wf.name}
-                cover={wf.cover}
-                video={wf.video}
-                onOpen={() => setView(wf)}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  setMenu({ x: e.clientX, y: e.clientY, wf });
-                }}
-              />
-            ))}
-            {paging && Array.from({ length: 3 }, (_, i) => <CardSkeleton key={`more-${i}`} short />)}
-          </div>
-        )}
-      </ScrollArea>
+      {!loading && list.length === 0 ? (
+        <EmptyState size={96} title="暂无工作流" className="tpl-cv-wf__empty" />
+      ) : (
+        <ScrollArea className="tpl-cv-wf__list" onReachEnd={() => more.current?.()}>
+          {loading ? (
+            <div className="tpl-cv-wf__grid" aria-busy>
+              {Array.from({ length: 6 }, (_, i) => (
+                <CardSkeleton key={i} short />
+              ))}
+            </div>
+          ) : (
+            <div className="tpl-cv-wf__grid">
+              {list.slice(0, count).map((wf) => (
+                <ExploreCard
+                  key={wf.id}
+                  name={wf.name}
+                  cover={wf.cover}
+                  video={wf.video}
+                  onOpen={() => setView(wf)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setMenu({ x: e.clientX, y: e.clientY, wf });
+                  }}
+                />
+              ))}
+              {paging && Array.from({ length: 3 }, (_, i) => <CardSkeleton key={`more-${i}`} short />)}
+            </div>
+          )}
+        </ScrollArea>
+      )}
     </div>
   );
 

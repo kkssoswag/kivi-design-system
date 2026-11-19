@@ -1,0 +1,149 @@
+/*
+  演示站画布：组、文字节点编辑、整理画布确认、保存工作流面板（类名 app-cv-）。
+  只用 tokens.css 的变量；外框、按钮、菜单、浮层都用组件库的，这里只管摆放和组的底。
+*/
+
+/* ---------- 组（照线上 group 节点）：外框用 NodeWrapper（组名在上、悬停和选中的描边），里面铺一块底 ----------
+   组是大块容器、压在 base 上：底用 Light 2（设计规则「大块容器在深底上用 Light 2」，线上白 5%），
+   描边 1px border（线上 color-border），圆角 16 同节点。选中不换底，用 NodeWrapper 的选中描边 */
+.app-cv-group__bg {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  border: var(--border-width-1) solid var(--color-border);
+  border-radius: var(--border-radius-16);
+  background: var(--color-bg-fill-container-light-2);
+}
+
+/* 组名双击改名：原地改，字样还是节点名的 */
+.app-cv-group__name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-cv-group__name[contenteditable] {
+  text-overflow: clip;
+  cursor: text;
+  user-select: text;
+}
+
+/* ---------- 文字节点：双击原地改字（照线上 TextNode 的 RichTextEditor，这里只有纯文字） ---------- */
+.app-cv-text-edit {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+}
+
+.app-cv-text-edit__input {
+  min-height: 100%;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  cursor: text;
+  user-select: text;
+}
+
+/* 拖右边、下边、右下角改大小（256–1024）：只有鼠标样子，不画手柄 */
+.app-cv-resize {
+  position: absolute;
+  z-index: 2;
+}
+
+.app-cv-resize[data-resize="e"] {
+  top: 0;
+  right: calc(var(--spacing-4) * -1);
+  bottom: var(--spacing-16);
+  width: var(--spacing-8);
+  cursor: ew-resize;
+}
+
+.app-cv-resize[data-resize="s"] {
+  right: var(--spacing-16);
+  bottom: calc(var(--spacing-4) * -1);
+  left: 0;
+  height: var(--spacing-8);
+  cursor: ns-resize;
+}
+
+.app-cv-resize[data-resize="se"] {
+  right: calc(var(--spacing-8) * -1);
+  bottom: calc(var(--spacing-8) * -1);
+  width: var(--spacing-24);
+  height: var(--spacing-24);
+  cursor: nwse-resize;
+}
+
+/* ---------- 整理画布：预览时左下角问「是否保留此次整理结果？」（Popover 面板，照线上宽 240） ---------- */
+.app-cv-tidy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-16);
+  width: 240px;
+  padding: var(--spacing-4);
+  color: var(--color-text-fill-primary);
+  font-size: var(--font-size-14);
+}
+
+.app-cv-tidy p {
+  margin: 0;
+}
+
+.app-cv-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-8);
+}
+
+/* ---------- 组工具栏「保存工作流」：Popover 面板，选项卡 + 内容 + 底部按钮 ---------- */
+.app-cv-save {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-16);
+  width: 368px;
+}
+
+.app-cv-save__cover {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--border-radius-12);
+  background: var(--color-bg-fill-container-light-1);
+}
+
+.app-cv-save__cover > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.app-cv-save__cover > button {
+  position: absolute;
+  right: var(--spacing-8);
+  bottom: var(--spacing-8);
+}
+
+.app-cv-save__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-8);
+  color: var(--color-text-fill-secondary);
+  font-size: var(--font-size-13);
+}
+
+.app-cv-save__empty {
+  padding: var(--spacing-32) 0;
+  color: var(--color-text-fill-tertiary);
+  font-size: var(--font-size-14);
+  text-align: center;
+}
+
+/* 多选外框（照线上 selector-box）：选中两个及以上节点，包一个框。画在组上面、连线和节点下面，不接鼠标 */
+.app-cv-select {
+  position: absolute;
+  box-sizing: border-box;
+  border: calc(var(--border-width-1) / var(--cb-k, 1)) solid var(--color-border-strong);
+  border-radius: var(--border-radius-16);
+  background: var(--color-bg-fill-container-light-2);
+  pointer-events: none;
+}
