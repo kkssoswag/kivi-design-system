@@ -5,6 +5,7 @@ import {
   Bell,
   Compass,
   Folder,
+  GraduationCap,
   GalleryVerticalEnd,
   Loader,
   PanelTop,
@@ -133,6 +134,7 @@ export const NAV: { group: string; items: NavItem[] }[] = [
       { id: 'agent-process', icon: ListChecks, title: 'Agent 过程', path: '/business/agent-process', load: () => import('../docs/business/agent-process.mdx') },
       { id: 'asset', icon: Folder, title: '资产', path: '/business/asset', load: () => import('../docs/business/asset.mdx') },
       { id: 'explore', icon: Compass, title: '探索', path: '/business/explore', load: () => import('../docs/business/explore.mdx') },
+      { id: 'expert', icon: GraduationCap, title: '专家', path: '/business/expert', load: () => import('../docs/business/expert.mdx') },
     ],
   },
 ];

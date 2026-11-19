@@ -1,0 +1,478 @@
+/*
+  专家：专家条、专家技能面板、专家卡片、专家详情、专家记录。
+  is-hover 只给文档摆静态的悬停用，项目里不用写
+*/
+
+/* ---------- ExpertBar ---------- */
+
+/* 两个按钮并排：左边当前专家（点开选择浮层），右边「N 项技能」（会话、画布里才有）。各是各的底，不叠色 */
+.kv-expert-bar {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: var(--spacing-4);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.kv-expert-bar__main,
+.kv-expert-bar__skills {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--spacing-6);
+  box-sizing: border-box;
+  height: 32px;
+  margin: 0;
+  border: 0;
+  border-radius: var(--border-radius-8);
+  background: var(--color-bg-fill-container-light-1);
+  color: var(--color-text-fill-primary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-13);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.kv-expert-bar__main {
+  flex: 0 1 auto;
+  min-width: 0;
+  padding: 0 var(--spacing-8) 0 var(--spacing-4);
+}
+
+.kv-expert-bar__skills {
+  padding: 0 var(--spacing-8);
+  color: var(--color-text-fill-secondary);
+  font-size: var(--font-size-12);
+}
+
+.kv-expert-bar__main:where(:hover, .is-hover):not(:disabled),
+.kv-expert-bar__skills:where(:hover, .is-hover):not(:disabled),
+.kv-expert-bar__main[aria-expanded='true'],
+.kv-expert-bar__skills[aria-expanded='true'] {
+  background: var(--color-bg-fill-container-light-1-hover);
+  color: var(--color-text-fill-primary);
+}
+
+.kv-expert-bar__main:disabled,
+.kv-expert-bar__skills:disabled {
+  color: var(--color-text-fill-disabled);
+  cursor: not-allowed;
+}
+
+.kv-expert-bar__name {
+  flex: none;
+  font-weight: var(--font-weight-medium);
+}
+
+.kv-expert-bar__meta {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-fill-tertiary);
+  font-size: var(--font-size-12);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kv-expert-bar__arrow,
+.kv-expert-bar__skills > .kv-icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--color-text-fill-tertiary);
+}
+
+/* ---------- ExpertSkillPanel ---------- */
+
+/* 和技能面板一样宽、一样的玻璃；高度跟着内容，两段列表各自最高 228（四行）后在里面滚 */
+.kv-expert-skill-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+  box-sizing: border-box;
+  width: 400px;
+  padding: var(--spacing-8);
+  border-radius: var(--border-radius-16);
+  outline: var(--border-width-1) solid var(--color-border-subtle);
+  outline-offset: calc(var(--border-width-1) * -1);
+  background: var(--color-bg-fill-glass);
+  -webkit-backdrop-filter: blur(var(--effect-glass-blur));
+  backdrop-filter: blur(var(--effect-glass-blur));
+  color: var(--color-text-fill-primary);
+  font-family: var(--font-family);
+}
+
+.kv-expert-skill-panel__head,
+.kv-expert-skill-panel__tabs,
+.kv-expert-skill-panel__search {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-8);
+  min-height: 32px;
+  padding: 0 var(--spacing-4) 0 var(--spacing-12);
+}
+
+.kv-expert-skill-panel__title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-8);
+  min-width: 0;
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-medium);
+}
+
+.kv-expert-skill-panel__scope {
+  color: var(--color-text-fill-tertiary);
+  font-size: var(--font-size-12);
+  font-weight: var(--font-weight-regular);
+}
+
+.kv-expert-skill-panel__sub {
+  padding: var(--spacing-8) var(--spacing-12) 0;
+  color: var(--color-text-fill-tertiary);
+  font-size: var(--font-size-12);
+}
+
+.kv-expert-skill-panel__tabs > .kv-tab-group {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto; /* 原生滚动：分类多了一行横滑，滚动条藏起来（同技能面板） */
+  scrollbar-width: none;
+}
+
+.kv-expert-skill-panel__search {
+  padding-left: var(--spacing-4);
+}
+
+.kv-expert-skill-panel__search > .kv-input {
+  flex: 1;
+}
+
+.kv-expert-skill-panel__scroll {
+  flex: none;
+}
+
+.kv-expert-skill-panel__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+/* 一行：两行文字，左图标 20；「移除」「添加」悬停（或键盘进到这一行）才出现，叠在右边 */
+.kv-expert-skill-panel__row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-8);
+  min-height: 52px;
+  padding: var(--spacing-8);
+  border-radius: var(--border-radius-8);
+}
+
+.kv-expert-skill-panel__row:where(:hover, :focus-within, .is-hover) {
+  background: var(--color-bg-fill-container-light-1-hover);
+}
+
+.kv-expert-skill-panel__icon {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  color: var(--color-text-fill-secondary);
+}
+
+.kv-expert-skill-panel__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.kv-expert-skill-panel__label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-8);
+  font-size: var(--font-size-14);
+}
+
+.kv-expert-skill-panel__tag {
+  flex: none;
+}
+
+.kv-expert-skill-panel__desc {
+  overflow: hidden;
+  color: var(--color-text-fill-secondary);
+  font-size: var(--font-size-12);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kv-expert-skill-panel__action {
+  position: absolute;
+  top: 50%;
+  right: var(--spacing-8);
+  opacity: 0;
+  transform: translateY(-50%);
+  pointer-events: none;
+  transition: opacity var(--motion-duration-150) var(--motion-ease-out);
+}
+
+.kv-expert-skill-panel__row:where(:hover, :focus-within, .is-hover) > .kv-expert-skill-panel__action {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* 有按钮时字给它让位 */
+.kv-expert-skill-panel__row:where(:hover, :focus-within, .is-hover) > .kv-expert-skill-panel__text {
+  padding-right: 56px;
+}
+
+.kv-expert-skill-panel__done {
+  flex: none;
+  padding-right: var(--spacing-4);
+  color: var(--color-text-fill-tertiary);
+  font-size: var(--font-size-12);
+}
+
+.kv-expert-skill-panel__empty {
+  padding: var(--spacing-8) var(--spacing-12) var(--spacing-12);
+  color: var(--color-text-fill-tertiary);
+  font-size: var(--font-size-12);
+}
+
+/* ---------- ExpertCard ---------- */
+
+/* 和探索卡一样的容器：圆角 12、Light 2 底、不加描边；邀请了描边变亮 */
+.kv-expert-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-12);
+  box-sizing: border-box;
+  min-width: 0;
+  padding: var(--spacing-12);
+  border-radius: var(--border-radius-12);
+  outline: var(--border-width-1) solid transparent;
+  outline-offset: calc(var(--border-width-1) * -1);
+  background: var(--color-bg-fill-container-light-2);
+  color: var(--color-text-fill-primary);
+  font-family: var(--font-family);
+  /* 状态切换：邀请了描边变亮 */
+  transition: outline-color var(--motion-duration-150) var(--motion-ease-out);
+}
+
+.kv-expert-card:where(:hover, :has(:focus-visible), .is-hover) {
+  background: var(--color-bg-fill-container-light-2-hover);
+}
+
+.kv-expert-card[data-invited] {
+  outline-color: var(--color-border-strong);
+}
+
+.kv-expert-card__open {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  cursor: pointer;
+}
+
+.kv-expert-card__top {
+  display: flex;
+  gap: var(--spacing-12);
+  min-width: 0;
+  pointer-events: none;
+}
+
+.kv-expert-card__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  min-width: 0;
+}
+
+.kv-expert-card__name {
+  overflow: hidden;
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--font-line-height-22);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 两行，不够两行也占两行高 */
+.kv-expert-card__desc {
+  display: -webkit-box;
+  height: 40px;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--color-text-fill-secondary);
+  font-size: var(--font-size-12);
+  line-height: var(--font-line-height-20);
+}
+
+.kv-expert-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-8);
+  pointer-events: none;
+}
+
+.kv-expert-card__count {
+  color: var(--color-text-fill-tertiary);
+  font-size: var(--font-size-12);
+}
+
+/* 「邀请」盖在整张卡的按钮上面，能单独点 */
+.kv-expert-card__invite {
+  position: relative;
+  pointer-events: auto;
+}
+
+/* ---------- ExpertDetail ---------- */
+
+.kv-expert-detail__top {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-16);
+}
+
+.kv-expert-detail__desc {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  color: var(--color-text-fill-secondary);
+  font-size: var(--font-size-14);
+  line-height: var(--font-line-height-22);
+}
+
+.kv-expert-detail__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-8);
+  margin-top: var(--spacing-24);
+}
+
+.kv-expert-detail__section > h4 {
+  margin: 0;
+  color: var(--color-text-fill-secondary);
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-medium);
+}
+
+.kv-expert-detail__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-6);
+}
+
+.kv-expert-detail__examples {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-6);
+}
+
+.kv-expert-detail__example {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-8);
+  margin: 0;
+  padding: var(--spacing-8) var(--spacing-12);
+  border: 0;
+  border-radius: var(--border-radius-8);
+  background: var(--color-bg-fill-container-light-1);
+  color: var(--color-text-fill-primary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-13);
+  text-align: left;
+  cursor: pointer;
+}
+
+.kv-expert-detail__example:where(:hover, .is-hover) {
+  background: var(--color-bg-fill-container-light-1-hover);
+}
+
+.kv-expert-detail__example > .kv-icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--color-text-fill-tertiary);
+}
+
+.kv-expert-detail__skills {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-8);
+}
+
+.kv-expert-detail__skill {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-8);
+  min-width: 0;
+  padding: var(--spacing-8) var(--spacing-12);
+  border-radius: var(--border-radius-8);
+  background: var(--color-bg-fill-container-light-1);
+}
+
+.kv-expert-detail__skill > .kv-icon {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  color: var(--color-text-fill-secondary);
+}
+
+.kv-expert-detail__skill > span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.kv-expert-detail__skill b {
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-medium);
+}
+
+.kv-expert-detail__skill span span {
+  overflow: hidden;
+  color: var(--color-text-fill-tertiary);
+  font-size: var(--font-size-12);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- ExpertRecord ---------- */
+
+.kv-expert-record {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-12);
+  color: var(--color-text-fill-tertiary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-12);
+}
+
+.kv-expert-record::before,
+.kv-expert-record::after {
+  content: '';
+  flex: 1;
+  height: var(--border-width-1);
+  background: var(--color-border-subtle);
+}
+
+.kv-expert-record__text {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: var(--spacing-6);
+  min-width: 0;
+}

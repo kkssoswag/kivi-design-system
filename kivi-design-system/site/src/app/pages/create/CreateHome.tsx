@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Button, CreateCard, ExploreCard, Masonry, ProjectCard, PromptBox, ScrollArea, TabItem, Tabs, WorkCard, placeholderImageSrc, type PromptBoxSubmit } from '@kivi';
+import { Button, CreateCard, ExpertBar, ExpertCard, ExploreCard, Masonry, ProjectCard, PromptBox, ScrollArea, TabItem, Tabs, WorkCard, placeholderImageSrc, toast, type ExpertItem, type GenTask, type PromptBoxSubmit } from '@kivi';
+import { EXPERTS, EXPERT_USER, expertOf } from '../../../docs/business/expert-data';
 import { SKILL_CATEGORIES, SKILL_ITEMS } from '../../../docs/business/skill-data';
 import { RATIO, SKILLS, WORKS, flowsOf } from '../../data/catalog';
 import { sendAgent } from '../../data/agent';
@@ -8,6 +9,8 @@ import { useDB } from '../../data/db';
 import { submitTask } from '../../data/tasks';
 import { attempt } from '../../flows/errors';
 import { AgentComposer } from '../../parts/agent-composer';
+import { ExpertDetailHost, expertPlaceholder } from '../../parts/expert-session';
+import { startExpert } from '../../data/experts';
 import type { ExploreTab } from '../explore';
 import { ComposerMotion, HomeAtmosphere, SHOW_COMPOSER_MOTION } from './HomeBackdrop';
 import { HomeHead, RecentUpdates } from './HomeParts';
@@ -48,7 +51,12 @@ export function CreateHome({
   onOpenCanvas,
   onExplore,
   onAllCanvases,
+  expert = 'none',
+  onExpertChange,
 }: {
+  /** 当前专家（专家模式）：生成、画布两个入口共用一个，记住用户最近一次的选择，Agent 提交时带进新对话、新画布 */
+  expert?: string;
+  onExpertChange?: (id: string) => void;
   /** 生成：对话建好、任务提交后，进这个对话页（参数是新对话的 id） */
   onSubmit: (chatId: string) => void;
   /** 画布：新建画布、打开最近项目、提交想法，都进画布页 */
@@ -59,6 +67,18 @@ export function CreateHome({
   onAllCanvases: () => void;
 }) {
   const [mode, setMode] = useState<HomeMode>('generate');
+  // 专家模式：生成入口的任务类型受控（邀请专家时切到 Agent）；专家详情；示例提问填进输入框（生成入口按 key 重新挂上输入框）
+  const [task, setTask] = useState<GenTask>('agent');
+  const [detail, setDetail] = useState<ExpertItem | null>(null);
+  const [fill, setFill] = useState<{ text: string; key: number; mode: HomeMode }>();
+  const invite = (id: string, on: boolean) => {
+    onExpertChange?.(on ? id : 'none');
+    if (!on) return;
+    // 图片、视频、音频模式下点「邀请」：任务类型切到 Agent
+    if (mode === 'generate') setTask('agent');
+    toast.success(`已邀请${expertOf(id).name}`);
+  };
+  const expertBar = <ExpertBar experts={EXPERTS} user={EXPERT_USER} value={expert} onValueChange={(id) => onExpertChange?.(id)} onDetail={setDetail} placement="bottom-start" />;
   // 最近项目：最近改过的 4 块画布（和侧栏画布历史、资产页「我的画布」同一批）
   const canvases = useDB((s) => s.canvases);
   const recent = useMemo(() => [...canvases].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, PROJECT_COLS - 1), [canvases]);
@@ -70,8 +90,9 @@ export function CreateHome({
     try {
       const chat = await attempt(() => createChat(s.text.trim().slice(0, 20) || '新对话'));
       if (!chat) return;
-      // Agent：把这句话（连同参考区的素材）发出去，进对话页看它回复
+      // Agent：把这句话（连同参考区的素材）发出去，进对话页看它回复。首页的专家带进新对话（留「XX 加入对话」）
       if (s.task === 'agent') {
+        startExpert({ kind: 'chat', id: chat.id }, expert);
         const sent = await attempt(() =>
           sendAgent(chat.id, { text: s.text, refs: s.references.map((r) => ({ type: r.type, src: r.src ?? '', name: r.name, duration: r.duration })) }),
         );
@@ -247,13 +268,63 @@ export function CreateHome({
             <div className="tpl-home__shell" data-ready={shellReady || undefined} style={shellHeight != null ? { height: shellHeight } : undefined}>
               {SHOW_COMPOSER_MOTION && <ComposerMotion />}
               <div ref={generateBox} className="tpl-home__box" data-active={mode === 'generate' || undefined}>
-                <PromptBox placement="bottom-start" onSubmit={submit} skills={SKILL_ITEMS} skillCategories={SKILL_CATEGORIES} />
+                <PromptBox
+                  key={fill?.mode === 'generate' ? fill.key : undefined}
+                  defaultValue={fill?.mode === 'generate' ? fill.text : undefined}
+                  task={task}
+                  onTaskChange={setTask}
+                  placement="bottom-start"
+                  onSubmit={submit}
+                  skills={SKILL_ITEMS}
+                  skillCategories={SKILL_CATEGORIES}
+                  agentHeader={expertBar}
+                  agentPlaceholder={expertPlaceholder(expert)}
+                />
               </div>
               <div ref={canvasBox} className="tpl-home__box" data-active={mode === 'canvas' || undefined} style={generateHeight != null ? { minHeight: generateHeight } : undefined}>
-                <AgentComposer className="tpl-home__agent" placement="bottom-start" onSend={onOpenCanvas} />
+                <AgentComposer
+                  className="tpl-home__agent"
+                  placement="bottom-start"
+                  onSend={onOpenCanvas}
+                  header={expertBar}
+                  placeholder={expertPlaceholder(expert)}
+                  fill={fill?.mode === 'canvas' ? fill : undefined}
+                />
               </div>
             </div>
           </div>
+
+          {/* 专家卡片：生成、画布两个入口都有，在输入框和最近更新 / 最近项目之间。「无需专家」不占卡片 */}
+          <section className="tpl-home__section" aria-label="邀请专家">
+            <header className="tpl-home__head">
+              <h2>邀请专家</h2>
+            </header>
+            <div className="tpl-home__experts">
+              {EXPERTS.filter((e) => e.avatar).map((e) => (
+                <ExpertCard
+                  key={e.id}
+                  name={e.name}
+                  description={e.description}
+                  avatar={e.avatar}
+                  skillCount={e.skills?.length}
+                  invited={expert === e.id}
+                  onInvitedChange={(on) => invite(e.id, on)}
+                  onOpen={() => setDetail(e)}
+                />
+              ))}
+            </div>
+          </section>
+          <ExpertDetailHost
+            detail={detail}
+            current={expert}
+            onClose={() => setDetail(null)}
+            onInvite={(e, on) => invite(e.id, on)}
+            onExample={(e, text) => {
+              onExpertChange?.(e.id);
+              if (mode === 'generate') setTask('agent');
+              setFill({ text, key: Date.now(), mode });
+            }}
+          />
 
           {/* 切模式：中间一块和广场换掉，淡入 */}
           {/* 切模式：中间一块和广场直接换，不做淡入淡出（淡入要从全透明起，中间会空一帧、页面闪） */}

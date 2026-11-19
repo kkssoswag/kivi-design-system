@@ -29,10 +29,12 @@ export interface CanvasPageProps {
   skill?: string;
   /** 创作首页「画布」输入框里发的那句话：进来 Agent 接着发 */
   intro?: AgentComposerMessage;
+  /** 专家模式：这块画布新建的 Agent 对话带上这位专家（首页当前的专家） */
+  expert?: string;
   onHome?: () => void;
 }
 
-export function CanvasPage({ canvasId: id, onCanvasChange, skill, intro, onHome }: CanvasPageProps) {
+export function CanvasPage({ canvasId: id, onCanvasChange, skill, intro, expert, onHome }: CanvasPageProps) {
   const canvases = useDB((s) => s.canvases);
   const doc = useCanvasDoc(id);
   const board = useRef<CanvasBoardHandle>(null);
@@ -95,6 +97,7 @@ export function CanvasPage({ canvasId: id, onCanvasChange, skill, intro, onHome 
         skill={skill}
         onLocate={(ids) => board.current?.focus(ids)}
         intro={intro}
+        expert={expert}
         attachments={chatAttachments}
         onAttachmentsChange={setChatAttachments}
       />

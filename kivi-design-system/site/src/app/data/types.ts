@@ -96,10 +96,31 @@ export interface Folder {
   createdAt: number;
 }
 
-/** 主站对话里的一项：一次生成，或者一轮 Agent */
-export type ChatItem = { kind: 'task'; taskId: string } | { kind: 'agent'; id: string };
+/** 主站对话里的一项：一次生成，或者一轮 Agent，或者一条专家记录（加入、切换、调整技能） */
+export type ChatItem = { kind: 'task'; taskId: string } | { kind: 'agent'; id: string } | { kind: 'note'; note: ExpertNote };
 
-export interface Chat {
+/** 专家记录：对话里留的一行（ExpertRecord） */
+export interface ExpertNote {
+  id: string;
+  text: string;
+  /** 专家头像；切回无需专家没有 */
+  avatar?: string;
+  createdAt: number;
+}
+
+/** 一段对话里的专家（专家模式）：当前专家和这段对话里的技能清单。没有就是无需专家 */
+export interface ChatExpert {
+  /** 专家 id（docs/business/expert-data.ts） */
+  expert?: string;
+  /** 这段对话里这位专家的技能（技能 id），不写就是预置技能 */
+  expertSkills?: string[];
+  /** 自己加的技能（技能 id）：换专家时保留 */
+  expertAdded?: string[];
+  /** 专家参与过：第一次留「加入对话」，之后留「已切换为」 */
+  expertJoined?: boolean;
+}
+
+export interface Chat extends ChatExpert {
   id: string;
   title: string;
   pinned?: boolean;
@@ -108,11 +129,13 @@ export interface Chat {
 }
 
 /** 画布右侧 Agent 的一条对话 */
-export interface CanvasChat {
+export interface CanvasChat extends ChatExpert {
   id: string;
   canvasId: string;
   title: string;
   updatedAt: number;
+  /** 专家记录：按时间和 Agent 的回合排在一起 */
+  notes?: ExpertNote[];
 }
 
 export interface CanvasMeta {

@@ -69,6 +69,8 @@ export function KiviApp({ page, onNavigate }: { page: AppPage; onNavigate: (page
   // 新建画布进画布页（创作首页「画布」提交、探索页克隆、技能「使用」）：在点的时候就建好，带着 id 进去。
   // 创作首页「画布」输入框里发的那句话，进去后 Agent 接着发
   const [canvasIntro, setCanvasIntro] = useState<AgentComposerMessage | undefined>();
+  // 专家模式：首页当前选的专家（记住用户最近一次的选择），新对话、新画布带上它；已有的对话、画布各记各的
+  const [expert, setExpert] = useState('none');
   const openCanvas = (message?: AgentComposerMessage, withSkill?: string) => {
     setSelected({ kind: 'canvas', id: ensureCanvas() });
     setSkill(withSkill);
@@ -119,6 +121,8 @@ export function KiviApp({ page, onNavigate }: { page: AppPage; onNavigate: (page
                 onNavigate('explore');
               }}
               onAllCanvases={() => navigate('assets')}
+              expert={expert}
+              onExpertChange={setExpert}
             />
           ))}
         {page === 'explore' && (
@@ -146,6 +150,7 @@ export function KiviApp({ page, onNavigate }: { page: AppPage; onNavigate: (page
           }}
           skill={skill}
           intro={canvasIntro}
+          expert={expert}
           onHome={() => navigate('create')}
         />
       )}
