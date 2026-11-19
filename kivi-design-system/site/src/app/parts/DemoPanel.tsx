@@ -27,7 +27,7 @@ export function DemoPanel() {
         title="演示开关"
         content={
           <div className="app-demo__panel">
-            {/* 分支预览才有：切到别的版本，停在同一页（app/preview.ts） */}
+            {/* 部署的网站才有：切到别的分支版本，停在同一页（app/preview.ts） */}
             {PREVIEW_LINKS.length > 1 && (
               <Tabs variant="segment" value={PREVIEW_BRANCH} onChange={switchPreview} aria-label="分支">
                 {PREVIEW_LINKS.map((l) => (

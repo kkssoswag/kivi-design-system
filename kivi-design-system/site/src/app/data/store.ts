@@ -30,7 +30,7 @@ export interface StoreOptions<T> {
 const SAVE_DELAY = 300;
 
 export function createStore<T>({ key: rawKey, version = 1, init, save }: StoreOptions<T>): Store<T> {
-  // 分支预览时按分支分开存（见 app/preview.ts，正式站不变）
+  // 功能分支按分支分开存（见 app/preview.ts，正式版不变）
   const key = rawKey && previewKey(rawKey);
   const listeners = new Set<() => void>();
   let state = load() ?? init();

@@ -1,9 +1,9 @@
 /*
-  功能分支预览（只在预览仓库 q654517651/kivi-design-preview 打包时生效；正式站、本地开发都不传，这里全是空的，什么都不变）：
-  - 打包时传 VITE_PREVIEW_BRANCH（这一份是哪个分支）和 VITE_PREVIEW_LINKS（能切到的版本，JSON：[{ name, label, url }]）。
-  - 演示开关里多一项「分支」，切过去停在同一页（带上 # 后面的路径）。
-  - 本机存的演示数据按分支分开（key 前面加分支名），和正式站不串。
-  合进 test 之前删掉这个文件和它的两处引用（parts/DemoPanel.tsx、data/store.ts）。
+  分支切换（11-19 用户定）：网站部署时正式版在根目录，.github/preview-branches.json 里列的功能分支各打一份放在「分支名/」子目录，
+  演示开关里多一项「分支」在这几个版本之间切，切过去停在同一页（带上 # 后面的路径）。
+  - 部署时（.github/workflows/pages.yml）打包传 VITE_PREVIEW_BRANCH（这一份是哪个分支，正式版是 main）和 VITE_PREVIEW_LINKS（能切到的版本，JSON：[{ name, label, url }]）。
+    本地开发不传，这里是空的，不出切换。
+  - 本机存的演示数据按分支分开（功能分支的 key 前面加分支名），正式版还用原来的 key，和功能分支不串。
 */
 
 export interface PreviewLink {
@@ -25,8 +25,8 @@ export const PREVIEW_LINKS: PreviewLink[] = (() => {
   }
 })();
 
-/** 本机存储的 key：预览时前面加分支名 */
-export const previewKey = (key: string) => (PREVIEW_BRANCH ? `${PREVIEW_BRANCH}:${key}` : key);
+/** 本机存储的 key：功能分支前面加分支名，正式版不变 */
+export const previewKey = (key: string) => (PREVIEW_BRANCH && PREVIEW_BRANCH !== 'main' ? `${PREVIEW_BRANCH}:${key}` : key);
 
 /** 切到另一个版本，停在同一页 */
 export function switchPreview(name: string) {
