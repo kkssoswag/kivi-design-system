@@ -1,6 +1,9 @@
 name: Publish design site
 
 # 只在 main（正式版）更新时发布网站：test 是开发分支，推 test 不发布。发布流程见 CHANGELOG.md。
+# 功能分支预览：.github/preview-branches.json 里列的分支各打一份，放在网站的「分支名/」子目录（打开直接进演示站），
+# 正式站还在根目录、照旧只用 main 的代码，两边代码没有交集。预览分支推送后由它自己的 preview-trigger.yml 叫这里重新发一次（跑的是 main 上的这份）。
+# 某个预览分支打包失败只跳过它，不挡正式站发布。
 
 on:
   push:
@@ -8,6 +11,7 @@ on:
     paths:
       - 'kivi-design-system/**'
       - '.github/workflows/pages.yml'
+      - '.github/preview-branches.json'
   workflow_dispatch:
 
 permissions:
@@ -38,6 +42,26 @@ jobs:
         run: npm run check
       - name: Build site
         run: npm run build
+      - name: Build preview branches
+        # 打包时传 VITE_PREVIEW_BRANCH / VITE_PREVIEW_LINKS，分支里的演示开关据此出「分支」切换（见那个分支的 src/app/preview.ts）
+        run: |
+          SITE="https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}/"
+          LIST="$GITHUB_WORKSPACE/.github/preview-branches.json"
+          LINKS=$(node -e "const b=require(process.argv[1]);const s=process.argv[2];console.log(JSON.stringify([{name:'main',label:'正式版',url:s},...b.map(x=>({name:x.name,label:x.label,url:s+x.name+'/'}))]))" "$LIST" "$SITE")
+          for NAME in $(node -e "require(process.argv[1]).forEach(x=>console.log(x.name))" "$LIST"); do
+            echo "::group::预览 $NAME"
+            DIR="$RUNNER_TEMP/preview-$NAME"
+            if git fetch --depth 1 origin "refs/heads/$NAME" && git worktree add --detach "$DIR" FETCH_HEAD \
+              && (cd "$DIR/kivi-design-system/site" && npm ci && VITE_PREVIEW_BRANCH="$NAME" VITE_PREVIEW_LINKS="$LINKS" npm run build); then
+              rm -rf "dist/$NAME" && cp -R "$DIR/kivi-design-system/site/dist" "dist/$NAME"
+              # 预览只看演示站：没带 # 路径时直接进创作页
+              sed -i 's#<head>#<head><script>if(!location.hash||location.hash==="\#/")location.replace("\#/app/create")</script>#' "dist/$NAME/index.html"
+            else
+              echo "::warning::预览分支 $NAME 打包失败，这次跳过"
+            fi
+            echo "::endgroup::"
+          done
+
       - name: Upload site
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
         with:
