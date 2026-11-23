@@ -9,7 +9,8 @@ import { useBalanceTip } from './flows/balance-tip';
 import { FlowHost } from './flows/dialogs';
 import { AssetsPage } from './pages/assets';
 import { CanvasPage } from './pages/canvas';
-import { CreateHome, CreatePage } from './pages/create';
+import { CreateHome, CreatePage, type ChatIntro } from './pages/create';
+import { GENERAL_EXPERT } from '../docs/business/expert-data';
 import { ExplorePage, type ExploreTab } from './pages/explore';
 import { ToolsPage } from './pages/tools';
 import { Sidebar, Wallet, type AppPage, type HistoryKind } from './parts/shell';
@@ -70,7 +71,9 @@ export function KiviApp({ page, onNavigate }: { page: AppPage; onNavigate: (page
   // 创作首页「画布」输入框里发的那句话，进去后 Agent 接着发
   const [canvasIntro, setCanvasIntro] = useState<AgentComposerMessage | undefined>();
   // 专家模式：首页当前选的专家（记住用户最近一次的选择），新对话、新画布带上它；已有的对话、画布各记各的
-  const [expert, setExpert] = useState('none');
+  const [expert, setExpert] = useState(GENERAL_EXPERT);
+  // 切换器要问的首页 Agent 需求：先不发，带进新对话页，问完再发
+  const [chatIntro, setChatIntro] = useState<(ChatIntro & { chatId: string }) | undefined>();
   const openCanvas = (message?: AgentComposerMessage, withSkill?: string) => {
     setSelected({ kind: 'canvas', id: ensureCanvas() });
     setSkill(withSkill);
@@ -109,11 +112,19 @@ export function KiviApp({ page, onNavigate }: { page: AppPage; onNavigate: (page
         />
         {page === 'create' &&
           (selected.kind === 'chat' && selected.id ? (
-            <CreatePage key={selected.id} chatId={selected.id} />
+            <CreatePage
+              key={selected.id}
+              chatId={selected.id}
+              intro={chatIntro?.chatId === selected.id ? chatIntro : undefined}
+              onIntroDone={() => setChatIntro(undefined)}
+            />
           ) : (
             <CreateHome
               // 提交后进新建的那个对话（侧栏里它排在最前）
-              onSubmit={(chatId) => setSelected({ kind: 'chat', id: chatId })}
+              onSubmit={(chatId, intro) => {
+                setChatIntro(intro && { ...intro, chatId });
+                setSelected({ kind: 'chat', id: chatId });
+              }}
               onOpenCanvas={openCanvas}
               onExplore={(tab, keyword = '') => {
                 setExploreTab(tab);

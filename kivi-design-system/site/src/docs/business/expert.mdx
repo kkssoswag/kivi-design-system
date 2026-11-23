@@ -1,23 +1,17 @@
 import { PageHeader } from '@shell';
-import { ExpertBarPlayground, ExpertCardPlayground, ExpertDetailPlayground, ExpertRecordPlayground, ExpertSkillPanelPlayground } from './expert.demos';
+import { ExpertBarPlayground, ExpertCardPlayground, ExpertDetailPlayground, ExpertRecordPlayground } from './expert.demos';
 
 <PageHeader eyebrow="业务组件" title="专家" code="kivi/expert" />
 
 ## ExpertBar
 
-专家条：在 Agent 输入框顶上显示当前专家，点开换专家；会话、画布里还能调这位专家的技能。
+专家条：在 Agent 输入框顶上显示当前专家，点开换专家。
 
 <ExpertBarPlayground />
 
-## ExpertSkillPanel
-
-专家技能面板：增删这位专家在当前会话里用的技能。
-
-<ExpertSkillPanelPlayground />
-
 ## ExpertCard
 
-专家卡片：创作首页输入框下面的一张专家，邀请或看详情。
+专家横条：创作首页输入框下面的一位专家，点了看详情。
 
 <ExpertCardPlayground />
 
@@ -29,60 +23,39 @@ import { ExpertBarPlayground, ExpertCardPlayground, ExpertDetailPlayground, Expe
 
 ## ExpertRecord
 
-专家记录：对话里专家加入、切换、调整技能留的一行。
+专家记录：对话里专家加入、切换留的一行。
 
 <ExpertRecordPlayground />
 
 ## 参数
 
-专家的数据结构 `ExpertItem`：`id`、`name`、`description`（定位）、`avatar`（不传就是「无需专家」，用用户自己的头像）、`skills`（预置技能，`SkillItem[]`）、`strengths`（擅长）、`examples`（试试这样说，最多 3 条）。专家都在管理后台配，组件库不带。
+专家的数据结构 `ExpertItem`：`id`、`name`、`description`（定位）、`avatar`（头像）、`skills`（预置技能，`SkillItem[]`，用户不能增删）、`strengths`（擅长）、`examples`（试试这样说，最多 3 条）。第一个一般是通用专家（默认，不挂预置技能）。擅长、示例提问、预置技能都没有的专家没有详情（`hasExpertDetail`）。专家都在管理后台配，组件库不带。
 
 ### ExpertBar
 
-两个按钮并排，间距 4，各是各的底（Container Light 1，悬停 Light 1 悬停）、圆角 8、高 32。左边是当前专家：头像 24（专家是方形缩略图 AssetThumb，无需专家是用户的圆形 Avatar）+ 名字 13 中粗 + 一行 12 tertiary（无需专家是定位，专家是「N 项技能」，没有预置技能不显示）+ 向下箭头 16 tertiary，点开选择浮层（Menu 单选，两行，当前项右边打勾，悬停专家出「详情」）。传了 `skills`（会话、画布）右边多一个「N 项技能」（Skill 图标 16 + 12 secondary，清单空了写「添加技能」），点开 ExpertSkillPanel；无需专家没有这个按钮。其余原生 `<div>` 属性都能传。
+一个按钮：Container Light 1 底（悬停、展开时 Light 1 悬停）、圆角 8、高 32、左右内边距 4 / 8。头像 24（AssetThumb）+ 名字 13 中粗 + 向下箭头 16 tertiary，间距 6。点开选择浮层（Menu 单选，两行，当前项右边打勾，悬停有详情的专家出「详情」）。其余原生 `<div>` 属性都能传。
 
 | 属性 | 类型 | 默认 | 说明 |
 |---|---|---|---|
-| `experts` | `ExpertItem[]` | — | 必填。能选的专家，第一个一般是无需专家 |
+| `experts` | `ExpertItem[]` | — | 必填。能选的专家，第一个一般是通用专家 |
 | `value` / `defaultValue` / `onValueChange` | `string` / `string` / `(id) => void` | — / 第一个 / — | 当前专家 |
-| `user` | `{ name: string; avatar?: string }` | — | 无需专家显示用户的头像 |
 | `onDetail` | `(expert) => void` | — | 选择浮层里点「详情」，先关浮层再调用 |
-| `skills` / `onSkillsChange` | `SkillItem[]` / `(skills) => void` | — | 当前会话的技能清单（受控）。不传就不能调技能（首页） |
-| `skillsOpen` / `onSkillsOpenChange` | `boolean` / `(open) => void` | — / — | 专家技能面板开关。关上时清单变了，对话里留一条「已调整技能」 |
-| `skillItems` / `skillCategories` | `SkillItem[]` / `string[]` | — | 能添加的技能和分类，传给 ExpertSkillPanel |
-| `skillsScope` | `ReactNode` | `"仅当前会话"` | 技能面板标题后的范围说明，画布里传「仅当前画布」 |
 | `placement` | `"top-start"` `"bottom-start"` | `"top-start"` | 浮层往哪边弹：贴底的输入框往上，创作首页往下 |
-| `disabled` | `boolean` | `false` | Agent 回复进行中：不能换专家、不能调技能 |
-
-### ExpertSkillPanel
-
-宽 400、圆角 16、玻璃（和技能面板一样），高度跟着内容。头部标题 14 中粗 + 范围 12 tertiary，清单和预置不一样时右边出「恢复默认」（Button 次要 · 28）。下面两段，各有一行 12 tertiary 的小标题：「当前技能（n）」和「添加技能」（选项卡：推荐、分类、我的，右边搜索）；两段列表各自最高 228（四行），多了在里面滚。每行左图标 Tool 20 + 名字 14 + 说明 12 secondary 一行省略，悬停底 Light 1 悬停；当前技能悬停出「移除」，预置的名字后挂 Tag「预置」；添加技能悬停出「添加」，已在清单里的写「已添加」，清单满了「添加」不能点。按钮都是 Button 次要灰 · 28。其余原生 `<div>` 属性都能传。
-
-| 属性 | 类型 | 默认 | 说明 |
-|---|---|---|---|
-| `title` | `ReactNode` | — | 必填。比如「视觉设计专家的技能」 |
-| `scope` | `ReactNode` | — | 标题后的范围说明 |
-| `value` / `defaultValue` / `onValueChange` | `SkillItem[]` / `SkillItem[]` / `(skills) => void` | — / `[]` / — | 当前技能清单。可以全部移除 |
-| `defaults` | `SkillItem[]` | `[]` | 这位专家的预置技能：标「预置」，恢复默认回到它 |
-| `items` / `categories` | `SkillItem[]` / `string[]` | `[]` | 能添加的技能和分类 |
-| `max` | `number` | `20` | 清单最多几个 |
+| `disabled` | `boolean` | `false` | Agent 回复进行中：不能换专家 |
 
 ### ExpertCard
 
-和探索卡一样的容器：圆角 12、Container Light 2 底、不加描边，悬停 Light 2 悬停；内边距 12、上下间距 12。上面头像 56（AssetThumb）+ 名字 14 / 22 中粗一行省略 + 定位 12 / 20 secondary 两行（不够两行也占两行高）；下面左边「N 项技能」12 tertiary（0 不显示），右边 Button 28：没邀请是次要「邀请」，邀请了是次要灰「已邀请」、卡片描边 border-strong。整张卡点了打开详情，「邀请」单独能点。其余原生 `<div>` 属性都能传。
+横条：高 64、圆角 12、Container Light 2 底、不加描边，悬停 Light 2 悬停；左内边距 16，名字 14 中粗一行省略 + 向右箭头 16 tertiary，间距 4；配图铺在右边 112 宽、铺满高、往左渐隐。邀请了描边 border-strong。整条是一个按钮，点了打开详情。其余原生 `<button>` 属性都能传。
 
 | 属性 | 类型 | 默认 | 说明 |
 |---|---|---|---|
 | `name` | `string` | — | 必填。专家名字 |
-| `description` | `string` | — | 必填。定位 |
-| `avatar` | `string` | — | 头像图 |
-| `skillCount` | `number` | `0` | 预置技能数 |
-| `invited` / `defaultInvited` / `onInvitedChange` | `boolean` / `boolean` / `(invited) => void` | — / `false` / — | 邀请、取消邀请（回到无需专家） |
-| `onOpen` | `() => void` | — | 点卡片：打开专家详情 |
+| `avatar` | `string` | — | 配图（专家头像） |
+| `invited` | `boolean` | `false` | 已邀请：描边变亮 |
 
 ### ExpertDetail
 
-Dialog 560，标题是专家名字。上面头像 72（AssetThumb）+ 定位 14 / 22 secondary + Button 36（没邀请是主要「邀请」，邀请了是次要灰「已邀请」）；下面三块，各有 13 中粗 secondary 小标题、离上面 24：擅长（Tag 一排，间距 6）、试试这样说（一条一行，Light 1 底、圆角 8、内边距 8 / 12，右边箭头 16，悬停 Light 1 悬停）、技能（n）（两列，Tool 20 + 名字 13 中粗 + 说明 12 tertiary）。没有的块不显示。其余属性传给 Dialog。
+Dialog 560，标题是专家名字。上面头像 72（AssetThumb）+ 定位 14 / 22 secondary + Button 36（没邀请是主要「邀请」，邀请了是次要灰「已邀请」）；下面三块，各有 13 中粗 secondary 小标题、离上面 24：擅长（Tag 一排，间距 6）、试试这样说（一条一行，Light 1 底、圆角 8、内边距 8 / 12，右边箭头 16，悬停 Light 1 悬停）、技能（n）（两列，Tool 20 + 名字 13 中粗 + 说明 12 tertiary，只读）。没有的块不显示。其余属性传给 Dialog。
 
 | 属性 | 类型 | 默认 | 说明 |
 |---|---|---|---|
@@ -91,7 +64,7 @@ Dialog 560，标题是专家名字。上面头像 72（AssetThumb）+ 定位 14 
 | `strengths` | `string[]` | `[]` | 擅长 |
 | `examples` | `string[]` | `[]` | 试试这样说，最多显示 3 条 |
 | `skills` | `SkillItem[]` | `[]` | 预置技能，只读 |
-| `invited` / `onInvitedChange` | `boolean` / `(invited) => void` | `false` / — | 邀请、取消邀请 |
+| `invited` / `onInvitedChange` | `boolean` / `(invited) => void` | `false` / — | 邀请、取消邀请（回到通用专家） |
 | `onExample` | `(text) => void` | — | 点一条示例提问：邀请这位专家、关弹窗、把这句话填进输入框（不发送） |
 
 ### ExpertRecord
@@ -100,5 +73,5 @@ Dialog 560，标题是专家名字。上面头像 72（AssetThumb）+ 定位 14 
 
 | 属性 | 类型 | 默认 | 说明 |
 |---|---|---|---|
-| `avatar` | `string` | — | 专家头像图。切回无需专家不放 |
-| `children` | `ReactNode` | — | 必填。「XX 加入对话」「已切换为 XX」「已调整技能：添加 A，移除 B」 |
+| `avatar` | `string` | — | 专家头像图 |
+| `children` | `ReactNode` | — | 必填。「XX 加入对话」「已切换为 XX」 |

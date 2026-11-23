@@ -65,13 +65,19 @@ const TOP_GAP = 80;
 /** 离底多近算「在底部」：在底部时内容变高跟着滚 */
 const FOLLOW_GAP = 80;
 
-/** 对话页：对话被删掉了就什么都不画（外壳会回创作首页） */
-export function CreatePage({ chatId }: { chatId: string }) {
-  const chat = useDB((s) => byId(s.chats, chatId));
-  return chat ? <ChatView chat={chat} /> : null;
+/** 从创作首页带进来、还没发的 Agent 需求：切换器要问（需求明显属于别的专家），进来先问，选了再发 */
+export interface ChatIntro {
+  text: string;
+  references: ReferenceStackItem[];
 }
 
-function ChatView({ chat }: { chat: Chat }) {
+/** 对话页：对话被删掉了就什么都不画（外壳会回创作首页） */
+export function CreatePage({ chatId, intro, onIntroDone }: { chatId: string; intro?: ChatIntro; onIntroDone?: () => void }) {
+  const chat = useDB((s) => byId(s.chats, chatId));
+  return chat ? <ChatView chat={chat} intro={intro} onIntroDone={onIntroDone} /> : null;
+}
+
+function ChatView({ chat, intro, onIntroDone }: { chat: Chat; intro?: ChatIntro; onIntroDone?: () => void }) {
   const tasks = useDB((s) => s.tasks);
   const assets = useDB((s) => s.assets);
   const agentTurns = useDB((s) => s.agentTurns);
@@ -122,7 +128,6 @@ function ChatView({ chat }: { chat: Chat }) {
   // 专家模式：输入框顶上的专家条、对话里的记录、需求不对口时的确认卡（parts/expert-session.tsx）
   const expertSession = useExpertSession({
     target: { kind: 'chat', id: chat.id },
-    scope: '仅当前会话',
     fill: (text) => setFill({ key: Date.now(), task: 'agent', text, params: {}, count: 1 }),
     disabled: !!active,
   });
@@ -220,6 +225,16 @@ function ChatView({ chat }: { chat: Chat }) {
     if (sent && withRefs.length) setRefs([]);
   };
 
+  // 首页带进来的需求：先过切换器（问完再发），只过一次
+  const introSeen = useRef(false);
+  useEffect(() => {
+    if (!intro || introSeen.current) return;
+    introSeen.current = true;
+    expertSession.guard(intro.text, () => void ask(intro.text, intro.references));
+    onIntroDone?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [intro]);
+
   const submit = (s: PromptBoxSubmit) => {
     // 返回请求的 Promise：输入框等它的时候生成按钮转圈、不能重复提交
     // Agent：需求明显属于别的专家时先出确认卡，选了再发（不用重发）
@@ -312,7 +327,8 @@ function ChatView({ chat }: { chat: Chat }) {
             ) : (
               <>
                 {older.loading && <Loading className="tpl-ms__older">加载中</Loading>}
-                {count === 0 && <EmptyState type="empty" size={160} title="暂无数据" />}
+                {/* 首页带进来、切换器还在问的：先不放空状态，只有输入框位置的确认卡 */}
+                {count === 0 && !expertSession.asking && <EmptyState type="empty" size={160} title="暂无数据" />}
                 <RecordFeed chat={chat} tasks={tasks} assets={assets} agentTurns={agentTurns} ctx={ctx} start={older.start} />
               </>
             )}

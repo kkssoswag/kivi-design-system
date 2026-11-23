@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Button, CreateCard, ExpertBar, ExpertCard, ExploreCard, Masonry, ProjectCard, PromptBox, ScrollArea, TabItem, Tabs, WorkCard, placeholderImageSrc, toast, type ExpertItem, type GenTask, type PromptBoxSubmit } from '@kivi';
-import { EXPERTS, EXPERT_USER, expertOf } from '../../../docs/business/expert-data';
+import { EXPERTS, GENERAL_EXPERT, expertOf, suggestExpert } from '../../../docs/business/expert-data';
 import { SKILL_CATEGORIES, SKILL_ITEMS } from '../../../docs/business/skill-data';
 import { RATIO, SKILLS, WORKS, flowsOf } from '../../data/catalog';
 import { sendAgent } from '../../data/agent';
@@ -11,6 +11,7 @@ import { attempt } from '../../flows/errors';
 import { AgentComposer } from '../../parts/agent-composer';
 import { ExpertDetailHost, expertPlaceholder } from '../../parts/expert-session';
 import { startExpert } from '../../data/experts';
+import type { ChatIntro } from './CreatePage';
 import type { ExploreTab } from '../explore';
 import { ComposerMotion, HomeAtmosphere, SHOW_COMPOSER_MOTION } from './HomeBackdrop';
 import { HomeHead, RecentUpdates } from './HomeParts';
@@ -51,14 +52,14 @@ export function CreateHome({
   onOpenCanvas,
   onExplore,
   onAllCanvases,
-  expert = 'none',
+  expert = GENERAL_EXPERT,
   onExpertChange,
 }: {
   /** 当前专家（专家模式）：生成、画布两个入口共用一个，记住用户最近一次的选择，Agent 提交时带进新对话、新画布 */
   expert?: string;
   onExpertChange?: (id: string) => void;
-  /** 生成：对话建好、任务提交后，进这个对话页（参数是新对话的 id） */
-  onSubmit: (chatId: string) => void;
+  /** 生成：对话建好、任务提交后，进这个对话页（参数是新对话的 id）。切换器要问的 Agent 需求先不发，带进对话页问完再发（intro） */
+  onSubmit: (chatId: string, intro?: ChatIntro) => void;
   /** 画布：新建画布、打开最近项目、提交想法，都进画布页 */
   onOpenCanvas: () => void;
   /** 广场搜索框回车（带着关键词）、点作品：去探索页对应选项卡 */
@@ -72,13 +73,13 @@ export function CreateHome({
   const [detail, setDetail] = useState<ExpertItem | null>(null);
   const [fill, setFill] = useState<{ text: string; key: number; mode: HomeMode }>();
   const invite = (id: string, on: boolean) => {
-    onExpertChange?.(on ? id : 'none');
+    onExpertChange?.(on ? id : GENERAL_EXPERT);
     if (!on) return;
-    // 图片、视频、音频模式下点「邀请」：任务类型切到 Agent
+    // 图片、视频、音频模式下在详情里点「邀请」：任务类型切到 Agent
     if (mode === 'generate') setTask('agent');
     toast.success(`已邀请${expertOf(id).name}`);
   };
-  const expertBar = <ExpertBar experts={EXPERTS} user={EXPERT_USER} value={expert} onValueChange={(id) => onExpertChange?.(id)} onDetail={setDetail} placement="bottom-start" />;
+  const expertBar = <ExpertBar experts={EXPERTS} value={expert} onValueChange={(id) => onExpertChange?.(id)} onDetail={setDetail} placement="bottom-start" />;
   // 最近项目：最近改过的 4 块画布（和侧栏画布历史、资产页「我的画布」同一批）
   const canvases = useDB((s) => s.canvases);
   const recent = useMemo(() => [...canvases].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, PROJECT_COLS - 1), [canvases]);
@@ -93,6 +94,11 @@ export function CreateHome({
       // Agent：把这句话（连同参考区的素材）发出去，进对话页看它回复。首页的专家带进新对话（留「XX 加入对话」）
       if (s.task === 'agent') {
         startExpert({ kind: 'chat', id: chat.id }, expert);
+        // 切换器：需求明显属于别的专家，先不发，进对话页在输入框的位置问，选了再发（和从首页进画布一样）
+        if (suggestExpert(expert, s.text)) {
+          onSubmit(chat.id, { text: s.text, references: s.references });
+          return;
+        }
         const sent = await attempt(() =>
           sendAgent(chat.id, { text: s.text, refs: s.references.map((r) => ({ type: r.type, src: r.src ?? '', name: r.name, duration: r.duration })) }),
         );
@@ -294,26 +300,12 @@ export function CreateHome({
             </div>
           </div>
 
-          {/* 专家卡片：生成、画布两个入口都有，在输入框和最近更新 / 最近项目之间。「无需专家」不占卡片 */}
-          <section className="tpl-home__section" aria-label="邀请专家">
-            <header className="tpl-home__head">
-              <h2>邀请专家</h2>
-            </header>
-            <div className="tpl-home__experts">
-              {EXPERTS.filter((e) => e.avatar).map((e) => (
-                <ExpertCard
-                  key={e.id}
-                  name={e.name}
-                  description={e.description}
-                  avatar={e.avatar}
-                  skillCount={e.skills?.length}
-                  invited={expert === e.id}
-                  onInvitedChange={(on) => invite(e.id, on)}
-                  onOpen={() => setDetail(e)}
-                />
-              ))}
-            </div>
-          </section>
+          {/* 专家横条（照堆友）：生成、画布两个入口都有，紧贴输入框下面一行，通用专家不占。点了打开详情，在详情里邀请 */}
+          <div className="tpl-home__experts" role="group" aria-label="专家">
+            {EXPERTS.filter((e) => e.id !== GENERAL_EXPERT).map((e) => (
+              <ExpertCard key={e.id} name={e.name} avatar={e.avatar} invited={expert === e.id} onClick={() => setDetail(e)} />
+            ))}
+          </div>
           <ExpertDetailHost
             detail={detail}
             current={expert}

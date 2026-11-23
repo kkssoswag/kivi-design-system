@@ -24,6 +24,7 @@ import { isMediaNode } from '../../rules/canvas';
 import { AgentComposer, type AgentComposerMessage } from '../../parts/agent-composer';
 import { useExpertSession } from '../../parts/expert-session';
 import { startExpert } from '../../data/experts';
+import { GENERAL_EXPERT } from '../../../docs/business/expert-data';
 import { AgentTurn } from '../create/AgentTurn';
 
 /*
@@ -54,7 +55,7 @@ export interface CanvasAgentProps {
   onAttachmentsChange: (attachments: AttachmentItem[]) => void;
 }
 
-export function CanvasAgent({ canvasId, skill, intro, expert = 'none', onLocate, attachments, onAttachmentsChange }: CanvasAgentProps) {
+export function CanvasAgent({ canvasId, skill, intro, expert = GENERAL_EXPERT, onLocate, attachments, onAttachmentsChange }: CanvasAgentProps) {
   const allChats = useDB((s) => s.canvasChats);
   const turns = useDB((s) => s.agentTurns);
   const tasks = useDB((s) => s.tasks);
@@ -121,7 +122,6 @@ export function CanvasAgent({ canvasId, skill, intro, expert = 'none', onLocate,
   const [fill, setFill] = useState<{ text: string; key: number }>();
   const expertSession = useExpertSession({
     target: { kind: 'canvas', id: chatId },
-    scope: '仅当前画布',
     fill: (text) => setFill({ text, key: Date.now() }),
     disabled: !!active,
   });
