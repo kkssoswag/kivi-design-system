@@ -6,7 +6,7 @@ import { GenRecordView } from './GenRecordView';
 import type { TileContext } from './tiles';
 
 /*
-  记录流：对话里的每一项按顺序排下来，生成任务一条记录，Agent 一轮一段（data/agent.ts 播的），专家加入、切换、调整技能一行（data/experts.ts）。
+  记录流：对话里的每一项按顺序排下来，生成任务一条记录，Agent 一轮一段（data/agent.ts 播的），专家加入、切换一行（data/experts.ts）。
   任务已经被删掉、取消了的项直接跳过。
 */
 

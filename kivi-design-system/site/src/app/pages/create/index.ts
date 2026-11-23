@@ -1,2 +1,2 @@
 export { CreateHome } from './CreateHome';
-export { CreatePage } from './CreatePage';
+export { CreatePage, type ChatIntro } from './CreatePage';
