@@ -27,6 +27,10 @@ export interface MenuItemProps extends Omit<ButtonHTMLAttributes<HTMLButtonEleme
   children?: ReactNode;
   /** 说明：写了就是两行，第二行 12 号 secondary，一行省略。两行时左图标 20；选中（selected）不加底、在右边打勾，因为两行的行大，悬停和选中都是底色分不清（11-03 定） */
   description?: ReactNode;
+  /** 说明不省略，放不下换行（说明是挑选依据的，比如选专家，11-24 用户定） */
+  wrap?: boolean;
+  /** 两行项选中怎么标：右边打勾（默认）/ 铺选中底色、不打勾（选专家，11-24 用户定） */
+  mark?: 'check' | 'fill';
   /** 类型：普通 / 危险，默认普通。危险只有默认、悬停、禁用，没有选中；放在菜单最后，用 Divider 和上面隔开 */
   variant?: MenuItemVariant;
   /** 左图标：16，两行时 20；平铺（侧栏）里 20。和 thumb 二选一 */
@@ -113,6 +117,8 @@ export const MenuItem = forwardRef<HTMLElement, MenuItemProps>(function MenuItem
   {
     children,
     description,
+    wrap = false,
+    mark = 'check',
     variant = 'default',
     icon,
     thumb,
@@ -178,6 +184,8 @@ export const MenuItem = forwardRef<HTMLElement, MenuItemProps>(function MenuItem
       aria-checked={checked}
       aria-haspopup={submenu ? 'menu' : undefined}
       data-two-line={twoLine ? '' : undefined}
+      data-wrap={twoLine && wrap ? '' : undefined}
+      data-mark={twoLine && mark === 'fill' ? 'fill' : undefined}
       data-highlighted={highlighted ? '' : undefined}
       data-lead={lead}
       data-collapsed={collapsed ? '' : undefined}
@@ -211,7 +219,7 @@ export const MenuItem = forwardRef<HTMLElement, MenuItemProps>(function MenuItem
       )}
       {shortcut && <span className="kv-menu-item__shortcut">{shortcut}</span>}
       {submenu && <Icon name="RightArrowSmall" className="kv-menu-item__arrow" />}
-      {(checked || (twoLine && selected)) && <Icon name="CheckSmall" className="kv-menu-item__check" />}
+      {(checked || (twoLine && selected && mark === 'check')) && <Icon name="CheckSmall" className="kv-menu-item__check" />}
       {pinned && !editing && (
         <span className="kv-menu-item__pin" role="img" aria-label="已置顶">
           <Icon name="Pin" size={16} />

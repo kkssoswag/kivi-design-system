@@ -1,5 +1,5 @@
 import { forwardRef, useState, type HTMLAttributes } from 'react';
-import { IconButton } from '../button';
+import { Button } from '../button';
 import { Dropdown, Menu, MenuItem } from '../menu';
 import { Select } from '../selection';
 import { Avatar } from '../tags-avatar';
@@ -49,25 +49,27 @@ export const ExpertBar = forwardRef<HTMLDivElement, ExpertBarProps>(function Exp
           </Select>
         }
       >
-        <Menu role="listbox" aria-label="选择专家">
+        <Menu role="listbox" aria-label="选择专家" width={320}>
           {experts.map((e) => (
             <MenuItem
               key={e.id}
               thumb={<Avatar size={24} name={e.name} src={e.avatar} />}
               description={e.description}
+              wrap
+              mark="fill"
               selected={e.id === expert.id}
               actions={
                 onDetail && hasExpertDetail(e) ? (
-                  <IconButton
-                    icon="Preview"
-                    label="详情"
+                  <Button
                     variant="ghost-muted"
                     size={28}
                     onClick={() => {
                       setPicking(false);
                       onDetail(e);
                     }}
-                  />
+                  >
+                    详情
+                  </Button>
                 ) : undefined
               }
               onClick={() => setValue(e.id)}

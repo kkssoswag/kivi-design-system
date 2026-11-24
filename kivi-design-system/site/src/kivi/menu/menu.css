@@ -283,7 +283,7 @@
 
 /* 状态：禁用 */
 /* 有两行项的菜单最宽 320（单行的 240） */
-.kv-menu:has(> .kv-menu-item[data-two-line]) {
+.kv-menu:has(.kv-menu-item[data-two-line]) {
   max-width: 320px;
 }
 
@@ -321,8 +321,14 @@
   font-size: var(--font-size-12);
 }
 
-.kv-menu-item[data-two-line][aria-selected="true"]:not(:hover, :focus-visible, .is-hover) {
+.kv-menu-item[data-two-line]:not([data-mark="fill"])[aria-selected="true"]:not(:hover, :focus-visible, .is-hover) {
   background: transparent;
+}
+
+/* 说明换行（wrap）：不省略，放不下折行，行高 16 */
+.kv-menu-item[data-wrap] .kv-menu-item__description {
+  line-height: var(--font-line-height-16);
+  white-space: normal;
 }
 
 .kv-menu-item:is(:disabled, [aria-disabled="true"]) {
