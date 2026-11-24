@@ -62,8 +62,8 @@ export const ExpertDetail = forwardRef<HTMLDivElement, ExpertDetailProps>(functi
           <div className="kv-expert-detail__examples">
             {examples.slice(0, 3).map((t) => (
               <button key={t} type="button" className="kv-expert-detail__example" onClick={() => onExample?.(t)}>
-                <span>{t}</span>
                 <Icon name="Message" />
+                <span>{t}</span>
               </button>
             ))}
           </div>

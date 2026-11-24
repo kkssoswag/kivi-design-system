@@ -134,14 +134,12 @@
   gap: var(--spacing-8);
 }
 
-/* 一排三张：字在上（14 / 22，最多三行），对话图标在右下 */
+/* 一排三张：对话图标和字一行（图标对齐第一行字），字 14 / 22 最多三行 */
 .kv-expert-detail__example {
   display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: var(--spacing-12);
+  align-items: flex-start;
+  gap: var(--spacing-8);
   box-sizing: border-box;
-  min-height: 112px;
   margin: 0;
   padding: var(--spacing-16);
   border: var(--border-width-1) solid var(--color-border-subtle);
@@ -155,7 +153,7 @@
   cursor: pointer;
 }
 
-.kv-expert-detail__example > span {
+.kv-expert-detail__example > span:not(.kv-icon) {
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
@@ -169,7 +167,7 @@
 
 .kv-expert-detail__example > .kv-icon {
   flex: none;
-  align-self: flex-end;
+  margin-top: calc((var(--font-line-height-22) - 16px) / 2); /* 和第一行字居中 */
   width: 16px;
   height: 16px;
   color: var(--color-text-fill-tertiary);
