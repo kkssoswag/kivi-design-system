@@ -129,26 +129,37 @@
 }
 
 .kv-expert-detail__examples {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-6);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--spacing-8);
 }
 
+/* 一排三张：字在上（14 / 22，最多三行），对话图标在右下 */
 .kv-expert-detail__example {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   justify-content: space-between;
-  gap: var(--spacing-8);
+  gap: var(--spacing-12);
+  box-sizing: border-box;
+  min-height: 112px;
   margin: 0;
-  padding: var(--spacing-8) var(--spacing-12);
+  padding: var(--spacing-16);
   border: var(--border-width-1) solid var(--color-border-subtle);
-  border-radius: var(--border-radius-8);
+  border-radius: var(--border-radius-12);
   background: none;
   color: var(--color-text-fill-primary);
   font-family: var(--font-family);
-  font-size: var(--font-size-13);
+  font-size: var(--font-size-14);
+  line-height: var(--font-line-height-22);
   text-align: left;
   cursor: pointer;
+}
+
+.kv-expert-detail__example > span {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 
 /* 平时只有描边不铺底，悬停铺大块容器的 Light 2 悬停（设计规则：大块容器在深底上用 Light 2） */
@@ -158,6 +169,7 @@
 
 .kv-expert-detail__example > .kv-icon {
   flex: none;
+  align-self: flex-end;
   width: 16px;
   height: 16px;
   color: var(--color-text-fill-tertiary);
