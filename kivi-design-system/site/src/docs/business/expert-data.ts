@@ -6,10 +6,37 @@ import { placeholderImageSrc, type ExpertItem, type SkillItem } from '@kivi';
   首批四位：通用专家（默认，就是现在的 Agent）、视觉、礼物、品牌。预置技能用户不能增删。
 */
 
-const ACTIVITY: SkillItem = { id: 'activity-visual', title: '活动视觉设计', description: '需求梳理、主视觉、标题 Logo、页面组件、资源位', category: '设计', recommended: true };
-const TEMPLATE: SkillItem = { id: 'template-material', title: '模板活动素材', description: '主背景、标题、按钮、礼物容器、弹窗边框五件套', category: '设计' };
-const GIFT: SkillItem = { id: 'live-gift', title: '直播礼物设计', description: '分镜脚本、分镜图、设定图、动效视频、等级规格', category: '视频', recommended: true };
-const BRAND: SkillItem = { id: 'brand-ip', title: '品牌与 IP 素材', description: '品牌 Logo、IP 标准形象、表情与服装规范', category: '设计', recommended: true };
+// 预置技能：一位专家一般七八个（11-24 用户说），都带封面
+const sk = (id: string, title: string, description: string, category: string, cover: SkillItem['cover']): SkillItem => ({ id, title, description, category, cover });
+
+const VISUAL_SKILLS: SkillItem[] = [
+  sk('activity-visual', '活动视觉设计', '需求梳理、主视觉、标题 Logo、页面组件、资源位', '设计', 'kivi-future'),
+  sk('template-material', '模板活动素材', '主背景、标题、按钮、礼物容器、弹窗边框五件套', '设计', 'kiwi-light'),
+  sk('title-logo', '活动标题 Logo', '按活动主题出标题字效，中英阿三语一套', '设计', 'ip-future'),
+  sk('h5-components', 'H5 页面组件', '按需求文档拆页面，出头图、按钮、榜单、规则弹窗', '设计', 'monstera-dots'),
+  sk('banner', 'Banner 资源位', '开屏、直播间、首页 Banner 按各尺寸一次出齐', '营销', 'kiwi-glass'),
+  sk('i18n', '多语言延展', '一张主视觉换成多语言版本，文字排版跟着调', '设计', 'ip-kiwi-pile'),
+  sk('poster', '海报设计', '按主题、尺寸和文案出一组海报，自动排版标题和信息层级', '设计', 'bunny-gouache'),
+  sk('social', '社媒配图', '小红书、抖音封面，一次出多个比例', '营销', 'ip-peek'),
+];
+const GIFT_SKILLS: SkillItem[] = [
+  sk('live-gift', '直播礼物设计', '分镜脚本、分镜图、设定图、动效视频、等级规格', '视频', 'ip-gouache'),
+  sk('gift-script', '礼物分镜脚本', '按礼物等级写 4–15 秒的分镜，每镜写画面和动效', '视频', 'bunny-gouache'),
+  sk('vehicle', '座驾设计', '进场座驾的设定图、三视图和进场动效', '视频', 'ip-future'),
+  sk('avatar-frame', '头像框', '按活动主题出静态和动态两版头像框', '设计', 'kiwi-light'),
+  sk('mic-ring', '麦圈勋章', '麦位光圈、等级勋章，一套出多个等级', '设计', 'monstera-dots'),
+  sk('gift-loop', '礼物循环动效', '静态礼物图做成首尾相接的循环动效', '视频', 'kiwi-glass'),
+  sk('gift-spec', '礼物规格检查', '按平台规格检查尺寸、时长、文件大小', '设计', 'ip-kiwi-pile'),
+];
+const BRAND_SKILLS: SkillItem[] = [
+  sk('brand-ip', '品牌与 IP 素材', '品牌 Logo、IP 标准形象、表情与服装规范', '设计', 'ip-peek'),
+  sk('logo', 'Logo 设计', '从品牌名和行业出 6 个方向的标志草图', '设计', 'kivi-future'),
+  sk('ip', 'IP 形象延展', '上传一张角色图，延展表情包、三视图和动作', '设计', 'ip-gouache'),
+  sk('sticker', '表情包', '用 IP 形象做一组 16 个表情，带文字和不带两版', '设计', 'ip-kiwi-pile'),
+  sk('outfit', 'IP 换装', '按节日、活动主题给 IP 换一套服装和道具', '设计', 'bunny-gouache'),
+  sk('brand-check', '品牌规范检查', '按品牌色、字体和 Logo 用法检查设计稿', '设计', 'kiwi-light'),
+  sk('brand-kit', '品牌物料', '名片、工牌、PPT 模板、周边，一套品牌物料', '营销', 'monstera-dots'),
+];
 
 /** 通用专家的 id：默认选它；首页横条里没有它；切换器不会建议切到它 */
 export const GENERAL_EXPERT = 'general';
@@ -21,7 +48,7 @@ export const EXPERTS: ExpertItem[] = [
     name: '视觉设计专家',
     description: '活动主视觉、标题 Logo、页面组件、资源位，一套做齐',
     avatar: placeholderImageSrc('kivi-future', '1:1'),
-    skills: [ACTIVITY, TEMPLATE],
+    skills: VISUAL_SKILLS,
     strengths: ['活动主视觉', '标题 Logo', 'H5 页面组件', 'Banner 资源位', '多语言延展'],
     examples: ['做一张斋月活动主视觉，面向中东用户', '把这张主视觉延展成开屏和直播间 Banner', '按这份活动需求文档出 H5 页面组件'],
   },
@@ -30,7 +57,7 @@ export const EXPERTS: ExpertItem[] = [
     name: '礼物设计专家',
     description: '直播礼物、座驾、头像框、麦圈，从脚本到动效',
     avatar: placeholderImageSrc('ip-gouache', '1:1'),
-    skills: [GIFT],
+    skills: GIFT_SKILLS,
     strengths: ['直播礼物', '座驾', '头像框', '麦圈勋章', '礼物动效'],
     examples: ['做一个 A 级动态礼物：星空旋转木马', '给这个礼物写一版 8 秒的分镜脚本', '把这张静态礼物图做成循环动效'],
   },
@@ -39,7 +66,7 @@ export const EXPERTS: ExpertItem[] = [
     name: '品牌设计专家',
     description: 'Logo 规范、IP 形象延展、品牌物料，守住品牌一致',
     avatar: placeholderImageSrc('ip-peek', '1:1'),
-    skills: [BRAND],
+    skills: BRAND_SKILLS,
     strengths: ['Logo 规范', 'IP 形象延展', '表情与服装', '品牌物料'],
     examples: ['用 Dobi 和 Dori 做一组新年表情', '给 Toppy 换一套足球主题服装', '检查这张图里的 Logo 用法对不对'],
   },

@@ -2,6 +2,8 @@ import { forwardRef } from 'react';
 import { Button } from '../button';
 import { Dialog, type DialogProps } from '../dialog';
 import { Icon } from '../Icon';
+import { placeholderImageSrc } from '../placeholder-image';
+import { SKILL_DEFAULT_COVER } from '../agent';
 import { AssetThumb, Tag } from '../tags-avatar';
 import type { SkillItem } from '../generation';
 import { cx } from '../utils';
@@ -18,7 +20,7 @@ export interface ExpertDetailProps extends Omit<DialogProps, 'title' | 'descript
   strengths?: string[];
   /** 试试这样说：最多 3 条，点了邀请这位专家、关弹窗、把这句话填进输入框（不发送） */
   examples?: string[];
-  /** 预置技能：只读清单（用户不能增删），没有就不显示这一块 */
+  /** 预置技能：只读清单（用户不能增删），一位专家一般七八个；没有就不显示这一块 */
   skills?: SkillItem[];
   /** 已经邀请了：按钮是「已邀请」 */
   invited?: boolean;
@@ -28,7 +30,7 @@ export interface ExpertDetailProps extends Omit<DialogProps, 'title' | 'descript
   onExample?: (text: string) => void;
 }
 
-/** 专家详情：点首页的专家横条、选择浮层里的「详情」打开。Dialog 560：标题栏是头像 72 + 名字 + 简介（关闭在右上），「邀请」在底栏（弹窗规范：按钮在底栏靠右） */
+/** 专家详情：点首页的专家横条、选择浮层里的「详情」打开。Dialog 800：标题栏是头像 72 + 名字 + 简介（关闭在右上），「邀请」在底栏（弹窗规范：按钮在底栏靠右） */
 export const ExpertDetail = forwardRef<HTMLDivElement, ExpertDetailProps>(function ExpertDetail(
   { name, description, avatar, strengths = [], examples = [], skills = [], invited = false, onInvitedChange, onExample, className, ...rest },
   ref,
@@ -36,7 +38,7 @@ export const ExpertDetail = forwardRef<HTMLDivElement, ExpertDetailProps>(functi
   return (
     <Dialog
       ref={ref}
-      size={560}
+      size={800}
       title={
         <div className="kv-expert-detail__top">
           <AssetThumb size={72} src={avatar} />
@@ -83,7 +85,7 @@ export const ExpertDetail = forwardRef<HTMLDivElement, ExpertDetailProps>(functi
           <div className="kv-expert-detail__skills">
             {skills.map((s) => (
               <div key={s.id} className="kv-expert-detail__skill">
-                <Icon name="Tool" />
+                <AssetThumb size={72} src={s.cover ? placeholderImageSrc(s.cover, '1:1') : SKILL_DEFAULT_COVER} />
                 <span>
                   <b>{s.title}</b>
                   {s.description && <span>{s.description}</span>}

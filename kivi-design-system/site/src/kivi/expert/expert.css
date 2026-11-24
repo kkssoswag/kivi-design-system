@@ -177,37 +177,41 @@
 .kv-expert-detail__skill {
   display: flex;
   align-items: center;
-  gap: var(--spacing-8);
+  gap: var(--spacing-12);
   min-width: 0;
-  padding: var(--spacing-8) var(--spacing-12);
-  border-radius: var(--border-radius-8);
+  padding: var(--spacing-12);
+  border-radius: var(--border-radius-12);
   background: var(--color-bg-fill-container-light-1);
 }
 
-.kv-expert-detail__skill > .kv-icon {
+.kv-expert-detail__skill > .kv-asset-thumb {
   flex: none;
-  width: 20px;
-  height: 20px;
-  color: var(--color-text-fill-secondary);
 }
 
 .kv-expert-detail__skill > span {
   display: flex;
   flex-direction: column;
+  gap: var(--spacing-4);
   min-width: 0;
 }
 
 .kv-expert-detail__skill b {
-  font-size: var(--font-size-13);
-  font-weight: var(--font-weight-medium);
-}
-
-.kv-expert-detail__skill span span {
   overflow: hidden;
-  color: var(--color-text-fill-tertiary);
-  font-size: var(--font-size-12);
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-medium);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 说明两行，超出省略 */
+.kv-expert-detail__skill span span {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--color-text-fill-tertiary);
+  font-size: var(--font-size-13);
+  line-height: var(--font-line-height-20);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 /* ---------- ExpertRecord ---------- */
