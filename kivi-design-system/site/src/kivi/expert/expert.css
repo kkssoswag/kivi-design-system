@@ -128,12 +128,6 @@
   font-weight: var(--font-weight-medium);
 }
 
-.kv-expert-detail__tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-6);
-}
-
 .kv-expert-detail__examples {
   display: flex;
   flex-direction: column;
@@ -147,9 +141,9 @@
   gap: var(--spacing-8);
   margin: 0;
   padding: var(--spacing-8) var(--spacing-12);
-  border: 0;
+  border: var(--border-width-1) solid var(--color-border-subtle);
   border-radius: var(--border-radius-8);
-  background: var(--color-bg-fill-container-light-1);
+  background: none;
   color: var(--color-text-fill-primary);
   font-family: var(--font-family);
   font-size: var(--font-size-13);
@@ -157,8 +151,9 @@
   cursor: pointer;
 }
 
+/* 平时只有描边不铺底，悬停铺大块容器的 Light 2 悬停（设计规则：大块容器在深底上用 Light 2） */
 .kv-expert-detail__example:where(:hover, .is-hover) {
-  background: var(--color-bg-fill-container-light-1-hover);
+  background: var(--color-bg-fill-container-light-2-hover);
 }
 
 .kv-expert-detail__example > .kv-icon {
@@ -180,8 +175,8 @@
   gap: var(--spacing-12);
   min-width: 0;
   padding: var(--spacing-12);
+  border: var(--border-width-1) solid var(--color-border-subtle); /* 只读卡片：只有描边不铺底 */
   border-radius: var(--border-radius-12);
-  background: var(--color-bg-fill-container-light-1);
 }
 
 .kv-expert-detail__skill > .kv-asset-thumb {

@@ -4,7 +4,7 @@ import { Dialog, type DialogProps } from '../dialog';
 import { Icon } from '../Icon';
 import { placeholderImageSrc } from '../placeholder-image';
 import { SKILL_DEFAULT_COVER } from '../agent';
-import { AssetThumb, Tag } from '../tags-avatar';
+import { AssetThumb } from '../tags-avatar';
 import type { SkillItem } from '../generation';
 import { cx } from '../utils';
 import './expert.css';
@@ -16,7 +16,7 @@ export interface ExpertDetailProps extends Omit<DialogProps, 'title' | 'descript
   description?: string;
   /** 头像图 */
   avatar?: string;
-  /** 擅长：一排标签 */
+  /** 擅长：先不显示（和简介重复，11-24 用户定），数据留着 */
   strengths?: string[];
   /** 试试这样说：最多 3 条，点了邀请这位专家、关弹窗、把这句话填进输入框（不发送） */
   examples?: string[];
@@ -32,7 +32,7 @@ export interface ExpertDetailProps extends Omit<DialogProps, 'title' | 'descript
 
 /** 专家详情：点首页的专家横条、选择浮层里的「详情」打开。Dialog 800：标题栏是头像 72 + 名字 + 简介（关闭在右上），「邀请」在底栏（弹窗规范：按钮在底栏靠右） */
 export const ExpertDetail = forwardRef<HTMLDivElement, ExpertDetailProps>(function ExpertDetail(
-  { name, description, avatar, strengths = [], examples = [], skills = [], invited = false, onInvitedChange, onExample, className, ...rest },
+  { name, description, avatar, strengths: _strengths, examples = [], skills = [], invited = false, onInvitedChange, onExample, className, ...rest },
   ref,
 ) {
   return (
@@ -56,16 +56,6 @@ export const ExpertDetail = forwardRef<HTMLDivElement, ExpertDetailProps>(functi
       className={cx('kv-expert-detail', className)}
       {...rest}
     >
-      {strengths.length > 0 && (
-        <section className="kv-expert-detail__section">
-          <h4>擅长</h4>
-          <div className="kv-expert-detail__tags">
-            {strengths.map((s) => (
-              <Tag key={s}>{s}</Tag>
-            ))}
-          </div>
-        </section>
-      )}
       {examples.length > 0 && (
         <section className="kv-expert-detail__section">
           <h4>试试这样说</h4>
@@ -73,7 +63,7 @@ export const ExpertDetail = forwardRef<HTMLDivElement, ExpertDetailProps>(functi
             {examples.slice(0, 3).map((t) => (
               <button key={t} type="button" className="kv-expert-detail__example" onClick={() => onExample?.(t)}>
                 <span>{t}</span>
-                <Icon name="RightArrowSmall" />
+                <Icon name="Message" />
               </button>
             ))}
           </div>
