@@ -1,7 +1,7 @@
 import { forwardRef, useState, type HTMLAttributes } from 'react';
 import { IconButton } from '../button';
-import { Icon } from '../Icon';
 import { Dropdown, Menu, MenuItem } from '../menu';
+import { Select } from '../selection';
 import { Avatar } from '../tags-avatar';
 import { useControllable } from '../hooks';
 import { cx } from '../utils';
@@ -25,7 +25,7 @@ export interface ExpertBarProps extends Omit<HTMLAttributes<HTMLDivElement>, 'de
   disabled?: boolean;
 }
 
-/** 专家条：放在 Agent 输入框的工具条里（主站在「Agent」右边，画布在最前面），显示当前专家（圆头像 + 名字），点开选择浮层换专家 */
+/** 专家条：放在 Agent 输入框的工具条里（主站在「Agent」右边，画布在最前面），显示当前专家（无底 Select：圆头像 16 + 名字，和工具条别的入口一样），点开选择浮层换专家 */
 export const ExpertBar = forwardRef<HTMLDivElement, ExpertBarProps>(function ExpertBar(
   { experts, value: valueProp, defaultValue, onValueChange, onDetail, placement = 'top-start', disabled = false, className, ...rest },
   ref,
@@ -44,11 +44,9 @@ export const ExpertBar = forwardRef<HTMLDivElement, ExpertBarProps>(function Exp
         open={picking}
         onOpenChange={setPicking}
         trigger={
-          <button type="button" className="kv-expert-bar__main" disabled={disabled}>
-            <Avatar size={24} name={expert.name} src={expert.avatar} />
-            <span className="kv-expert-bar__name">{expert.name}</span>
-            <Icon name="DownArrowSmall" className="kv-expert-bar__arrow" />
-          </button>
+          <Select variant="plain" disabled={disabled} aria-label="当前专家" leftAvatar={<Avatar size={16} name={expert.name} src={expert.avatar} />}>
+            {expert.name}
+          </Select>
         }
       >
         <Menu role="listbox" aria-label="选择专家">

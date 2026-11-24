@@ -5,57 +5,13 @@
 
 /* ---------- ExpertBar ---------- */
 
-/* 一个按钮：当前专家的头像 + 名字 + 箭头，点开选择浮层 */
+/* 一个无底 Select：当前专家的圆头像 16 + 名字 + 箭头，点开选择浮层（样子都是 Select 的） */
 .kv-expert-bar {
   display: inline-flex;
-  align-self: flex-start;
   align-items: center;
   gap: var(--spacing-4);
   min-width: 0;
   max-width: 100%;
-}
-
-.kv-expert-bar__main {
-  display: inline-flex;
-  flex: 0 1 auto;
-  align-items: center;
-  gap: var(--spacing-6);
-  box-sizing: border-box;
-  min-width: 0;
-  height: 32px;
-  margin: 0;
-  padding: 0 var(--spacing-8) 0 var(--spacing-4);
-  border: 0;
-  border-radius: var(--border-radius-8);
-  background: var(--color-bg-fill-container-light-1);
-  color: var(--color-text-fill-primary);
-  font-family: var(--font-family);
-  font-size: var(--font-size-13);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.kv-expert-bar__main:where(:hover, .is-hover):not(:disabled),
-.kv-expert-bar__main[aria-expanded='true'] {
-  background: var(--color-bg-fill-container-light-1-hover);
-  color: var(--color-text-fill-primary);
-}
-
-.kv-expert-bar__main:disabled {
-  color: var(--color-text-fill-disabled);
-  cursor: not-allowed;
-}
-
-.kv-expert-bar__name {
-  flex: none;
-  font-weight: var(--font-weight-medium);
-}
-
-.kv-expert-bar__arrow {
-  flex: none;
-  width: 16px;
-  height: 16px;
-  color: var(--color-text-fill-tertiary);
 }
 
 /* ---------- ExpertCard ---------- */

@@ -34,6 +34,8 @@ export interface SelectProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement
   placeholder?: ReactNode;
   /** 左图标，16。选了带图标的选项时传选项的图标（比如模型 logo） */
   leftIcon?: IconName;
+  /** 左边放头像（Avatar 16，比如专家），和 leftIcon 二选一 */
+  leftAvatar?: ReactNode;
   /** 文字后面跟的小图标，16，和文字一样白，比如视频参数生成音频开着时的音量 */
   endIcon?: IconName;
 }
@@ -47,14 +49,14 @@ export interface SelectProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement
  * Dropdown 给触发器写 aria-expanded，箭头跟着它换方向，不用自己传。其余原生 button 属性都能传。
  */
 export const Select = forwardRef<HTMLButtonElement, SelectProps>(function Select(
-  { variant = 'fill', children, placeholder, leftIcon, endIcon, type = 'button', className, ...rest },
+  { variant = 'fill', children, placeholder, leftIcon, leftAvatar, endIcon, type = 'button', className, ...rest },
   ref,
 ) {
   const filled = children !== undefined && children !== null && children !== false && children !== '';
   const open = rest['aria-expanded'] === true || rest['aria-expanded'] === 'true';
   return (
     <button ref={ref} type={type} className={cx('kv-select', `kv-select--${variant}`, className)} {...rest}>
-      {leftIcon && <Icon name={leftIcon} className="kv-select__lead" data-filled={filled ? '' : undefined} />}
+      {leftAvatar ?? (leftIcon && <Icon name={leftIcon} className="kv-select__lead" data-filled={filled ? '' : undefined} />)}
       <span className={cx('kv-select__text', !filled && 'kv-select__text--placeholder')}>{filled ? children : placeholder}</span>
       {endIcon && <Icon name={endIcon} className="kv-select__end" />}
       <Icon name={open ? 'UpArrowSmall' : 'DownArrowSmall'} className="kv-select__arrow" />

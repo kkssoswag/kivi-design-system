@@ -376,6 +376,11 @@
   color: var(--color-text-fill-primary);
 }
 
+/* 左边的头像（leftAvatar，Avatar 16）：不压缩 */
+.kv-select > .kv-avatar {
+  flex: none;
+}
+
 /* 左图标：选了值以后和文字一样白（Figma Select「已选」），没选时 tertiary */
 .kv-select > .kv-select__lead[data-filled] {
   color: var(--color-text-fill-primary);
