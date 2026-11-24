@@ -13,10 +13,12 @@ import {
 import { toast } from '../feedback';
 import { cx } from '../utils';
 import { checkFiles, composeDropHandlers, composeHandlers, rejectMessage, useControllable, useFileDrop, useMergedRef, usePasteFiles, usePending } from '../hooks';
+import { MentionChip } from '../reference/MentionChip';
 import { ReferenceFramePair } from '../reference/ReferenceFramePair';
+import type { SelectOption } from '../selection';
 import { ReferenceStack, referenceName, relabelReferences, type ReferenceStackItem } from '../reference/ReferenceStack';
 import { PromptInput } from './PromptInput';
-import { insertMention, promptText, setPromptText, syncMentions } from './mentions';
+import { insertChip, insertMention, promptText, restoreMentions, setPromptText, syncMentions } from './mentions';
 import { DropOverlay } from './DropOverlay';
 import { PromptBoxContext } from './context';
 import type { AgentControlsProps } from './AgentControls';
@@ -34,7 +36,10 @@ import {
   type GenFrames,
   type GenTask,
 } from './gen-rules';
-import { countInputs, fallbackParams, inputLimits } from './model-caps';
+import { countInputs, fallbackParams, inputLimits, supportsLora } from './model-caps';
+import { LoraField, type LoraFieldItem } from './LoraField';
+import { LoraPicker, type LoraPickerItem } from './LoraPicker';
+import { Divider } from '../divider';
 import { DEFAULT_MODEL } from './options';
 import { TaskSelect } from './GenSelects';
 import { GEN_PARAM_DEFAULTS, type GenParamValues } from './GenParams';
@@ -53,6 +58,8 @@ export interface PromptBoxSubmit {
   params: GenParamValues;
   /** 张数（图片、视频），别的任务是 1 */
   count: number;
+  /** 挂的 Lora（图片模型支持 Lora 时才带） */
+  loras?: LoraFieldItem[];
 }
 
 export interface PromptBoxProps extends Omit<HTMLAttributes<HTMLDivElement>, 'onChange' | 'defaultValue' | 'children' | 'onSubmit'> {
@@ -104,16 +111,25 @@ export interface PromptBoxProps extends Omit<HTMLAttributes<HTMLDivElement>, 'on
   defaultCount?: number;
   /** 张数变了 */
   onCountChange?: (count: number) => void;
+  /** 已选的 Lora（照线上：图片模型支持 Lora 时，参考区最左边是 Lora 格，后面隔一条竖线再是参考图，格子 72）。传了就是受控 */
+  loras?: LoraFieldItem[];
+  /** 非受控时一开始的 Lora */
+  defaultLoras?: LoraFieldItem[];
+  /** 已选的 Lora 变了（添加、删除、改权重） */
+  onLorasChange?: (loras: LoraFieldItem[]) => void;
+  /** 能选的 Lora：点 Lora 格弹出选择弹窗（LoraPicker，最多 4 个）。不传就没有 Lora 入口；模型不支持 Lora 也不显示 */
+  loraOptions?: (LoraPickerItem & { triggerWords?: string; template?: string })[];
   /** 点了参考区的添加格。不传就弹出选文件，选完加进参考区 */
   onAddReference?: () => void;
   /** 参考区固定展开（受控）。不传是鼠标移上去展开 */
   referencesExpanded?: boolean;
   /** 参考区展开收起 */
   onReferencesExpandedChange?: (expanded: boolean) => void;
-  /** 点了生成 / 发送，参数是现在的所有选择。不能生成时（按钮置灰）不触发。发出后提示词不清空（照线上，11-18 用户定），要清自己改 `value`。
+  /** 点了生成 / 发送，参数是现在的所有选择。不能生成时（按钮置灰）不触发。
+   *  图片、视频等生成发出后提示词不清空（照线上，11-18 用户定）；Agent 发出去清空（像聊天，11-20 用户定），返回 `false`（或 Promise 给 `false`）表示没发出去、不清。
    *  返回请求的 Promise 时，等它的这段时间生成按钮转圈、不能重复提交（回车也一样） */
-  onSubmit?: (submit: PromptBoxSubmit) => void | Promise<unknown>;
-  /** 正在生成：生成按钮置灰，Agent 的发送按钮变停止 */
+  onSubmit?: (submit: PromptBoxSubmit) => unknown;
+  /** Agent 正在回复：Agent 的发送按钮变停止、不能再发。只管 Agent，切到图片、视频等任务照常生成（11-20 修 R-20） */
   generating?: boolean;
   /** Agent 正在回复时点了停止（发送按钮变成的停止） */
   onStop?: () => void;
@@ -125,7 +141,7 @@ export interface PromptBoxProps extends Omit<HTMLAttributes<HTMLDivElement>, 'on
   skills?: AgentControlsProps['skills'];
   /** Agent 技能面板里的分类 */
   skillCategories?: AgentControlsProps['skillCategories'];
-  /** Agent 点了一个技能 */
+  /** Agent 点了一个技能（技能标签输入框自己插，这里只是通知） */
   onPickSkill?: AgentControlsProps['onPickSkill'];
   /** 没输入时的占位文字。不传跟着任务变 */
   placeholder?: string;
@@ -133,7 +149,7 @@ export interface PromptBoxProps extends Omit<HTMLAttributes<HTMLDivElement>, 'on
   agentHeader?: ReactNode;
   /** Agent 模式的占位文字（不传 placeholder 时用）：邀请了专家换成「告诉 XX 你想做什么，可以上传参考」 */
   agentPlaceholder?: string;
-  /** 提示词最高多高，超过就在里面滚动，数字按 px。默认 240 */
+  /** 提示词最高多高，超过就在里面滚动，数字按 px。不传走 PromptInput 的默认（最多 6 行） */
   maxHeight?: number;
   /** 把文件拖进输入框、选文件、粘贴时触发，参数是通过 `accept` 和上传要求（大小、时长、宽高，见 gen-rules 的 UPLOAD_SPECS）检查、也没超过模型参考上限的文件列表。不传就直接加进参考区（首尾帧时图片填空着的格）。拖进来时盖一层 DropOverlay「松手上传」，类型不收的显示「不支持这种文件」、不接收，放下后弹 toast（页面上要放 `<Toaster />`） */
   onDropFiles?: (files: File[]) => void;
@@ -184,6 +200,10 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(function Pro
     defaultCount = 1,
     onCountChange,
     onAddReference,
+    loras: lorasProp,
+    defaultLoras = [],
+    onLorasChange,
+    loraOptions,
     referencesExpanded,
     onReferencesExpandedChange,
     onSubmit,
@@ -238,6 +258,28 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(function Pro
   const modelOf = (t: GenTask) => models[t] ?? (t === 'agent' ? '' : DEFAULT_MODEL[t]);
   const model = modelOf(task);
   const framesNow = task === 'video' && isFramesMode(model, refMode);
+  // 参考满了没有：这个模型收的类型（上限 > 0）都放到上限了。Agent 不限
+  const referencesFull = (() => {
+    if (task === 'agent') return false;
+    const limits = inputLimits(model, refMode);
+    const counts = countInputs(references.map((r) => r.type));
+    const kinds = (['image', 'video', 'audio'] as const).filter((k) => limits[k].max > 0);
+    return kinds.length > 0 && kinds.every((k) => counts[k] >= limits[k].max);
+  })();
+  // Lora：只有图片任务、这个模型支持、给了可选列表才有（照线上 showLora），和画布生成面板一样
+  const [loras, setLoras] = useControllable(lorasProp, defaultLoras, onLorasChange);
+  const [loraPicker, setLoraPicker] = useState(false);
+  const lora = task === 'image' && supportsLora(model) && !!loraOptions;
+  // 从弹窗里选了一批：留着的保留原来的权重，新选的权重 1
+  const pickLoras = (ids: string[]) =>
+    setLoras(
+      ids.flatMap((id) => {
+        const had = loras.find((l) => l.id === id);
+        if (had) return [had];
+        const o = loraOptions?.find((l) => l.id === id);
+        return o ? [{ id: o.id, name: o.name, cover: o.cover, weight: 1, triggerWords: o.triggerWords, template: o.template }] : [];
+      }),
+    );
 
   // 换视频的模型或参考方式（照线上主站）：进首尾帧时两格空着，就把参考区前两张图搬进去（参考区留着）；
   // 出首尾帧时参考区空着，就把首尾帧的图搬回参考区。没有过渡，直接换（11-17 用户定）
@@ -353,33 +395,134 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(function Pro
   });
   const [submitting, runSubmit] = usePending();
   const submit = () => {
-    if (generating || submitting || (task === 'agent' ? !value.trim() : reason)) return;
-    return runSubmit(() => onSubmit?.({ task, model, refMode, text: value, references, frames, params: paramsNow(task), count: task === 'image' || task === 'video' ? Number(count) : 1 }));
+    if ((task === 'agent' && generating) || submitting || (task === 'agent' ? !value.trim() : reason)) return;
+    return runSubmit(() => {
+      const result = onSubmit?.({ task, model, refMode, text: value, references, frames, params: paramsNow(task), count: task === 'image' || task === 'video' ? Number(count) : 1, loras: lora && loras.length ? loras : undefined });
+      // Agent 发出去就清空提示词；生成不清
+      if (task === 'agent') {
+        const clear = (r: unknown) => r !== false && setValue('');
+        if (result && typeof (result as { then?: unknown }).then === 'function') void (result as Promise<unknown>).then(clear, () => undefined);
+        else clear(result);
+      }
+      return result;
+    });
   };
   const dropHandlers = composeDropHandlers({ onDragEnter, onDragOver, onDragLeave, onDrop }, bind);
 
+  // Agent：插进框里的模型（标签上 data-model 记值），删了标签就不算，用来算每组选满没有
+  const [pickedModels, setPickedModels] = useState<string[]>([]);
   // 提示词框是 contentEditable（能放 @ 标签），不能直接受控：记下框里现在的文字，外面改成别的文字时才重写框里的内容
   const shownText = useRef<string | null>(null);
   useLayoutEffect(() => {
     if (value === shownText.current) return;
     setPromptText(textRef.current, value);
+    // 文字里的「@图片1」按现在的素材换回标签
+    restoreMentions(textRef.current, relabelReferences(latestRefs.current));
     shownText.current = value;
+    setPickedModels([]);
   }, [value]);
   const onInput = (e: FormEvent<HTMLDivElement>) => {
     const next = promptText(e.currentTarget);
     shownText.current = next;
     setValue(next);
+    setPickedModels(Array.from(e.currentTarget.querySelectorAll<HTMLElement>('[data-model]'), (c) => c.dataset.model!));
+  };
+  // Agent 选了模型、技能：在光标处插一个标签（照线上 insertGenModelMention / insertSkillMention，同一个能插多次）
+  const pickModel = (m: SelectOption) =>
+    insertChip(
+      textRef.current,
+      <MentionChip type="model" icon={m.icon} data-model={m.value}>
+        {m.label}
+      </MentionChip>,
+    );
+  const pickSkill: NonNullable<PromptBoxProps['onPickSkill']> = (s) => {
+    insertChip(
+      textRef.current,
+      <MentionChip type="skill" data-skill={s.title}>
+        {s.title}
+      </MentionChip>,
+    );
+    onPickSkill?.(s);
+  };
+  // 参考素材按任务各存一份（11-23 用户定）：Agent、图片、视频、音频的参考互不带着走，切过去是那个任务自己的，切回来还在。
+  // 当前任务的在 references 里，别的任务的存在这里；切任务时把当前的存起来、换上那个任务的，展开全部收回
+  const refStash = useRef<Partial<Record<GenTask, ReferenceStackItem[]>>>({});
+  const switchTask = (next: GenTask) => {
+    if (next === task) return;
+    refStash.current[task] = references;
+    const back = refStash.current[next] ?? [];
+    delete refStash.current[next];
+    setRefsAll(false);
+    setTask(next);
+    setReferences(back);
   };
   // 素材改了名、删了：框里的 @ 标签跟着改、跟着删
-  // 外面传进来的名字不一定是新编的，按现在的顺序算一遍
+  // 外面传进来的名字不一定是新编的，按现在的顺序算一遍。别的任务存着的素材也算在内：切任务时它们引用的 @ 不删
   const named = relabelReferences(references);
   useLayoutEffect(() => {
-    if (!syncMentions(textRef.current, named)) return;
+    const stashed = Object.values(refStash.current).flatMap((list) => relabelReferences(list ?? []));
+    if (!syncMentions(textRef.current, [...named, ...stashed])) return;
     const next = promptText(textRef.current);
     shownText.current = next;
     setValue(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [references]);
+
+  // 参考区展开全部：参考区一整行在上、提示词排到下面（11-23 照即梦）。
+  // 切之前量好内容区多高、提示词在哪，切完从旧样子补间过去：内容区高度撑开 / 收回，提示词移下来 / 移回去（FLIP）
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [refsAll, setRefsAll] = useState(false);
+  const flipFrom = useRef<{ height: number; left: number; top: number; duration: string } | null>(null);
+  // 真正按「展开全部」排的条件：切到首尾帧时参考区不在，排法回到一行（11-23 用户：切首尾帧高度跳变）
+  const allLayout = refsAll && !framesNow;
+  const lastAll = useRef(allLayout);
+  // 排法变了但不是点展开 / 收起来的（比如展开全部着切到首尾帧、再切回来）：渲染时 DOM 还是旧的，先量下旧样子，下面一样补间过去
+  if (lastAll.current !== allLayout && !flipFrom.current && contentRef.current && textRef.current) {
+    const r = textRef.current.getBoundingClientRect();
+    flipFrom.current = { height: contentRef.current.offsetHeight, left: r.left, top: r.top, duration: 'var(--motion-duration-400)' };
+  }
+  useLayoutEffect(() => {
+    lastAll.current = allLayout;
+  });
+  useLayoutEffect(() => {
+    const from = flipFrom.current;
+    const content = contentRef.current;
+    const input = textRef.current;
+    flipFrom.current = null;
+    if (!from || !content || !input) return;
+    let cancelled = false;
+    let t = 0;
+    const done = () => {
+      content.style.transition = '';
+      content.style.height = '';
+      input.style.transition = '';
+    };
+    // 等这一轮的同步更新都画完再量新样子：参考区刚挂上时（从首尾帧切回来）它在自己的 layout effect 里才量出一排放几格，
+    // 会再同步渲染一次；那一次比这里晚，直接量会量到没排好的高度。微任务在浏览器画之前跑，不会闪
+    queueMicrotask(() => {
+      if (cancelled) return;
+      const to = input.getBoundingClientRect();
+      const height = content.offsetHeight;
+      const ease = `${from.duration} var(--motion-ease-expand)`;
+      content.style.transition = 'none';
+      content.style.height = `${from.height}px`;
+      input.style.transition = 'none';
+      input.style.transform = `translate(${from.left - to.left}px, ${from.top - to.top}px)`;
+      void content.offsetHeight;
+      content.style.transition = `height ${ease}`;
+      content.style.height = `${height}px`;
+      input.style.transition = `transform ${ease}`;
+      input.style.transform = '';
+      const ms = parseFloat(getComputedStyle(content).transitionDuration) * 1000;
+      t = window.setTimeout(done, (Number.isFinite(ms) ? ms : 0) + 50);
+    });
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+      done();
+      input.style.transform = '';
+    };
+  }, [allLayout]);
 
   // 参考区展开了多宽，就把提示词左边这么宽、4 行高的一块藏起来（再多一段渐隐）
   const ctx = useMemo(
@@ -390,6 +533,15 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(function Pro
         const over = width - el.offsetLeft;
         el.style.setProperty('--kv-prompt-cover', over > 0 ? `${over + FADE}px` : '0px');
         if (duration) el.style.setProperty('--kv-prompt-cover-duration', duration);
+      },
+      setShowAll: (next: boolean, duration: string) => {
+        const content = contentRef.current;
+        const input = textRef.current;
+        if (content && input) {
+          const r = input.getBoundingClientRect();
+          flipFrom.current = { height: content.offsetHeight, left: r.left, top: r.top, duration };
+        }
+        setRefsAll(next);
       },
     }),
     [],
@@ -407,8 +559,14 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(function Pro
         {...rest}
       >
         {task === 'agent' && agentHeader != null && agentHeader !== false && <div className="kv-prompt-box__header">{agentHeader}</div>}
-        <div className="kv-prompt-box__content">
+        <div ref={contentRef} className="kv-prompt-box__content" data-all={allLayout ? '' : undefined}>
           <div className="kv-prompt-box__refs">
+            {lora && (
+              <>
+                <LoraField size={72} placement={placement} value={loras} onChange={setLoras} onAdd={() => setLoraPicker(true)} />
+                <Divider orientation="vertical" />
+              </>
+            )}
             {framesNow ? (
               <ReferenceFramePair
                 size={72}
@@ -424,10 +582,14 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(function Pro
             ) : (
               <ReferenceStack
                 items={references}
+                // 参考满了（这个模型收的每种类型都到上限）就不出加号；再拖进来、粘贴照旧弹 Toast 说满了
+                max={referencesFull ? references.length : undefined}
                 expanded={referencesExpanded}
                 onExpandedChange={onReferencesExpandedChange}
                 onAdd={onAddReference ?? (() => fileRef.current?.click())}
                 onRemove={(id) => setReferences(references.filter((i) => i.id !== id))}
+                // 展开全部由输入框记着（它要跟着换排法）；切走首尾帧再回来还是展开的
+                showAll={refsAll}
                 onReorder={(from, to) => {
                   const next = [...references];
                   next.splice(to, 0, ...next.splice(from, 1));
@@ -439,6 +601,9 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(function Pro
             )}
             <input ref={fileRef} type="file" multiple hidden accept={fileAccept} onChange={pickFiles} />
           </div>
+          {lora && (
+            <LoraPicker open={loraPicker} onOpenChange={setLoraPicker} items={loraOptions ?? []} value={loras.map((l) => l.id)} onChange={pickLoras} />
+          )}
           <PromptInput
             ref={setRefs}
             className="kv-prompt-box__input"
@@ -449,11 +614,13 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(function Pro
             onInput={onInput}
             // 打 @ 弹出参考区的素材（首尾帧时没有）
             mentions={framesNow ? undefined : named}
+            // Agent 模式回车发送、Shift + 回车换行；生成模式回车换行（11-19 用户定）
+            onEnter={task === 'agent' ? () => void submit() : undefined}
           />
         </div>
         <div className="kv-prompt-box__toolbar">
           <div className="kv-prompt-box__toolbar-start">
-            <TaskSelect placement={placement} value={task} onChange={(t) => setTask(t as GenTask)} />
+            <TaskSelect placement={placement} value={task} onChange={(t) => switchTask(t as GenTask)} />
             <GenToolbar
               kind={task}
               model={model}
@@ -463,7 +630,9 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(function Pro
               placement={placement}
               skills={skills}
               skillCategories={skillCategories}
-              onPickSkill={onPickSkill}
+              onPickSkill={pickSkill}
+              pickedModels={pickedModels}
+              onPickModel={pickModel}
               params={paramsNow(task)}
               onParamsChange={(p) => setParams({ ...params, [task]: p })}
             />
@@ -475,7 +644,7 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(function Pro
               text={value}
               cost={cost ?? genTotalCost(task, model, Number(count) || 1)}
               reason={reason}
-              generating={generating}
+              generating={task === 'agent' && generating}
               loading={submitting}
               onSubmit={submit}
               onStop={onStop}

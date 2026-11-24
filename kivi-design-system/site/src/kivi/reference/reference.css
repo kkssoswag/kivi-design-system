@@ -245,6 +245,8 @@
   height: 160px;
   overflow: hidden;
   border-radius: var(--border-radius-8);
+  outline: var(--border-width-1) solid var(--color-border); /* 媒体描边 12%，画在里面（设计规则 · 状态） */
+  outline-offset: calc(var(--border-width-1) * -1);
   background: var(--color-bg-fill-container-light-1);
 }
 
@@ -430,7 +432,37 @@
   width: 72px;
   height: 72px;
   outline: none;
-  transition: width var(--kv-reference-stack-duration) var(--motion-ease-expand);
+  transition:
+    width var(--kv-reference-stack-duration) var(--motion-ease-expand),
+    height var(--kv-reference-stack-duration) var(--motion-ease-expand);
+}
+
+/* 展开全部：铺满输入框宽度，格子从顶上换行排，72、间距 6，右边留 40 给右上角的「收起」（32，不另占一行，11-23 用户定）。
+   卡片从三格的位置飞到格子里（transform），不裁；「收起」只淡入淡出（出现 200 ease-out，消失 150 ease-in），
+   位置由 JS 按展开后的宽直接给（left），不跟着悬停区变宽滑过来 */
+.kv-reference-stack__head {
+  position: absolute;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  visibility: hidden;
+  opacity: 0;
+  transition:
+    opacity var(--motion-duration-150) var(--motion-ease-in),
+    visibility 0s linear var(--motion-duration-150);
+}
+
+.kv-reference-stack__tray[data-all] > .kv-reference-stack__head {
+  visibility: visible;
+  opacity: 1;
+  transition: opacity var(--motion-duration-200) var(--motion-ease-out);
+}
+
+.kv-reference-stack__tray[data-all] .kv-reference-stack__scroller {
+  height: 100%;
+  overflow: visible;
+  -webkit-mask-image: none;
+  mask-image: none;
 }
 
 /* 往右、往下多出 10，和上传按钮探出去的一样多 */
@@ -499,7 +531,8 @@
   margin: 0;
   padding: 0;
   overflow: hidden;
-  border: var(--border-width-1) solid transparent;
+  /* 添加格是上传占位：一圈弱描边（设计规则 · 状态，11-19）；缩成右下角小圆时换成 border，跟着一起过渡 */
+  border: var(--border-width-1) solid var(--color-border-subtle);
   border-radius: var(--border-radius-8);
   background: var(--color-bg-fill-container-light-1);
   color: var(--color-text-fill-primary);
@@ -760,6 +793,58 @@
 
 /* 上传中：盖一层黑 40%，中间是 UploadRing（进度环 36 和百分比，样式在 upload.css），上传完 JS 去掉 */
 
+/* 「查看全部」提示的外壳：铺满卡片，按钮在里面铺满 */
+.kv-reference-stack__more-anchor {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+
+/* 超过 2 张、悬停展开三格时，第二张盖着「展开全部」：遮罩 + 模糊 16，中间 Expand 20（照即梦）。
+   跟着展开淡入（200 ease-out）、收起淡出（150 ease-in）；盖着时这张不出序号、删除、@、预览 */
+.kv-reference-stack__more {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--border-radius-8);
+  background: var(--color-bg-fill-container-dark);
+  -webkit-backdrop-filter: blur(var(--effect-mask-blur));
+  backdrop-filter: blur(var(--effect-mask-blur));
+  color: var(--color-on-media-text);
+  cursor: pointer;
+  visibility: hidden;
+  opacity: 0;
+  transition:
+    opacity var(--motion-duration-150) var(--motion-ease-in),
+    visibility 0s linear var(--motion-duration-150);
+}
+
+.kv-reference-stack__card[data-more] .kv-reference-stack__more {
+  visibility: visible;
+  opacity: 1;
+  transition: opacity var(--motion-duration-200) var(--motion-ease-out);
+}
+
+/* 遮罩盖住了缩略图自己的那圈描边，在遮罩上再画一圈（媒体都要描边，和 ReferenceItem 一样：1、--color-border、往里缩，不占尺寸） */
+.kv-reference-stack__more::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: var(--border-width-1) solid var(--color-border);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.kv-reference-stack__more > .kv-icon {
+  width: 20px;
+  height: 20px;
+}
+
 .kv-reference-stack__upload,
 .kv-attachment-strip__upload {
   position: absolute;
@@ -772,8 +857,53 @@
 }
 
 /* ---------- AttachmentStrip：附件条 ----------
-   一排平铺的 56 缩略图，间距 4，超出横向滚动（ScrollArea 的细滑块）。删除、上传中的样子和上面的参考卡片一样（上面的规则共用），
+   一排平铺的 56 缩略图，间距 4，超出横向滚动（不显示滚动条，两头渐隐 + 翻页箭头）。删除、上传中的样子和上面的参考卡片一样（上面的规则共用），
    这里只管排列和显示：鼠标移上去或聚焦到某一格，右上角出删除；上传中不出删除 */
+
+/* 外层：放箭头用。放不下时（data-overflow-start / -end）那一头渐隐 56（mask，不盖底色，背景是什么都行），
+   渐隐上放箭头（玻璃按钮条 ButtonGroup glass · 32：玻璃底 + 模糊 + 弱描边，11-19 用户定），竖着居中、贴着那一头；点一下翻一页，翻到头那边的箭头就没了（11-19，照线上） */
+.kv-attachment-strip {
+  --kv-strip-fade-start: 0px;
+  --kv-strip-fade-end: 0px;
+
+  position: relative;
+  min-width: 0;
+}
+
+.kv-attachment-strip[data-overflow-start] {
+  --kv-strip-fade-start: 56px;
+}
+
+.kv-attachment-strip[data-overflow-end] {
+  --kv-strip-fade-end: 56px;
+}
+
+.kv-attachment-strip__scroll {
+  overflow-x: auto; /* 原生滚动：滚动条藏起来（下面 scrollbar-width: none），翻页用两头的箭头 */
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, transparent, black var(--kv-strip-fade-start), black calc(100% - var(--kv-strip-fade-end)), transparent);
+  mask-image: linear-gradient(to right, transparent, black var(--kv-strip-fade-start), black calc(100% - var(--kv-strip-fade-end)), transparent);
+}
+
+.kv-attachment-strip__scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.kv-attachment-strip__arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  transform: translateY(-50%);
+}
+
+.kv-attachment-strip__arrow--prev {
+  left: 0;
+}
+
+.kv-attachment-strip__arrow--next {
+  right: 0;
+}
 
 .kv-attachment-strip__items {
   display: flex;

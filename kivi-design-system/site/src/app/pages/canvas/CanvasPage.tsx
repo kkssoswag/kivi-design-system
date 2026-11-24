@@ -1,19 +1,24 @@
 import { useRef, useState } from 'react';
 import type { AttachmentItem } from '@kivi';
-import { ButtonGroup, CanvasHeader, Dropdown, IconButton, placeholderImageSrc, toast, type CanvasItem as HeaderItem } from '@kivi';
+import { ButtonGroup, CanvasHeader, Dropdown, IconButton, MentionChip, placeholderImageSrc, toast, type CanvasItem as HeaderItem } from '@kivi';
 import { insertTemplate, placeAsset, useCanvasDoc } from '../../data/canvas-doc';
-import { syncCanvasList } from '../../data/canvases';
-import type { AgentComposerMessage } from '../../parts/agent-composer';
+import { downloadMedia } from '../../flows/files';
+import { syncCanvasList, noteDuplicate } from '../../data/canvases';
+import type { AgentComposerHandle, AgentComposerMessage } from '../../parts/agent-composer';
 import { useDB } from '../../data/db';
 import type { CanvasItem, CanvasNode } from '../../data/types';
 import { MediaViewer, ViewerAuthor, ViewerSection, useLastShown } from '../../parts/media-viewer';
+import { AssetInfo, CopyPrompt } from '../../parts/asset-info';
 import { CanvasAgent, nodeAttachment, useAgentSelect } from './CanvasAgent';
+import type { AnnotationNote } from './AnnotateDialog';
+
 import { CanvasBoard, type CanvasBoardHandle } from './CanvasBoard';
 import { HistoryPanel } from './HistoryPanel';
 import { ProcessorHost } from './processor/ProcessorHost';
 import { AddNodeMenu } from './menus';
-import { ShareButton } from './ShareButton';
+import { CanvasCorner } from './ShareButton';
 import { WorkflowPanel } from './WorkflowPanel';
+import { AssetLibrary } from '../../parts/asset-library';
 
 /*
   画布页：左边画布（左上角画布切换、底部画布工具栏、左下角视图工具栏），右边 Agent 侧栏。
@@ -40,18 +45,37 @@ export function CanvasPage({ canvasId: id, onCanvasChange, skill, intro, expert,
   const board = useRef<CanvasBoardHandle>(null);
   const [viewing, setViewing] = useState<{ item: CanvasItem; node: CanvasNode } | null>(null);
   const shown = useLastShown(viewing);
+  const shownAsset = useDB((s) => (shown?.item.assetId ? s.assets.find((a) => a.id === shown.item.assetId && a.taskId) : undefined));
   const list: HeaderItem[] = canvases.map((c) => ({ id: c.id, name: c.name }));
   // 「添加到对话」的节点：进 Agent 输入框的附件条，按节点去重（照线上）
   const [chatAttachments, setChatAttachments] = useState<AttachmentItem[]>([]);
-  const addToChat = (ids: string[]) => {
+  const composer = useRef<AgentComposerHandle>(null);
+  const addToChat = (ids: string[], note?: AnnotationNote) => {
     const add = ids.map((nid) => nodeAttachment(id, nid)).filter((a): a is AttachmentItem => !!a);
     if (!add.length) return;
+    // 框选标注：「发送」直接发给 Agent（带上这张图），「添加到对话」往输入框插标注胶囊（照线上批注 token）
+    if (note) {
+      const img = add[0];
+      if (note.send) {
+        composer.current?.submit({ text: `[标注${note.index}] ${note.text}`, attachments: [img] });
+        return;
+      }
+      composer.current?.insert(
+        <MentionChip type="annotation" src={img.src} index={note.index} data-annotation={note.index} data-note={note.text} data-image={img.src}>
+          {note.text}
+        </MentionChip>,
+      );
+      toast.success('已添加到对话');
+      return;
+    }
     setChatAttachments((list) => [...list, ...add.filter((a) => !list.some((x) => x.id === a.id))]);
     toast.success('已添加到对话');
   };
   // 底部「工作流」面板、「历史」弹窗
   const [workflowOpen, setWorkflowOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  // 素材库（11-23 原型，3.14 不做）：工具栏右边浮一张大卡，挑的素材应用到画布
+  const [libraryOpen, setLibraryOpen] = useState(false);
   // Agent 建了节点：画布选中它
   useAgentSelect(id, (ids) => board.current?.select(ids));
 
@@ -65,15 +89,17 @@ export function CanvasPage({ canvasId: id, onCanvasChange, skill, intro, expert,
           workspace="KIVI 工作区"
           canvases={list}
           onCanvasesChange={syncCanvasList}
+          onDuplicate={noteDuplicate}
           value={id}
           onChange={(next) => onCanvasChange?.(next)}
           onLogoClick={onHome}
         />
-        {/* 右上角：分享 */}
-        <ShareButton canvasId={id} />
-        {/* 底部正中：画布工具栏（ButtonGroup 实色 · 56）：添加（主要）、工作流、上传、历史 */}
-        <ButtonGroup variant="surface" size={56} aria-label="画布工具栏" className="tpl-cv__toolbar">
-          <Dropdown placement="top-start" trigger={<IconButton icon="Add" label="添加" variant="primary" />}>
+        {/* 右上角：分享，再是余额和头像（11-19 用户定：和主站一样，点头像出账号菜单） */}
+        <CanvasCorner canvasId={id} />
+        {/* 左边上下居中：画布工具栏（ButtonGroup 实色 · 44 · 竖排，11-23 从底部挪过来，56 嫌大降一档）：添加（次要，11-23 从主要改，品牌绿太抢）、工作流、上传、历史。
+            提示、菜单、工作流面板都往右出 */}
+        <ButtonGroup variant="surface" size={44} orientation="vertical" aria-label="画布工具栏" className="tpl-cv__toolbar">
+          <Dropdown placement="right-start" offset={8} trigger={<IconButton icon="Add" label="添加" variant="secondary" tooltip={{ placement: 'right' }} />}>
             <AddNodeMenu doc={doc} onPick={(type, preset) => board.current?.addAtCenter(type, preset)} />
           </Dropdown>
           <WorkflowPanel
@@ -86,11 +112,34 @@ export function CanvasPage({ canvasId: id, onCanvasChange, skill, intro, expert,
               requestAnimationFrame(() => board.current?.focus(ids));
             }}
           >
-            <IconButton icon="Template" label="工作流" selected={workflowOpen} tooltip={!workflowOpen} />
+            <IconButton icon="Template" label="工作流" selected={workflowOpen} tooltip={workflowOpen ? false : { placement: 'right' }} />
           </WorkflowPanel>
-          <IconButton icon="Upload" label="上传" onClick={() => board.current?.upload()} />
-          <IconButton icon="History" label="历史" onClick={() => setHistoryOpen(true)} />
+          <IconButton icon="Upload" label="上传" tooltip={{ placement: 'right' }} onClick={() => board.current?.upload()} />
+          <IconButton icon="History" label="历史" tooltip={{ placement: 'right' }} onClick={() => setHistoryOpen(true)} />
+          {/* 素材库（11-23 原型，3.14 不做） */}
+          <IconButton
+            icon="Folder"
+            label="素材库"
+            selected={libraryOpen}
+            tooltip={libraryOpen ? false : { placement: 'right' }}
+            onClick={() => setLibraryOpen((v) => !v)}
+          />
         </ButtonGroup>
+        {libraryOpen && (
+          <AssetLibrary
+            className="tpl-cv__library"
+            onClose={() => setLibraryOpen(false)}
+            use={{
+              icon: 'AddToCanvas',
+              label: '应用到画布',
+              onUse: (asset) => {
+                const nid = placeAsset(id, asset);
+                requestAnimationFrame(() => board.current?.select([nid]));
+                toast.success('已应用到画布');
+              },
+            }}
+          />
+        )}
       </div>
       <CanvasAgent
         canvasId={id}
@@ -100,6 +149,7 @@ export function CanvasPage({ canvasId: id, onCanvasChange, skill, intro, expert,
         expert={expert}
         attachments={chatAttachments}
         onAttachmentsChange={setChatAttachments}
+        composerRef={composer}
       />
 
       <HistoryPanel
@@ -117,9 +167,18 @@ export function CanvasPage({ canvasId: id, onCanvasChange, skill, intro, expert,
         media={viewing && { type: viewing.node.type === 'video' ? 'video' : viewing.node.type === 'audio' ? 'audio' : 'image', src: viewing.item.src, poster: viewing.item.poster, name: viewing.node.name }}
         onClose={() => setViewing(null)}
         head={<ViewerAuthor name="KIVI" avatar={placeholderImageSrc('ip-peek', '1:1')} date="今天" />}
-        actions={<IconButton icon="Download" label="下载" variant="secondary" size={36} onClick={() => toast.success('已开始下载')} />}
+        actions={<IconButton icon="Download" label="下载" variant="secondary" size={36} onClick={() => viewing && void downloadMedia([{ src: viewing.item.src, name: viewing.node.name }])} />}
       >
-        {shown?.node.prompt && <ViewerSection title="提示词">{shown.node.prompt}</ViewerSection>}
+        {/* 信息栏和创作页、资产页同一套（AssetInfo：提示词、参数，参考图跟在参数后面）；上传的素材没有任务，只放节点的提示词 */}
+        {shownAsset ? (
+          <AssetInfo asset={shownAsset} />
+        ) : (
+          shown?.node.prompt && (
+            <ViewerSection title="提示词" action={<CopyPrompt text={shown.node.prompt} />}>
+              <p className="tpl-viewer__prompt">{shown.node.prompt}</p>
+            </ViewerSection>
+          )
+        )}
       </MediaViewer>
     </div>
   );

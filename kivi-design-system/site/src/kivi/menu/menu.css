@@ -352,6 +352,22 @@
   display: inline-flex;
 }
 
+/* 置顶标识：和「⋯」同一个 28 的格子、图标 16 tertiary；「⋯」出来时它藏起来（两个互斥），收起、刚展开时也不显示 */
+.kv-menu-item > .kv-menu-item__pin {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: var(--color-text-fill-tertiary);
+}
+
+.kv-menu-item:where(:hover, :focus-visible, :has(:focus-visible), .is-hover, [aria-current="page"], [data-collapsed], [data-expanding]) > .kv-menu-item__pin,
+.kv-menu-item:has([aria-expanded="true"]) > .kv-menu-item__pin {
+  display: none;
+}
+
 /* actions 里几个按钮间距 4，和「⋯」也离 4（条目本身间距 8，这里往回收 4） */
 .kv-menu-item > .kv-menu-item__actions {
   align-items: center;
@@ -392,6 +408,12 @@
   flex: 1 1 auto;
   width: auto;
   min-width: 0;
+}
+
+/* 单行、左边是缩略图 24（试听按钮、素材缩略图、工作流封面）：上下离边 6，左边也离 6，四周一样（11-19 用户定，同侧栏列表）；右边照旧 12。
+   两行的项高 52，缩略图上下离得远，照旧左 12 */
+.kv-menu-item[data-lead="thumb"]:not([data-two-line]) {
+  padding-left: var(--spacing-6);
 }
 
 /* ---------- 平铺（侧栏）里的 MenuItem ----------

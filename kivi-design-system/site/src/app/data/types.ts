@@ -1,4 +1,4 @@
-import type { PlaceholderImageRatio } from '@kivi';
+import type { LoraFieldItem, PlaceholderImageRatio } from '@kivi';
 
 /*
   全站数据的形状。只放纯数据（能存进本机、能 JSON），不放 ReactNode：
@@ -122,6 +122,8 @@ export interface Chat extends ChatExpert {
   id: string;
   title: string;
   pinned?: boolean;
+  /** 默认对话：一直置顶、排在对话列表第一个，不能取消置顶、不能删（11-23 用户定） */
+  fixed?: boolean;
   updatedAt: number;
   items: ChatItem[];
 }
@@ -216,6 +218,8 @@ export interface CanvasNode {
   params?: Record<string, string>;
   /** 张数（图片、视频，'1'–'4'） */
   count?: string;
+  /** 挂的 Lora（模型支持 Lora 时生成面板里选的，带权重） */
+  loras?: LoraFieldItem[];
   /** 最近一次生成的任务（data/tasks.ts）：生成中、失败从它读 */
   taskId?: string;
   /** 在哪个组里 */
@@ -276,7 +280,7 @@ export interface Workflow {
 export interface AgentUserMessage {
   text: string;
   /** 带的素材（附件 / 参考），照发送时输入框里的顺序 */
-  refs: { type: Media; src: string; name?: string; duration?: string; nodeId?: string }[];
+  refs: { type: Media | 'file'; src: string; name?: string; duration?: string; nodeId?: string }[];
 }
 
 /** Agent 回复里的一块，按顺序画 */

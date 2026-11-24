@@ -1,0 +1,66 @@
+/* 画布预览弹窗（canvas-preview.tsx）：大弹窗（1200，高撑到离窗口边 32）的内容区放一块只读画布；
+   顶上居中一条玻璃按钮条（照线上：宽 min(1040, 画布宽 - 两边留给关闭的位置)），关闭单独一条在右上角 */
+
+.app-cvp {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  border-radius: var(--border-radius-8);
+  outline: var(--border-width-1) solid var(--color-border);
+  outline-offset: calc(var(--border-width-1) * -1);
+}
+
+.app-cvp__canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.app-cvp__head,
+.app-cvp__close {
+  position: absolute;
+  top: var(--spacing-16);
+  z-index: 1;
+}
+
+/* 居中，左右各让出关闭那条（44）+ 两个 16 */
+.app-cvp__head {
+  left: 50%;
+  width: min(1040px, calc(100% - (44px + var(--spacing-16) * 2) * 2));
+  transform: translateX(-50%);
+}
+
+.app-cvp__close {
+  right: var(--spacing-16);
+}
+
+/* 身份、名称、提示：展示，不是按钮。左右 8，同画布左上角工作区名 */
+.app-cvp__owner,
+.app-cvp__name,
+.app-cvp__hint {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-8);
+  min-width: 0;
+  padding: 0 var(--spacing-8);
+  font-size: var(--font-size-13);
+  white-space: nowrap;
+}
+
+.app-cvp__owner {
+  flex: none;
+  color: var(--color-text-fill-primary);
+}
+
+/* 名称占住中间剩下的宽，把提示和按钮推到右边 */
+.app-cvp__name {
+  display: block;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--color-text-fill-secondary);
+}
+
+.app-cvp__hint {
+  flex: none;
+  color: var(--color-text-fill-tertiary);
+}
