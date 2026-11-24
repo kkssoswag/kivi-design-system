@@ -143,6 +143,12 @@
 
 .kv-dialog__header > .kv-icon-button {
   flex: none;
+  align-self: flex-start; /* 标题比关闭按钮高（多行、带头像）时关闭贴顶 */
+}
+
+/* 有关闭时标题上下各补 4 撑到 32，和关闭一样高：单行标题看着还是和关闭居中对齐 */
+.kv-dialog__title:has(+ .kv-icon-button) {
+  padding: var(--spacing-4) 0;
 }
 
 .kv-dialog__desc {

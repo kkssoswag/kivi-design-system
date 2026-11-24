@@ -28,20 +28,32 @@ export interface ExpertDetailProps extends Omit<DialogProps, 'title' | 'descript
   onExample?: (text: string) => void;
 }
 
-/** 专家详情：点首页的专家横条、选择浮层里的「详情」打开。Dialog 560 */
+/** 专家详情：点首页的专家横条、选择浮层里的「详情」打开。Dialog 560：标题栏是头像 72 + 名字 + 简介（关闭在右上），「邀请」在底栏（弹窗规范：按钮在底栏靠右） */
 export const ExpertDetail = forwardRef<HTMLDivElement, ExpertDetailProps>(function ExpertDetail(
   { name, description, avatar, strengths = [], examples = [], skills = [], invited = false, onInvitedChange, onExample, className, ...rest },
   ref,
 ) {
   return (
-    <Dialog ref={ref} size={560} title={name} className={cx('kv-expert-detail', className)} {...rest}>
-      <div className="kv-expert-detail__top">
-        <AssetThumb size={72} src={avatar} />
-        <p className="kv-expert-detail__desc">{description}</p>
+    <Dialog
+      ref={ref}
+      size={560}
+      title={
+        <div className="kv-expert-detail__top">
+          <AssetThumb size={72} src={avatar} />
+          <div className="kv-expert-detail__intro">
+            <span className="kv-expert-detail__name">{name}</span>
+            {description && <p className="kv-expert-detail__desc">{description}</p>}
+          </div>
+        </div>
+      }
+      footer={
         <Button size={36} variant={invited ? 'secondary-muted' : 'primary'} onClick={() => onInvitedChange?.(!invited)}>
           {invited ? '已邀请' : '邀请'}
         </Button>
-      </div>
+      }
+      className={cx('kv-expert-detail', className)}
+      {...rest}
+    >
       {strengths.length > 0 && (
         <section className="kv-expert-detail__section">
           <h4>擅长</h4>

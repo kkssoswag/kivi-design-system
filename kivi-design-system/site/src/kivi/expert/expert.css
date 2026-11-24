@@ -86,18 +86,31 @@
 
 /* ---------- ExpertDetail ---------- */
 
+/* 标题栏：头像 72 在左，右边名字 20 中粗 + 简介 14 次要色（间距 4），整块和头像上下居中 */
 .kv-expert-detail__top {
   display: flex;
   align-items: center;
   gap: var(--spacing-16);
 }
 
-.kv-expert-detail__desc {
+.kv-expert-detail__intro {
+  display: flex;
   flex: 1;
+  flex-direction: column;
+  gap: var(--spacing-4);
   min-width: 0;
+}
+
+.kv-expert-detail__name {
+  font-size: var(--font-size-20);
+  line-height: var(--font-line-height-28);
+}
+
+.kv-expert-detail__desc {
   margin: 0;
   color: var(--color-text-fill-secondary);
   font-size: var(--font-size-14);
+  font-weight: var(--font-weight-regular);
   line-height: var(--font-line-height-22);
 }
 
