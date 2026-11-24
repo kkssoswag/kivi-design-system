@@ -44,8 +44,8 @@ export interface AgentComposerProps {
   placement?: 'top-start' | 'bottom-start';
   /** 点发送（有字时）。不传就只能看 */
   onSend?: (message: AgentComposerMessage) => void;
-  /** 输入框顶上一行：专家条（ExpertBar） */
-  header?: ReactNode;
+  /** 工具条最前面的控件：专家条（ExpertBar） */
+  control?: ReactNode;
   /** 占位文字，默认「描述任何你想要生成的内容」；邀请了专家换成「告诉 XX 你想做什么，可以上传参考」 */
   placeholder?: string;
   /** 把这句话填进输入框（专家详情里点示例提问，不发送），key 变了才填 */
@@ -75,7 +75,7 @@ export function AgentComposer({
   skill,
   placement = UP,
   onSend,
-  header,
+  control,
   placeholder = '描述任何你想要生成的内容',
   fill,
   handleRef,
@@ -188,7 +188,6 @@ export function AgentComposer({
 
   return (
     <div className={className ? `tpl-cv__composer ${className}` : 'tpl-cv__composer'} {...bind} {...paste}>
-      {header}
       {attachments.length > 0 && <AttachmentStrip items={attachments} onRemove={(id) => setAttachments((list) => list.filter((a) => a.id !== id))} />}
       <PromptInput
         ref={input}
@@ -204,6 +203,7 @@ export function AgentComposer({
       />
       <div className="tpl-cv__tools">
         <div>
+          {control}
           <IconButton icon="Add" label="添加附件" variant="ghost" onClick={() => fileInput.current?.click()} />
           <input
             ref={fileInput}

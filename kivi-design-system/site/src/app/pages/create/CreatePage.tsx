@@ -402,7 +402,7 @@ function ChatView({ chat, intro, onIntroDone }: { chat: Chat; intro?: ChatIntro;
           )}
           <PromptBox
             style={expertSession.asking ? { display: 'none' } : undefined}
-            agentHeader={expertSession.bar()}
+            agentControl={expertSession.bar()}
             agentPlaceholder={expertSession.placeholder}
             key={fill?.key}
             defaultValue={fill?.text}

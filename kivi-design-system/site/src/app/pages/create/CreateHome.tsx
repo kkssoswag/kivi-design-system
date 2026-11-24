@@ -366,7 +366,7 @@ export function CreateHome({
                   skills={SKILL_ITEMS}
                   skillCategories={SKILL_CATEGORIES}
                   loraOptions={LORAS}
-                  agentHeader={expertBar}
+                  agentControl={expertBar}
                   agentPlaceholder={expertPlaceholder(expert)}
                 />
               </div>
@@ -375,7 +375,7 @@ export function CreateHome({
                   className="tpl-home__agent"
                   placement="bottom-start"
                   onSend={onOpenCanvas}
-                  header={expertBar}
+                  control={expertBar}
                   placeholder={expertPlaceholder(expert)}
                   fill={fill?.mode === 'canvas' ? fill : undefined}
                 />

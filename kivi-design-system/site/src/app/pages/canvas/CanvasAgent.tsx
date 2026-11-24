@@ -290,7 +290,7 @@ export function CanvasAgent({ canvasId, skill, intro, expert = GENERAL_EXPERT, o
 
       <div className="tpl-ca__composer-slot" hidden={!!(waiting && pending?.kind === 'confirm') || expertSession.asking}>
         <AgentComposer
-          header={expertSession.bar()}
+          control={expertSession.bar()}
           placeholder={expertSession.placeholder}
           fill={fill}
           skill={skill}

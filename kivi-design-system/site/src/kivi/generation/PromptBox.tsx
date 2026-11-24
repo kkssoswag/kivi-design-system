@@ -145,8 +145,8 @@ export interface PromptBoxProps extends Omit<HTMLAttributes<HTMLDivElement>, 'on
   onPickSkill?: AgentControlsProps['onPickSkill'];
   /** 没输入时的占位文字。不传跟着任务变 */
   placeholder?: string;
-  /** Agent 模式内容区上面一行：放专家条（ExpertBar）。图片、视频、音频不显示 */
-  agentHeader?: ReactNode;
+  /** Agent 模式工具条里「Agent」右边的控件：放专家条（ExpertBar）。图片、视频、音频不显示 */
+  agentControl?: ReactNode;
   /** Agent 模式的占位文字（不传 placeholder 时用）：邀请了专家换成「告诉 XX 你想做什么，可以上传参考」 */
   agentPlaceholder?: string;
   /** 提示词最高多高，超过就在里面滚动，数字按 px。不传走 PromptInput 的默认（最多 6 行） */
@@ -215,7 +215,7 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(function Pro
     skillCategories,
     onPickSkill,
     placeholder,
-    agentHeader,
+    agentControl,
     agentPlaceholder,
     maxHeight = 240,
     onDropFiles,
@@ -558,7 +558,6 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(function Pro
         onPasteCapture={composeHandlers(onPasteCapture, paste.onPasteCapture)}
         {...rest}
       >
-        {task === 'agent' && agentHeader != null && agentHeader !== false && <div className="kv-prompt-box__header">{agentHeader}</div>}
         <div ref={contentRef} className="kv-prompt-box__content" data-all={allLayout ? '' : undefined}>
           <div className="kv-prompt-box__refs">
             {lora && (
@@ -621,6 +620,7 @@ export const PromptBox = forwardRef<HTMLDivElement, PromptBoxProps>(function Pro
         <div className="kv-prompt-box__toolbar">
           <div className="kv-prompt-box__toolbar-start">
             <TaskSelect placement={placement} value={task} onChange={(t) => switchTask(t as GenTask)} />
+            {task === 'agent' && agentControl}
             <GenToolbar
               kind={task}
               model={model}
