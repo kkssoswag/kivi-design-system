@@ -44,7 +44,7 @@ export interface AgentComposerProps {
   placement?: 'top-start' | 'bottom-start';
   /** 点发送（有字时）。不传就只能看 */
   onSend?: (message: AgentComposerMessage) => void;
-  /** 工具条最前面的控件：专家条（ExpertBar） */
+  /** 工具条里「+」右边的控件：专家条（ExpertBar） */
   control?: ReactNode;
   /** 占位文字，默认「描述任何你想要生成的内容」；邀请了专家换成「告诉 XX 你想做什么，可以上传参考」 */
   placeholder?: string;
@@ -203,7 +203,6 @@ export function AgentComposer({
       />
       <div className="tpl-cv__tools">
         <div>
-          {control}
           <IconButton icon="Add" label="添加附件" variant="ghost" onClick={() => fileInput.current?.click()} />
           <input
             ref={fileInput}
@@ -217,6 +216,7 @@ export function AgentComposer({
               if (files.length) void addFiles(files);
             }}
           />
+          {control}
           <GenModelPicker placement={placement} picked={models} onPick={insertModel} />
           <SkillPicker
             placement={placement}

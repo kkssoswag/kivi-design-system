@@ -25,7 +25,7 @@ export interface ExpertBarProps extends Omit<HTMLAttributes<HTMLDivElement>, 'de
   disabled?: boolean;
 }
 
-/** 专家条：放在 Agent 输入框的工具条里（主站在「Agent」右边，画布在最前面），显示当前专家（无底 Select：圆头像 16 + 名字，和工具条别的入口一样），点开选择浮层换专家 */
+/** 专家条：放在 Agent 输入框的工具条里（主站在「Agent」右边，画布在「+」右边），显示当前专家（无底 Select：圆头像 16 + 名字，和工具条别的入口一样），点开选择浮层换专家 */
 export const ExpertBar = forwardRef<HTMLDivElement, ExpertBarProps>(function ExpertBar(
   { experts, value: valueProp, defaultValue, onValueChange, onDetail, placement = 'top-start', disabled = false, className, ...rest },
   ref,
