@@ -1,5 +1,5 @@
 import { useEffect, useImperativeHandle, useRef, useState, type ReactElement, type ReactNode, type Ref } from 'react';
-import { AttachmentStrip, DropOverlay, Dropdown, Menu, MenuItem, UPLOAD_SPECS, referenceTypeOf, GenModelPicker, IconButton, MentionChip, insertChip as insertChipAt, PromptInput, SendButton, SkillPicker, placeholderImageSrc, toast, type AttachmentItem, type IconName, type PlaceholderImageName } from '@kivi';
+import { AttachmentStrip, DropOverlay, Dropdown, Menu, MenuItem, UPLOAD_SPECS, referenceTypeOf, GenModelPicker, IconButton, MentionChip, insertChip as insertChipAt, PromptInput, SendButton, Select, SkillPicker, placeholderImageSrc, toast, type AttachmentItem, type IconName, type PlaceholderImageName } from '@kivi';
 import { checkFiles, rejectMessage, useControllable, useFileDrop, usePasteFiles } from '@kivi/hooks';
 import { SKILL_CATEGORIES, SKILL_ITEMS } from '../../docs/business/skill-data';
 import { MemoryManager } from './memory';
@@ -243,8 +243,18 @@ export function AgentComposer({
           </Dropdown>
           {/* 记忆管理：照线上放在手和切换对话模型之间 */}
           <MemoryManager />
-          {/* 切换对话用的大模型：内部测试用的隐藏功能，单选列表，当前项选中底色 */}
-          <Dropdown placement={placement} haspopup="listbox" trigger={<IconButton icon="Openai" label={`对话模型：${chatModel}`} variant="ghost" />}>
+        </div>
+        <div>
+          {/* 切换对话用的大模型（内部测试用的隐藏功能）：跟着发送按钮放右边，无底 Select 直接写当前模型名（11-25 用户定，原来是 OpenAI 图标按钮）；单选列表，当前项选中底色 */}
+          <Dropdown
+            placement={placement === UP ? 'top-end' : 'bottom-end'}
+            haspopup="listbox"
+            trigger={
+              <Select variant="plain" aria-label="对话模型">
+                {chatModel}
+              </Select>
+            }
+          >
             <Menu role="listbox" aria-label="对话模型">
               {CHAT_MODELS.map((m) => (
                 <MenuItem key={m} selected={chatModel === m} onClick={() => setChatModel(m)}>
@@ -253,9 +263,9 @@ export function AgentComposer({
               ))}
             </Menu>
           </Dropdown>
-        </div>
         {/* 没传 onSend 只能看：有字也发不出去 */}
-        <SendButton disabled={!generating && !text.trim()} generating={generating} onClick={generating ? onStop : send} />
+          <SendButton disabled={!generating && !text.trim()} generating={generating} onClick={generating ? onStop : send} />
+        </div>
       </div>
       <DropOverlay active={dragging} rejected={rejected} />
     </div>

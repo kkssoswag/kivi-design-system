@@ -587,6 +587,20 @@
   gap: var(--spacing-4);
 }
 
+/* 右边：对话模型（无底 Select）+ 发送。放不下时模型名先省略，左边的入口不挤 */
+.tpl-cv__tools > div:last-child {
+  min-width: 0;
+}
+
+.tpl-cv__tools > div:last-child > .kv-dropdown {
+  display: flex;
+  min-width: 0;
+}
+
+.tpl-cv__tools > div:last-child .kv-select {
+  min-width: 0;
+}
+
 /* ---------- 演示站画布（app/pages/canvas）：画布本体 ---------- */
 
 /* 画布底：页面底色 + 点阵 18（照线上，同业务页的小画布）。拖空白是框选，按住空格是抓手 */
