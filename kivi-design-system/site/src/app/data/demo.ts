@@ -9,7 +9,7 @@ import { createStore, useStore } from './store';
   - fast：生成 3 秒出结果（平时按任务类型估时：图片 20 秒、视频 60 秒、音频 15 秒）
   - askQuestion：Agent 每次回复先出问题卡（换掉输入框），答完或忽略再接着回复
   - larkAuth：Agent 每次回复先要飞书授权（换掉输入框），授权或取消后接着回复
-  画布手动模式的生成确认不用开关，每次生成前都会问
+  问题卡和飞书授权互斥，开一个关一个（Agent 一次只等用户回一张卡）。画布手动模式的生成确认不用开关，每次生成前都会问
 */
 
 export interface DemoSwitches {

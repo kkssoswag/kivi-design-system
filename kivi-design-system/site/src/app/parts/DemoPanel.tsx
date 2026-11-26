@@ -49,6 +49,12 @@ const ROWS: { key: keyof DemoSwitches; label: string }[] = [
   { key: 'larkAuth', label: 'Agent 先要飞书授权' },
 ];
 
+/** 互斥的开关：开了一个就关掉另一个（Agent 一次只等用户回一张卡，问题卡和飞书授权不会同时出） */
+const EXCLUSIVE: Partial<Record<keyof DemoSwitches, Partial<DemoSwitches>>> = {
+  askQuestion: { larkAuth: false },
+  larkAuth: { askQuestion: false },
+};
+
 export function DemoPanel() {
   const d = useDemo();
   const on = ROWS.some((r) => r.key !== 'fast' && d[r.key]);
@@ -72,7 +78,7 @@ export function DemoPanel() {
               </Tabs>
             )}
             {ROWS.map((r) => (
-              <Switch key={r.key} checked={!!d[r.key]} onChange={(v) => setDemo({ [r.key]: v })}>
+              <Switch key={r.key} checked={!!d[r.key]} onChange={(v) => setDemo({ [r.key]: v, ...(v ? EXCLUSIVE[r.key] : {}) })}>
                 {r.label}
               </Switch>
             ))}
