@@ -5,17 +5,17 @@ import './agent.css';
 export type ActionCardType = 'confirm' | 'auth' | 'error';
 
 export interface ActionCardProps extends Omit<HTMLAttributes<HTMLElement>, 'title'> {
-  /** 类型：生成确认 / 授权 / 出错，默认生成确认。生成确认、授权样子一样（生成确认换掉输入框，最低 160 高、按钮贴底）；出错只有一行说明，描边不填底 */
+  /** 类型：生成确认 / 授权 / 出错，默认生成确认。生成确认、授权样子一样，都换掉输入框，最低 160 高、按钮贴底；出错只有一行说明，描边不填底 */
   type?: ActionCardType;
   /** 标题，14 粗。出错没有标题 */
   title?: ReactNode;
   /** 说明，13 tertiary（出错是 secondary）。里面可点的一段用 <a className="kv-action-card__link"> */
   description?: ReactNode;
-  /** 操作，靠右：Button 中。生成确认是取消（次要）+ 确认生成（主要），授权是去授权（主要）。出错没有操作 */
+  /** 操作，靠右：Button 中。生成确认是取消（次要）+ 确认生成（主要），授权是取消（次要）+ 去授权（主要）。出错没有操作 */
   actions?: ReactNode;
 }
 
-/** 确认卡片：生成确认（停在输入框的位置）、授权和出错（在消息里）。ref 给根元素，出错是 div，其余是 section。Figma「Agent」页 ActionCard */
+/** 确认卡片：生成确认、授权停在输入框的位置（换掉输入框），出错在消息里。ref 给根元素，出错是 div，其余是 section。Figma「Agent」页 ActionCard */
 export const ActionCard = forwardRef<HTMLElement, ActionCardProps>(function ActionCard(
   { type = 'confirm', title, description, actions, className, ...rest },
   ref,

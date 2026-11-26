@@ -181,10 +181,10 @@ Agent 问用户（问题卡）或生成前确认，在对话里留的一行，�
 
 | 属性 | 类型 | 默认 | 说明 |
 |---|---|---|---|
-| `type` | `"confirm"` `"auth"` `"error"` | `"confirm"` | 生成确认 / 授权 / 出错。前两种样子一样：底 surface，描边 border-subtle 1，圆角 16 `--border-radius-16`，内边距 16，间距 12；生成确认换掉输入框，最低 160 高、按钮贴底；出错只有一行说明，描边 border（白 12%）1，不填底，内边距 12 / 16 |
+| `type` | `"confirm"` `"auth"` `"error"` | `"confirm"` | 生成确认 / 授权 / 出错。前两种样子一样：底 surface，描边 border-subtle 1，圆角 16 `--border-radius-16`，内边距 16，间距 12；都换掉输入框，最低 160 高、按钮贴底；出错只有一行说明，描边 border（白 12%）1，不填底，内边距 12 / 16 |
 | `title` | `ReactNode` | — | 标题，14 / 22 粗，primary。出错没有 |
 | `description` | `ReactNode` | — | 说明，13 / 20，tertiary（出错用 secondary）。可点的一段用 `<button className="kv-action-card__link">` |
-| `actions` | `ReactNode` | — | 操作，靠右，间距 8：Button 中。生成确认是取消（次要）+ 确认生成（主要），授权是去授权（主要）。出错没有 |
+| `actions` | `ReactNode` | — | 操作，靠右，间距 8：Button 中。生成确认是取消（次要）+ 确认生成（主要），授权是取消（次要）+ 去授权（主要）。出错没有 |
 
 ### SkillCard
 

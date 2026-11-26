@@ -1,6 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent, type Ref } from 'react';
 import {
-  ActionCard,
   Button,
   Dropdown,
   ExpertRecord,
@@ -16,7 +15,7 @@ import {
   type AttachmentItem,
   type GeneratingType,
 } from '@kivi';
-import { NEW_CHAT, activeTurnOf, answerConfirm, newCanvasChat, sendAgent, stopAgent } from '../../data/agent';
+import { NEW_CHAT, activeTurnOf, newCanvasChat, sendAgent, stopAgent } from '../../data/agent';
 import { getDoc, onAgentSelect } from '../../data/canvas-doc';
 import { db, useDB } from '../../data/db';
 import type { AgentTurn as AgentTurnData, Task } from '../../data/types';
@@ -28,6 +27,7 @@ import { requestChapter } from '../../data/onboarding';
 import { startExpert } from '../../data/experts';
 import { GENERAL_EXPERT } from '../../../docs/business/expert-data';
 import { AgentTurn } from '../create/AgentTurn';
+import { AgentInterrupt, interruptOf } from '../../parts/agent-interrupt';
 
 /*
   画布右侧 Agent（照线上 ChatPanel，记录在 page-notes/canvas-rewrite-2026-11-18.md）：
@@ -79,10 +79,8 @@ export function CanvasAgent({ canvasId, skill, intro, expert = GENERAL_EXPERT, o
   const chat = chats.find((c) => c.id === chatId);
   const chatTurns = useMemo(() => turns.filter((t) => t.chatId === chatId), [turns, chatId]);
   const active = activeTurnOf(turns, chatId);
-  const waiting = active?.status === 'waiting' ? active : undefined;
-  const pending = waiting?.blocks[waiting.blocks.length - 1];
-  // 新手引导：第一次等确认时，说清楚确认了才生成、才扣费
-  const confirming = !!waiting && pending?.kind === 'confirm';
+  // 新手引导：第一次等生成确认时，说清楚确认了才生成、才扣费
+  const confirming = interruptOf(active)?.kind === 'confirm';
   useEffect(() => {
     if (confirming) requestChapter('canvas-confirm');
   }, [confirming]);
@@ -265,36 +263,13 @@ export function CanvasAgent({ canvasId, skill, intro, expert = GENERAL_EXPERT, o
         </div>
       </ScrollArea>
 
-      {/* 手动模式：生成前的确认卡换掉输入框（照线上 GenerateConfirmPanel，两个不同时出现）；输入框藏起来不卸载，写了一半的字还在 */}
-      {waiting && pending?.kind === 'confirm' && (
-        <ActionCard
-          className="tpl-ca__confirm"
-          title={`是否确认${pending.nodeIds.length}个节点生成?`}
-          description={
-            <>
-              {pending.cost > 0 && `预计消耗 ${pending.cost}猕猴桃 · `}
-              <a className="kv-action-card__link" href="#" onClick={(e) => (e.preventDefault(), onLocate(pending.nodeIds))}>
-                点击查看节点参数
-              </a>
-            </>
-          }
-          actions={
-            <>
-              <Button variant="secondary" onClick={() => answerConfirm(waiting.id, false)}>
-                取消
-              </Button>
-              <Button variant="primary" onClick={() => answerConfirm(waiting.id, true)}>
-                确认生成
-              </Button>
-            </>
-          }
-        />
-      )}
+      {/* Agent 等用户回话（生成确认、问题卡、飞书授权）：卡片换掉输入框，宽度和输入框一样；输入框藏起来不卸载，写了一半的字还在 */}
+      {active && <AgentInterrupt turn={active} className="tpl-ca__confirm" onLocate={onLocate} />}
 
       {/* 需求不对口：和生成确认卡一样换掉输入框 */}
       {expertSession.askCard && <div className="tpl-ca__confirm">{expertSession.askCard}</div>}
 
-      <div className="tpl-ca__composer-slot" hidden={!!(waiting && pending?.kind === 'confirm') || expertSession.asking}>
+      <div className="tpl-ca__composer-slot" hidden={!!interruptOf(active) || expertSession.asking}>
         <AgentComposer
           control={expertSession.bar()}
           placeholder={expertSession.placeholder}

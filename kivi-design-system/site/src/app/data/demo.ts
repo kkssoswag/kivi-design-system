@@ -7,6 +7,9 @@ import { createStore, useStore } from './store';
   - offline：所有请求报网络错误
   - slow：所有请求慢 1.5–3 秒（看加载态）
   - fast：生成 3 秒出结果（平时按任务类型估时：图片 20 秒、视频 60 秒、音频 15 秒）
+  - askQuestion：Agent 每次回复先出问题卡（换掉输入框），答完或忽略再接着回复
+  - larkAuth：Agent 每次回复先要飞书授权（换掉输入框），授权或取消后接着回复
+  画布手动模式的生成确认不用开关，每次生成前都会问
 */
 
 export interface DemoSwitches {
@@ -15,12 +18,14 @@ export interface DemoSwitches {
   offline: boolean;
   slow: boolean;
   fast: boolean;
+  askQuestion: boolean;
+  larkAuth: boolean;
 }
 
 export const demo = createStore<DemoSwitches>({
   key: 'kivi-app-demo',
   version: 1,
-  init: () => ({ failNext: false, lowBalance: false, offline: false, slow: false, fast: true }),
+  init: () => ({ failNext: false, lowBalance: false, offline: false, slow: false, fast: true, askQuestion: false, larkAuth: false }),
 });
 
 export const useDemo = () => useStore(demo, (s) => s);

@@ -262,7 +262,7 @@ export const CHAPTERS: Record<ChapterId, Chapter> = {
       {
         target: q('.tpl-ca__confirm'),
         title: '确认了才生成',
-        description: 'Agent 把要生成的节点列在这里，点「确认生成」才开始、才消耗猕猴桃。',
+        description: '手动模式下，生成前先问你：点「确认生成」才开始、才消耗猕猴桃；「点击查看节点参数」定位到画布上那个节点。',
         placement: 'left',
       },
     ],

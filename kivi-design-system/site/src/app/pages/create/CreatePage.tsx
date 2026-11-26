@@ -22,6 +22,7 @@ import { INITIAL_STATE } from '../../parts/tool-workbench/types';
 import { useBriefLoading } from '../../hooks/useBriefLoading';
 import { isScrollingToBottom, scrollToBottom } from '../../hooks/scrollToBottom';
 import { useOlderPages } from '../../hooks/useOlderPages';
+import { AgentInterrupt, interruptOf } from '../../parts/agent-interrupt';
 import { TaskTags } from '../../parts/task-tags';
 import { AssetInfo, CopyPrompt } from '../../parts/asset-info';
 import { useExpertSession } from '../../parts/expert-session';
@@ -395,6 +396,8 @@ function ChatView({ chat, intro, onIntroDone }: { chat: Chat; intro?: ChatIntro;
         </ScrollArea>
         <div ref={composer} className="tpl-ms__composer">
           {expertSession.askCard}
+          {/* Agent 等用户回话（问题卡、飞书授权）：卡片换掉输入框，宽度和输入框一样；输入框藏起来不卸载 */}
+          {active && <AgentInterrupt turn={active} />}
           {/* 往上翻了：输入框上面浮一条（玻璃按钮条 44）：有生成中的写进度，点「回到底部」平滑滚下去 */}
           {awayFromBottom && !entering && (
             <ButtonGroup variant="glass" size={44} className="tpl-ms__to-bottom" aria-label="回到底部">
@@ -410,7 +413,7 @@ function ChatView({ chat, intro, onIntroDone }: { chat: Chat; intro?: ChatIntro;
             </ButtonGroup>
           )}
           <PromptBox
-            style={expertSession.asking ? { display: 'none' } : undefined}
+            style={expertSession.asking || interruptOf(active) ? { display: 'none' } : undefined}
             agentControl={expertSession.bar()}
             agentPlaceholder={expertSession.placeholder}
             key={fill?.key}

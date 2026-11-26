@@ -303,9 +303,14 @@ function renderActionCard(s: ActionCardState) {
     return (
       <ActionCard
         type="auth"
-        title="飞书文档授权"
-        description="读取该飞书文档需要授权，请点击下方按钮完成授权。"
-        actions={<Button variant="primary">去授权</Button>}
+        title="需要访问你的飞书"
+        description="请先授权 Kivi 以你的身份访问飞书；授权完成后会自动继续"
+        actions={
+          <>
+            <Button variant="secondary">取消</Button>
+            <Button variant="primary">去授权</Button>
+          </>
+        }
       />
     );
   }

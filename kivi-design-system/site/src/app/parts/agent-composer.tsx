@@ -216,7 +216,6 @@ export function AgentComposer({
               if (files.length) void addFiles(files);
             }}
           />
-          {control}
           <GenModelPicker placement={placement} picked={models} onPick={insertModel} />
           <SkillPicker
             placement={placement}
@@ -243,6 +242,8 @@ export function AgentComposer({
           </Dropdown>
           {/* 记忆管理：照线上放在手和切换对话模型之间 */}
           <MemoryManager />
+          {/* 专家：放在这一排最后（11-26 用户定，原来在「+」右边） */}
+          {control}
         </div>
         <div>
           {/* 切换对话用的大模型（内部测试用的隐藏功能）：跟着发送按钮放右边，无底 Select 直接写当前模型名（11-25 用户定，原来是 OpenAI 图标按钮）；单选列表，当前项选中底色 */}

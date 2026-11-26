@@ -1,5 +1,5 @@
 import { ApiError, request } from './api';
-import { kindOf, scriptOf, pickScript, type Beat, type ScriptGenerate } from './agent-scripts';
+import { DEMO_QUESTIONS, LARK_TITLE, kindOf, scriptOf, pickScript, type Beat, type ScriptGenerate } from './agent-scripts';
 import { db } from './db';
 import { demo } from './demo';
 import { uid } from './store';
@@ -34,6 +34,15 @@ const next = (t: AgentTurn, now: number): AgentTurn => ({ ...t, step: t.step + 1
 /** 往前走一小步：返回新的这一轮（没变化返回原对象） */
 function advance(t: AgentTurn, now: number): AgentTurn {
   const beats = scriptOf(t.script).beats;
+  // 先问用户（演示开关定的）：思考完（没有思考就是一开头）依次出问题卡、飞书授权，等用户回话；答完接着往下播
+  const askAt = beats[0] && 'think' in beats[0] ? 1 : 0;
+  if (t.step === askAt && t.asks) {
+    const ask = t.asks.find((k) => !t.blocks.some((b) => b.kind === k));
+    if (ask) {
+      const block: AgentBlock = ask === 'question' ? { kind: 'question', questions: DEMO_QUESTIONS } : { kind: 'lark', title: LARK_TITLE };
+      return { ...t, status: 'waiting', beatAt: now, blocks: [...t.blocks, block] };
+    }
+  }
   const beat: Beat | undefined = beats[t.step];
   if (!beat) return { ...t, status: 'done' };
   const last = lastBlock(t);
@@ -148,6 +157,26 @@ export function answerConfirm(turnId: string, approved: boolean) {
   tick();
 }
 
+/** 问题卡：提交了（answers 按题写好的一句）或整张忽略（null），接着往下播 */
+export function answerQuestion(turnId: string, answers: string[] | null) {
+  patchTurn(turnId, (x) => {
+    const last = lastBlock(x);
+    if (x.status !== 'waiting' || last?.kind !== 'question') return x;
+    return { ...replaceLast(x, answers ? { ...last, answers } : { ...last, skipped: true }), status: 'running', beatAt: Date.now() };
+  });
+  tick();
+}
+
+/** 飞书授权：授权成功或点了取消，都接着往下播（照线上：不授权后端照样继续） */
+export function answerLark(turnId: string, approved: boolean) {
+  patchTurn(turnId, (x) => {
+    const last = lastBlock(x);
+    if (x.status !== 'waiting' || last?.kind !== 'lark') return x;
+    return { ...replaceLast(x, { ...last, answer: approved ? 'approved' : 'cancelled' }), status: 'running', beatAt: Date.now() };
+  });
+  tick();
+}
+
 function fail(t: AgentTurn): AgentTurn {
   return { ...t, status: 'failed', blocks: [...t.blocks, { kind: 'error', text: '网络连接失败，请检查网络后重试' }] };
 }
@@ -215,7 +244,9 @@ if (typeof window !== 'undefined') tick();
 export function sendAgent(chatId: string, user: AgentUserMessage, canvas?: AgentTurn['canvas']): Promise<AgentTurn> {
   return request(() => {
     const now = Date.now();
-    const turn: AgentTurn = { id: uid('ag'), chatId, user, script: pickScript(kindOf(user.refs)), step: 0, beatAt: now, status: 'running', blocks: [], createdAt: now, canvas };
+    const d = demo.get();
+    const asks = [...(d.askQuestion ? (['question'] as const) : []), ...(d.larkAuth ? (['lark'] as const) : [])];
+    const turn: AgentTurn = { id: uid('ag'), chatId, user, script: pickScript(kindOf(user.refs)), step: 0, beatAt: now, status: 'running', blocks: [], createdAt: now, canvas, ...(asks.length ? { asks } : {}) };
     db.set((s) => ({
       ...s,
       agentTurns: [...s.agentTurns, turn],
