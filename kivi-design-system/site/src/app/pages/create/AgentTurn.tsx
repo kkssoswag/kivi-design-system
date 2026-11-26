@@ -1,5 +1,6 @@
 import { type ReactNode } from 'react';
 import { ActionCard, AskRecord, MessageFeedback, ProcessGroup, ReferenceItem, ThinkingBlock, UserMessage, type IconName } from '@kivi';
+import { LARK_DESCRIPTION } from '../../data/agent-scripts';
 import { regenerateAgent } from '../../data/agent';
 import type { AgentTurn as AgentTurnData, Asset, Task } from '../../data/types';
 import { attempt } from '../../flows/errors';
@@ -87,6 +88,27 @@ export function AgentTurn({ turn, tasks, assets, ctx, renderTask, regenerate = t
               <AskRecord key={i} status="answered" items={[{ question: `是否确认${b.nodeIds.length}个节点生成?`, answer: b.answer === 'approved' ? '批准生成' : '取消生成' }]} />
             ) : (
               <AskRecord key={i} status="asking" items={[{ question: `是否确认${b.nodeIds.length}个节点生成?` }]} />
+            );
+          case 'question': {
+            // 问题卡：等回答时面板在输入框的位置，这里是「询问中」；答了「已询问」（每题一行）；忽略了或没答就结束是「询问」（照线上 QuestionCard）
+            const status = b.answers ? 'answered' : b.skipped || !busy ? 'skipped' : 'asking';
+            return (
+              <AskRecord
+                key={i}
+                status={status}
+                skippedText={b.skipped ? '已忽略' : undefined}
+                items={b.questions.map((q, k) => ({ question: `${k + 1}. ${q.title}`, answer: b.answers?.[k] }))}
+              />
+            );
+          }
+          case 'lark':
+            // 飞书授权：记录里写面板的说明；授权成功 / 未授权（取消也算未授权，照线上 LarkAuthCard）
+            return (
+              <AskRecord
+                key={i}
+                status={b.answer ? 'answered' : busy ? 'asking' : 'skipped'}
+                items={[{ question: LARK_DESCRIPTION, answer: b.answer === 'approved' ? '授权成功' : b.answer ? '未授权' : undefined }]}
+              />
             );
           case 'error':
             return <ActionCard key={i} type="error" description={b.text} />;

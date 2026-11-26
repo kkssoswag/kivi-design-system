@@ -45,6 +45,8 @@ const ROWS: { key: keyof DemoSwitches; label: string }[] = [
   { key: 'lowBalance', label: '余额不足' },
   { key: 'offline', label: '断网' },
   { key: 'slow', label: '慢网' },
+  { key: 'askQuestion', label: 'Agent 先出问题卡' },
+  { key: 'larkAuth', label: 'Agent 先要飞书授权' },
 ];
 
 export function DemoPanel() {
@@ -70,7 +72,7 @@ export function DemoPanel() {
               </Tabs>
             )}
             {ROWS.map((r) => (
-              <Switch key={r.key} checked={d[r.key]} onChange={(v) => setDemo({ [r.key]: v })}>
+              <Switch key={r.key} checked={!!d[r.key]} onChange={(v) => setDemo({ [r.key]: v })}>
                 {r.label}
               </Switch>
             ))}

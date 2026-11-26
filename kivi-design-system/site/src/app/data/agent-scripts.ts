@@ -1,4 +1,4 @@
-import type { Media, Ratio } from './types';
+import type { AgentQuestion, Media, Ratio } from './types';
 
 /*
   Agent 的假回复剧本，一步步播出来：思考、说话、工具调用、生成（不出确认卡）、等结果（创作页没有推荐问题，11-18 用户定）。
@@ -8,6 +8,16 @@ import type { Media, Ratio } from './types';
   每组几个剧本随机抽，话术和生成的内容（张数、比例、模型）都不一样。
   文字里的 {prompt} 换成用户发的话（截短），{refs} 换成附件的说法。加剧本只改这里。
 */
+
+/** 演示开关「问题卡」：Agent 先问这几道（照线上问题卡：一张卡几道题、翻页，单选 / 多选，最后一项「其他」能打字） */
+export const DEMO_QUESTIONS: AgentQuestion[] = [
+  { title: '想要什么风格？', options: ['清新：浅色、大量留白', '潮流：高饱和撞色', '质感：深色、产品打光'], other: true },
+  { title: '画面里要放哪些元素？', multiple: true, options: ['产品主体', '人物', '标题文字', '活动信息'], other: true },
+];
+
+/** 演示开关「飞书授权」：授权卡的标题（线上由后端给）；说明是前端固定的一句 */
+export const LARK_TITLE = '需要访问你的飞书';
+export const LARK_DESCRIPTION = '请先授权 Kivi 以你的身份访问飞书；授权完成后会自动继续';
 
 export interface ScriptGenerate {
   media: Media;

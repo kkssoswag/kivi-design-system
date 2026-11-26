@@ -291,12 +291,25 @@ export type AgentBlock =
   | { kind: 'text'; text: string; shown: number }
   /** 画布：生成前的确认（手动模式）：建好的节点、一共几张、消耗；answer 是用户点了什么（照线上 GenerateConfirmCard） */
   | { kind: 'confirm'; nodeIds: string[]; cost: number; answer?: 'approved' | 'cancelled' }
+  /** 问题卡（照线上 QuestionCard）：一张卡几道题，答案按题写成一句（「其他」里的字也算）；skipped 是整张「忽略」了 */
+  | { kind: 'question'; questions: AgentQuestion[]; answers?: string[]; skipped?: boolean }
+  /** 飞书授权（照线上 LarkAuthCard）：去授权成功 approved，点了取消 cancelled（都继续往下播） */
+  | { kind: 'lark'; title: string; answer?: 'approved' | 'cancelled' }
   /** 一组工具调用：shown 是已经出现的行数 */
   | { kind: 'tools'; steps: { icon: string; action: string; object?: string }[]; shown: number; done: boolean }
   /** 生成的结果：一个任务（走 submitTask，和普通生成一样进素材） */
   | { kind: 'task'; taskId: string }
   /** 出错 */
   | { kind: 'error'; text: string };
+
+/** 问题卡里的一道题：单选 / 多选，最后可以带「其他」输入 */
+export interface AgentQuestion {
+  title: string;
+  multiple?: boolean;
+  options: string[];
+  /** 带「其他，请直接输入」 */
+  other?: boolean;
+}
 
 export interface AgentTurn {
   id: string;
@@ -308,8 +321,10 @@ export interface AgentTurn {
   step: number;
   /** 这一步什么时候开始的（思考、工具调用按时间走） */
   beatAt: number;
-  /** 回复中 / 等用户确认（画布手动模式） / 完成 / 用户停止 / 出错 */
+  /** 回复中 / 等用户回话（画布生成确认、问题卡、飞书授权） / 完成 / 用户停止 / 出错 */
   status: 'running' | 'waiting' | 'done' | 'stopped' | 'failed';
+  /** 这一轮要先问用户的（发消息时按演示开关定好）：问题卡、飞书授权，思考完依次出，答完接着播 */
+  asks?: ('question' | 'lark')[];
   /** 画布里的 Agent：在哪块画布、手动（生成前确认）还是自动 */
   canvas?: { canvasId: string; mode: 'manual' | 'auto' };
   blocks: AgentBlock[];

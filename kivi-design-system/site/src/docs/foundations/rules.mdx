@@ -153,5 +153,6 @@ import { PageHeader } from '@shell';
 - 不搞特例：缺样子就给通用组件加类型、状态，不在业务组件里单写。
 - 同一个东西有一个组件就只用它：结果叠放只用 MediaGroup，悬停预览只用 PreviewPopover，展开收起只用 Collapse。
 - 主站 Agent 和画布 Agent 是同一套对话组件，只有产出不同。
+- Agent 等用户回话（生成确认、问题卡 QuestionPanel、飞书等授权 ActionCard `auth`、换专家）时，卡片停在输入框的位置、换掉输入框，宽度和输入框一样（铺满输入框的左右内边距之间），不进消息流；答完卡片消失、输入框回来（写了一半的字还在），消息里只留一行询问记录 AskRecord。主站和画布两边一样（11-26 用户定，照线上 ChatInterruptPanel）。
 - 组件属性命名：样子叫 `variant`，是什么内容（图片 / 视频、成功 / 错误）叫 `type`，生命周期叫 `status`；尺寸写数字（像素）；生成中统一叫 `generating`。
 - 改名都进「旧名对照」。
