@@ -325,10 +325,26 @@
   background: transparent;
 }
 
-/* 说明换行（wrap）：不省略，放不下折行，行高 16 */
+/* 说明换行（wrap）：放不下折行，行高 16；固定两行高（一行的也占两行，翻成英文也够），超过两行才省略。
+   每项一样高，悬停出按钮也不跳（11-26 用户定） */
 .kv-menu-item[data-wrap] .kv-menu-item__description {
+  display: -webkit-box;
+  min-height: calc(var(--font-line-height-16) * 2);
   line-height: var(--font-line-height-16);
   white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* wrap 项右边的按钮（actions）平时就占着位置、只是看不见，悬停才显示：说明的宽度从头到尾不变，悬停不会重新折行 */
+.kv-menu-item[data-wrap] > .kv-menu-item__actions {
+  display: inline-flex;
+  visibility: hidden;
+}
+
+.kv-menu-item[data-wrap]:where(:hover, :focus-visible, :has(:focus-visible), .is-hover, [data-highlighted]) > .kv-menu-item__actions,
+.kv-menu-item[data-wrap]:has([aria-expanded="true"]) > .kv-menu-item__actions {
+  visibility: visible;
 }
 
 .kv-menu-item:is(:disabled, [aria-disabled="true"]) {

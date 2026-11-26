@@ -132,7 +132,7 @@ import { DropdownPlayground, MenuItemPlayground, MenuPlayground, PlainMenuPlaygr
 | `icon` | `IconName` | — | 左图标，16。和 `thumb` 二选一 |
 | `thumb` | `ReactNode` | — | 缩略图：`<AssetThumb size={24} />`，可以是图片、音频，或图标（对话、画布没封面时用 `type="icon"`）。和 `icon` 二选一。单行时缩略图四周都离边 6（左边内边距从 12 改 6），两行的照旧左 12 |
 | `description` | `ReactNode` | — | 说明：写了就是两行，第二行 12，secondary，一行省略。两行时左图标 20，选中不加底、在右边打勾 |
-| `wrap` | `boolean` | `false` | 说明不省略，放不下换行（行高 16）。说明是挑选依据时用，比如选专家 |
+| `wrap` | `boolean` | `false` | 说明放不下换行（行高 16），固定两行高（一行的也占两行，超过两行省略）；右边 `actions` 平时占位、悬停才显示，每项一样高、悬停不跳。说明是挑选依据时用，比如选专家 |
 | `mark` | `'check' \| 'fill'` | `'check'` | 两行项选中怎么标：右边打勾 / 铺选中底色、不打勾（选专家） |
 | `shortcut` | `string` | — | 快捷键文字，比如 ⌘C，12，tertiary。和 `submenu`、`checked` 三选一 |
 | `submenu` | `boolean` | `false` | 子菜单箭头 `RightArrowSmall`，16，tertiary；同时加 `aria-haspopup="menu"` |

@@ -27,7 +27,7 @@ export interface MenuItemProps extends Omit<ButtonHTMLAttributes<HTMLButtonEleme
   children?: ReactNode;
   /** 说明：写了就是两行，第二行 12 号 secondary，一行省略。两行时左图标 20；选中（selected）不加底、在右边打勾，因为两行的行大，悬停和选中都是底色分不清（11-03 定） */
   description?: ReactNode;
-  /** 说明不省略，放不下换行（说明是挑选依据的，比如选专家，11-24 用户定） */
+  /** 说明放不下换行，固定两行高（一行的也占两行，超两行省略）；右边 actions 平时占位、悬停才显示，每项一样高、悬停不跳（说明是挑选依据的，比如选专家，11-24 / 11-26 用户定） */
   wrap?: boolean;
   /** 两行项选中怎么标：右边打勾（默认）/ 铺选中底色、不打勾（选专家，11-24 用户定） */
   mark?: 'check' | 'fill';
