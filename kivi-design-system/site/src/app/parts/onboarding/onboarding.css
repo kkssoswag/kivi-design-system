@@ -1,5 +1,6 @@
-/* 新手引导（演示站）：新用户的欢迎弹窗。Kimo 128 居中，下面标题 20 / 28 中粗、一段 14 / 22 secondary，都居中 */
+/* 新手引导（演示站）：欢迎弹窗、引导气泡里分项说明 */
 
+/* 欢迎：Kimo 128 居中，下面标题 20 中粗、一段 14 / 22 secondary，都居中 */
 .app-onboard__hello {
   display: flex;
   flex-direction: column;
@@ -25,4 +26,25 @@
   color: var(--color-text-fill-secondary);
   font-size: var(--font-size-14);
   line-height: var(--font-line-height-22);
+}
+
+/* 气泡里分项：名称 13 中粗 primary，下面一句 13 / 20 secondary；项之间 8 */
+.app-onboard__lead {
+  margin: 0 0 var(--spacing-8);
+}
+
+.app-onboard__items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-8);
+  margin: var(--spacing-4) 0 0;
+}
+
+.app-onboard__items dt {
+  color: var(--color-text-fill-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.app-onboard__items dd {
+  margin: 0;
 }

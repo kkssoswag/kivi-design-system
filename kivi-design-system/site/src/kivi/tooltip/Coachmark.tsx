@@ -38,11 +38,11 @@ const EXIT_MS = 150;
 /** 换目标时，气泡和亮的那块挪过去的时长（--motion-duration-300） */
 const MOVE_MS = 300;
 
-/** 亮出来的那块：目标的位置加四周 PAD，圆角取目标自己的再加 PAD */
+/** 亮出来的那块：目标的位置加四周 PAD，圆角取目标自己的再加 PAD（圆形的目标不超过半边长） */
 function holeOf(el: Element) {
   const r = el.getBoundingClientRect();
   const radius = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0;
-  return { left: r.left - PAD, top: r.top - PAD, width: r.width + PAD * 2, height: r.height + PAD * 2, radius: radius + PAD };
+  return { left: r.left - PAD, top: r.top - PAD, width: r.width + PAD * 2, height: r.height + PAD * 2, radius: Math.min(radius, r.width / 2, r.height / 2) + PAD };
 }
 
 /**

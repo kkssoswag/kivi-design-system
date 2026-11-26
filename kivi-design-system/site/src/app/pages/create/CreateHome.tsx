@@ -26,7 +26,7 @@ import { ComposerMotion, HomeAtmosphere, SHOW_COMPOSER_MOTION } from './HomeBack
 import { HomeHead, RecentUpdates } from './HomeParts';
 import { genTaskInput } from './submit';
 import { handOffComposer } from './handoff';
-import { useGuide } from '../../data/onboarding';
+import { requestChapter, useGuide } from '../../data/onboarding';
 
 export type HomeMode = 'generate' | 'canvas';
 
@@ -107,20 +107,14 @@ export function CreateHome({
   const [task, setTask] = useState<GenTask>('agent');
   const [detail, setDetail] = useState<ExpertItem | null>(null);
   const [fill, setFill] = useState<{ text: string; key: number; mode: HomeMode }>();
-  // 新手引导（data/onboarding.ts）：导览按生成 · Agent 的输入框讲，开始时切过去；最后一步「填进输入框」把示例填进来
-  const touring = useGuide((s) => s.tour !== null);
-  const guideFill = useGuide((s) => s.fill);
+  // 新手引导（data/onboarding.ts）：第一次看到「生成」「画布」各讲一章；讲之前切到那一边（生成按 Agent 的输入框讲）
+  useEffect(() => requestChapter(mode === 'generate' ? 'home' : 'home-canvas'), [mode]);
+  const guideMode = useGuide((s) => s.homeMode);
   useEffect(() => {
-    if (!touring) return;
-    setMode('generate');
-    setTask('agent');
-  }, [touring]);
-  useEffect(() => {
-    if (!guideFill) return;
-    setMode('generate');
-    setTask('agent');
-    setFill({ text: guideFill.text, key: guideFill.key, mode: 'generate' });
-  }, [guideFill]);
+    if (!guideMode) return;
+    setMode(guideMode.mode);
+    if (guideMode.mode === 'generate') setTask('agent');
+  }, [guideMode]);
   const invite = (id: string, on: boolean) => {
     onExpertChange?.(on ? id : GENERAL_EXPERT);
     if (!on) return;

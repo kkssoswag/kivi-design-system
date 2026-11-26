@@ -1,45 +1,47 @@
-import { useEffect, useState } from 'react';
-import { Button, Coachmark, Dialog, Kimo, Prose, placeholderImageSrc } from '@kivi';
+import { useEffect, useState, type ReactNode } from 'react';
+import { Button, Coachmark, Dialog, Kimo } from '@kivi';
 import { useDB } from '../../data/db';
-import { useDemo } from '../../data/demo';
-import {
-  INTRO_FLAG,
-  dropTip,
-  endTour,
-  fillHome,
-  finishIntro,
-  nextStep,
-  nextTipStep,
-  showTip,
-  startPendingTour,
-  useGuide,
-} from '../../data/onboarding';
-import { TIPS, TOURS, type GuideStep } from './steps';
+import { INTRO_FLAG, endChapter, finishIntro, markShown, nextStep, startChapter, useGuide } from '../../data/onboarding';
+import { CHAPTERS, type GuideStep } from './steps';
 import './onboarding.css';
 
 /*
-  新手引导挂在演示站根上（App）：首页的欢迎 / 换新了、首页导览、各页边用边教的提示，同一时间只出一样。
-  顺序：欢迎（或换新了）→ 导览 → 提示。导览压暗页面，提示不压暗。数据和规则在 data/onboarding.ts，每一步的文案在 steps.ts。
+  新手引导挂在演示站根上（App）：第一次打开先出 Kimo 欢迎，之后页面叫哪章讲哪章，同一时间只讲一章。
+  规则和状态在 data/onboarding.ts，每章每一步在 steps.ts。
 */
 
 /** 页面刚切过来、列表刚加载完，目标可能还没出来：每 100ms 找一次，最多等 2 秒 */
 const FIND_EVERY = 100;
 const FIND_TRIES = 20;
-/** 进首页后等页面稳住再出欢迎（点阵氛围、输入框高度动画） */
+/** 打开后等页面稳住再出欢迎（点阵氛围、输入框高度动画） */
 const INTRO_DELAY = 600;
 
-/** 找到目标再换：文字和指向一起换，气泡挪过去；找不到报 missing */
+/** 目标不在屏幕里（首页下面的最近更新、发现，对话里往上的记录）：先滚过去 */
+function bringIntoView(el: Element) {
+  const r = el.getBoundingClientRect();
+  const vh = document.documentElement.clientHeight;
+  if (r.top >= 0 && r.bottom <= vh) return;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  el.scrollIntoView({ block: r.height > vh * 0.6 ? 'start' : 'center', behavior: reduce ? 'auto' : 'smooth' });
+}
+
+/** 找到目标再换：文字和指向一起换，气泡挪过去。找不到报 missing（跳过这一步）；指着的东西没了报 gone（换页了，这一章先停）。
+    收起时留着上一步的内容，消失动画里不空 */
 function useStepTarget(step: GuideStep | undefined, key: string) {
   const [found, setFound] = useState<{ key: string; step: GuideStep; el: Element } | null>(null);
   const [missing, setMissing] = useState('');
+  const [gone, setGone] = useState('');
   useEffect(() => {
     setMissing('');
+    setGone('');
     if (!step) return;
     let tries = 0;
     const tick = () => {
       const el = step.target();
-      if (el) setFound({ key, step, el });
-      else if (++tries >= FIND_TRIES) setMissing(key);
+      if (el) {
+        bringIntoView(el);
+        setFound({ key, step, el });
+      } else if (++tries >= FIND_TRIES) setMissing(key);
       return !!el || tries >= FIND_TRIES;
     };
     if (tick()) return;
@@ -47,175 +49,123 @@ function useStepTarget(step: GuideStep | undefined, key: string) {
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
-  // 目标被拿走了（切页、收起）：当作找不到
+  // 指着的东西被拿走了（换页、收起）
   useEffect(() => {
-    if (!found || !step) return;
+    if (!found || found.key !== key) return;
     const id = setInterval(() => {
-      if (!found.el.isConnected || found.el.getClientRects().length === 0) setMissing(found.key);
+      if (!found.el.isConnected || found.el.getClientRects().length === 0) setGone(found.key);
     }, 500);
     return () => clearInterval(id);
-  }, [found, step]);
-  // 收起时还留着上一步的内容，消失动画里不空
-  return { current: found, missing: !!step && missing === key };
+  }, [found, key]);
+  const ready = !!step && found?.key === key;
+  return { current: found, ready, missing: !!step && missing === key, gone: ready && gone === key };
+}
+
+/** 说明：一句话，或者分几项（名称 + 一句话） */
+function describe(step: GuideStep): ReactNode {
+  if (!step.items) return step.description;
+  return (
+    <>
+      {step.description && <p className="app-onboard__lead">{step.description}</p>}
+      <dl className="app-onboard__items">
+        {step.items.map(([term, text]) => (
+          <div key={term}>
+            <dt>{term}</dt>
+            <dd>{text}</dd>
+          </div>
+        ))}
+      </dl>
+    </>
+  );
 }
 
 export function OnboardingHost({ home, onGoHome }: { home: boolean; onGoHome: () => void }) {
-  const { oldUser } = useDemo();
   const introDone = useDB((s) => !!s.flags[INTRO_FLAG]);
-  const tour = useGuide((s) => s.tour);
-  const step = useGuide((s) => s.step);
   const pending = useGuide((s) => s.pending);
-  const tip = useGuide((s) => s.tip);
+  const run = useGuide((s) => s.run);
   const homeReq = useGuide((s) => s.home);
-  const startAfterHome = useGuide((s) => s.startAfterHome);
 
-  // 重看引导、账号菜单「新手引导」：不在首页先回首页
+  // 重看引导：不在首页先回首页
   useEffect(() => {
     if (homeReq && !home) onGoHome();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [homeReq]);
 
-  // 到了首页、稳住了才出欢迎和导览
+  // 打开后（或重看时）等页面稳住再出欢迎
   const [settled, setSettled] = useState(false);
   useEffect(() => {
     setSettled(false);
-    if (!home) return;
     const t = setTimeout(() => setSettled(true), INTRO_DELAY);
     return () => clearTimeout(t);
-  }, [home, homeReq]);
+  }, [homeReq]);
+  const showIntro = settled && !introDone;
+
+  // 排着的章一个一个讲；欢迎没点之前都等着
   useEffect(() => {
-    if (settled && startAfterHome) startPendingTour();
-  }, [settled, startAfterHome]);
+    if (!settled || !introDone || run || !pending.length) return;
+    const id = pending[0];
+    startChapter(id, CHAPTERS[id].mode);
+  }, [settled, introDone, run, pending]);
 
-  const showIntro = home && settled && !introDone && !tour;
-
-  // 导览：一步一步，目标找不到的跳过
-  const steps = tour ? TOURS[tour] : [];
-  const tourStep = home ? steps[step] : undefined;
-  const t = useStepTarget(tourStep, `${tour}:${step}`);
+  const chapter = run ? CHAPTERS[run.id] : undefined;
+  const steps = chapter?.steps ?? [];
+  const step = run ? steps[run.step] : undefined;
+  const t = useStepTarget(step, run ? `${run.id}:${run.step}` : '');
+  // 这一步出来了；找不到就跳到下一步（一步都没出的章不算看过）
+  useEffect(() => {
+    if (t.ready) markShown();
+  }, [t.ready]);
   useEffect(() => {
     if (t.missing) nextStep(steps.length);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t.missing]);
-  // 导览走到一半离开了首页：算看完
   useEffect(() => {
-    if (tour && !home) endTour();
-  }, [tour, home]);
+    if (t.gone) endChapter();
+  }, [t.gone]);
 
-  // 边用边教：没有欢迎、导览时，排着的提示一个一个出
-  const busy = showIntro || !!tour;
-  useEffect(() => {
-    if (!busy && !tip && pending.length) showTip(pending[0]);
-  }, [busy, tip, pending]);
-  const tipSteps = tip ? TIPS[tip.id] : [];
-  const tipStep = tip && !busy ? tipSteps[tip.step] : undefined;
-  const p = useStepTarget(tipStep, tip ? `${tip.id}:${tip.step}` : '');
-  useEffect(() => {
-    if (p.missing && tip) dropTip(tip.id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [p.missing]);
-
-  const last = step === steps.length - 1;
   const cur = t.current?.step;
-  const tipLast = tip ? tip.step === tipSteps.length - 1 : false;
-  const tipCur = p.current?.step;
+  // 新的一章：上一章留着的那步不出，等这一章第一步找到了再出
+  const thisChapter = !!run && !!t.current?.key.startsWith(`${run.id}:`);
+  const last = run ? run.step === steps.length - 1 : false;
+  const multi = steps.length > 1;
 
   return (
     <>
-      {/* 新用户：Kimo 打个招呼 */}
       <Dialog
-        open={showIntro && !oldUser}
+        open={showIntro}
         onOpenChange={(v) => !v && finishIntro(false)}
         size={400}
-        aria-label="欢迎来到 KIVI"
+        aria-label="欢迎来到新版 KIVI"
         footer={
           <>
             <Button size={36} variant="secondary" onClick={() => finishIntro(false)}>
-              我自己逛逛
+              跳过引导
             </Button>
             <Button size={36} variant="primary" onClick={() => finishIntro(true)}>
-              带我认识一下
+              开始
             </Button>
           </>
         }
       >
         <div className="app-onboard__hello">
           <Kimo size={128} />
-          <h2>嗨，我是 Kimo</h2>
-          <p>在 KIVI 说一句需求，就能出图、出视频、做活动物料。花 30 秒认识一下这里？</p>
+          <h2>欢迎来到新版 KIVI</h2>
+          <p>第一次打开每个页面，我会带你看看这里能做什么。用过旧版？你的对话和画布都已经迁过来了。</p>
         </div>
       </Dialog>
 
-      {/* 老用户：先说哪几处变了 */}
-      <Dialog
-        open={showIntro && oldUser}
-        onOpenChange={(v) => !v && finishIntro(false)}
-        size={560}
-        media={<img src={placeholderImageSrc('kivi-future', '16:9')} alt="" />}
-        title="KIVI 换新了"
-        description="这几处和以前不一样，先看一眼："
-        footer={
-          <>
-            <Button size={36} variant="secondary" onClick={() => finishIntro(false)}>
-              知道了
-            </Button>
-            <Button size={36} variant="primary" onClick={() => finishIntro(true)}>
-              带我看看
-            </Button>
-          </>
-        }
-      >
-        <Prose>
-          <ul>
-            <li>
-              <strong>生成都在对话里</strong>：首页每次提交都新建一个对话，结果、重新编辑、再次生成都在对话里，左侧随时找回。
-            </li>
-            <li>
-              <strong>新的画布入口</strong>：多步骤的活在画布里搭，最近的画布就在首页。
-            </li>
-            <li>
-              <strong>可以请专家</strong>：给 Agent 请视觉、礼物、品牌专家，各有自己的做法和技能。
-            </li>
-            <li>
-              <strong>下载不再自动公开</strong>：想放到发现，在结果的「更多」里点「公开到发现」。
-            </li>
-            <li>
-              <strong>以前的生成记录</strong>：在「我的资产 · 生成历史」里。
-            </li>
-          </ul>
-        </Prose>
-      </Dialog>
-
-      {/* 首页导览：压暗，只亮出这一步说的东西 */}
       <Coachmark
         anchor={t.current?.el ?? null}
-        open={!!tourStep && !!t.current}
-        spotlight
+        open={!!step && thisChapter && !t.gone}
+        spotlight={chapter?.spotlight}
         placement={cur?.placement}
         title={cur?.title}
-        description={cur?.description}
-        step={step + 1}
-        total={steps.length}
+        description={cur ? describe(cur) : undefined}
+        step={multi && run ? run.step + 1 : undefined}
+        total={multi ? steps.length : undefined}
         nextText={cur?.nextText ?? (last ? '知道了' : '下一步')}
-        skipText={cur?.skipText}
-        onNext={() => {
-          if (cur?.fill) fillHome(cur.fill);
-          nextStep(steps.length);
-        }}
-        onSkip={endTour}
-      />
-
-      {/* 边用边教：不压暗，看完不再出 */}
-      <Coachmark
-        anchor={p.current?.el ?? null}
-        open={!!tipStep && !!p.current}
-        placement={tipCur?.placement}
-        title={tipCur?.title}
-        description={tipCur?.description}
-        step={tip ? tip.step + 1 : undefined}
-        total={tipSteps.length}
-        nextText={tipLast ? '知道了' : '下一步'}
-        onNext={() => nextTipStep(tipSteps.length)}
+        onNext={() => nextStep(steps.length)}
+        onSkip={multi ? endChapter : undefined}
       />
     </>
   );

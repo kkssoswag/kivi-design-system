@@ -124,6 +124,7 @@ export function Sidebar({ collapsed: collapsedProp, defaultCollapsed = false, on
             <div className="tpl-ms__gap" />
             <HistoryGroup
               title="画布"
+              tour="side-canvases"
               icon="Canvas"
               items={canvasItems}
               selected={selected}

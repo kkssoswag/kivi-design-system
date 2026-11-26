@@ -2,7 +2,7 @@ import { Button, IconButton, Popover, Switch, TabItem, Tabs, toast } from '@kivi
 import { db } from '../data/db';
 import { demo, setDemo, useDemo, type DemoSwitches } from '../data/demo';
 import { resetMemory } from '../data/memory';
-import { resetOnboarding, setOldUser } from '../data/onboarding';
+import { resetGuide } from '../data/onboarding';
 import { PREVIEW_BRANCH, PREVIEW_LINKS, switchPreview } from '../preview';
 
 /*
@@ -40,7 +40,7 @@ if (typeof window !== 'undefined') toastAfterReset();
   演示开关：右边竖向居中一个小按钮，点开切出错状态。不是产品功能，只在演示站里有。
 */
 
-const ROWS: { key: Exclude<keyof DemoSwitches, 'oldUser'>; label: string }[] = [
+const ROWS: { key: keyof DemoSwitches; label: string }[] = [
   { key: 'fast', label: '快速出结果（3 秒）' },
   { key: 'failNext', label: '下次生成失败' },
   { key: 'lowBalance', label: '余额不足' },
@@ -75,11 +75,8 @@ export function DemoPanel() {
                 {r.label}
               </Switch>
             ))}
-            {/* 新手引导（data/onboarding.ts）：切新老用户、重看都从欢迎开始，不在首页先回首页 */}
-            <Switch checked={!!d.oldUser} onChange={setOldUser}>
-              老用户（改版前用过）
-            </Switch>
-            <Button size={28} variant="secondary-muted" leftIcon="Map" onClick={resetOnboarding}>
+            {/* 新手引导（data/onboarding.ts）：全部清掉，从欢迎开始，不在首页先回首页 */}
+            <Button size={28} variant="secondary-muted" leftIcon="Map" onClick={resetGuide}>
               重看新手引导
             </Button>
             <Button

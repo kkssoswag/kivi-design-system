@@ -337,7 +337,8 @@
 
 .kv-coachmark__hole {
   position: absolute;
-  box-shadow: 0 0 0 100vmax var(--color-bg-fill-mask);
+  /* 阴影的圆角是「框的圆角 + 扩散」，扩散不够大时离得远的屏幕角会漏出一块；要比屏幕对角线（√2 倍 vmax）大 */
+  box-shadow: 0 0 0 200vmax var(--color-bg-fill-mask);
   pointer-events: none;
 }
 

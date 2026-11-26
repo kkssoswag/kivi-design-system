@@ -24,7 +24,7 @@ import { attempt } from '../../flows/errors';
 import { isMediaNode } from '../../rules/canvas';
 import { AgentComposer, type AgentComposerHandle, type AgentComposerMessage } from '../../parts/agent-composer';
 import { useExpertSession } from '../../parts/expert-session';
-import { requestTip } from '../../data/onboarding';
+import { requestChapter } from '../../data/onboarding';
 import { startExpert } from '../../data/experts';
 import { GENERAL_EXPERT } from '../../../docs/business/expert-data';
 import { AgentTurn } from '../create/AgentTurn';
@@ -84,7 +84,7 @@ export function CanvasAgent({ canvasId, skill, intro, expert = GENERAL_EXPERT, o
   // 新手引导：第一次等确认时，说清楚确认了才生成、才扣费
   const confirming = !!waiting && pending?.kind === 'confirm';
   useEffect(() => {
-    if (confirming) requestTip('canvas-confirm');
+    if (confirming) requestChapter('canvas-confirm');
   }, [confirming]);
 
   const [width, setWidth] = useState(WIDTH.base);
