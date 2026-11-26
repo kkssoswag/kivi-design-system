@@ -26,6 +26,7 @@ import { ComposerMotion, HomeAtmosphere, SHOW_COMPOSER_MOTION } from './HomeBack
 import { HomeHead, RecentUpdates } from './HomeParts';
 import { genTaskInput } from './submit';
 import { handOffComposer } from './handoff';
+import { requestChapter, useGuide } from '../../data/onboarding';
 
 export type HomeMode = 'generate' | 'canvas';
 
@@ -106,6 +107,14 @@ export function CreateHome({
   const [task, setTask] = useState<GenTask>('agent');
   const [detail, setDetail] = useState<ExpertItem | null>(null);
   const [fill, setFill] = useState<{ text: string; key: number; mode: HomeMode }>();
+  // 新手引导（data/onboarding.ts）：第一次看到「生成」「画布」各讲一章；讲之前切到那一边（生成按 Agent 的输入框讲）
+  useEffect(() => requestChapter(mode === 'generate' ? 'home' : 'home-canvas'), [mode]);
+  const guideMode = useGuide((s) => s.homeMode);
+  useEffect(() => {
+    if (!guideMode) return;
+    setMode(guideMode.mode);
+    if (guideMode.mode === 'generate') setTask('agent');
+  }, [guideMode]);
   const invite = (id: string, on: boolean) => {
     onExpertChange?.(on ? id : GENERAL_EXPERT);
     if (!on) return;
@@ -339,7 +348,7 @@ export function CreateHome({
           <div className="tpl-home__intro">
             <h1>今天想在 KIVI 创作什么？</h1>
             {/* 分段自己的底是白 10%，压在点阵上会透出来，外面垫一层玻璃（11-16 用户定），不改分段本身 */}
-            <div className="tpl-home__mode-glass">
+            <div className="tpl-home__mode-glass" data-tour="home-mode">
               <Tabs variant="segment-brand" size={36} value={mode} onChange={(v) => setMode(v as HomeMode)} aria-label="创作方式" className="tpl-home__mode">
                 <TabItem value="generate">生成</TabItem>
                 <TabItem value="canvas">画布</TabItem>
@@ -351,7 +360,7 @@ export function CreateHome({
           {/* 外壳只有一个（渐变底、描边、圆角）不动；两套内容叠在同一格里都挂着，切换时交叉淡化，框的大小位置不变、打的字也还在。
               一格的高度取两套里高的那个，所以两个一样高 */}
           <div ref={composerRef} className="tpl-home__composer">
-            <div ref={shellRef} className="tpl-home__shell">
+            <div ref={shellRef} className="tpl-home__shell" data-tour="home-composer">
               {SHOW_COMPOSER_MOTION && <ComposerMotion />}
               <div ref={generateBox} className="tpl-home__box" data-active={mode === 'generate' || undefined}>
                 <PromptBox

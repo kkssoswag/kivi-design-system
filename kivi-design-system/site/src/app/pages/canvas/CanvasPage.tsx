@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { requestChapter } from '../../data/onboarding';
 import type { AttachmentItem } from '@kivi';
 import { ButtonGroup, CanvasHeader, Dropdown, IconButton, MentionChip, placeholderImageSrc, toast, type CanvasItem as HeaderItem } from '@kivi';
 import { insertTemplate, placeAsset, useCanvasDoc } from '../../data/canvas-doc';
@@ -41,6 +42,8 @@ export interface CanvasPageProps {
 
 export function CanvasPage({ canvasId: id, onCanvasChange, skill, intro, expert, onHome }: CanvasPageProps) {
   const canvases = useDB((s) => s.canvases);
+  // 新手引导：第一次进画布，说怎么加节点、也能交给 Agent（parts/onboarding）
+  useEffect(() => requestChapter('canvas'), []);
   const doc = useCanvasDoc(id);
   const board = useRef<CanvasBoardHandle>(null);
   const [viewing, setViewing] = useState<{ item: CanvasItem; node: CanvasNode } | null>(null);

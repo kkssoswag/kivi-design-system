@@ -107,7 +107,7 @@ export function HistorySection({ moreRef }: { moreRef: MoreRef }) {
         </header>
         {/* 筛选条：滚动时吸在余额、头像那一排下面；最右边是批量编辑，点了原地换成批量控件，左边筛选和搜索照常；放不下时批量控件盖住左边，左边缘渐隐（11-19 用户定） */}
         <div ref={sentinel} className="tpl-as__sentinel" aria-hidden />
-        <div className="tpl-as__filters tpl-as__filters--batch" data-stuck={stuck || undefined} data-picking={picking || undefined}>
+        <div className="tpl-as__filters tpl-as__filters--batch" data-tour="assets-history" data-stuck={stuck || undefined} data-picking={picking || undefined}>
           <div className="tpl-as__filters-main">
             <span className="tpl-as__label">来源</span>
             <Dropdown

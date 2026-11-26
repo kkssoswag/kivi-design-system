@@ -2,6 +2,7 @@ import { Button, Dropdown, IconButton, Menu, MenuItem, Popover, Select, Switch, 
 import { db } from '../data/db';
 import { demo, setDemo, useDemo, type DemoSwitches } from '../data/demo';
 import { resetMemory } from '../data/memory';
+import { resetGuide } from '../data/onboarding';
 import { PREVIEW_BRANCH, PREVIEW_LINKS, switchPreview } from '../preview';
 
 /*
@@ -88,6 +89,10 @@ export function DemoPanel() {
                 {r.label}
               </Switch>
             ))}
+            {/* 新手引导（data/onboarding.ts）：全部清掉，从欢迎开始，不在首页先回首页 */}
+            <Button size={28} variant="secondary-muted" leftIcon="Map" onClick={resetGuide}>
+              重看新手引导
+            </Button>
             <Button
               size={28}
               variant="secondary-muted"

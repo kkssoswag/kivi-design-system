@@ -19,6 +19,7 @@ import type { AgentComposerMessage } from './parts/agent-composer';
 import { ensureCanvas } from './data/canvases';
 import { sendToReference } from './data/ref-inbox';
 import { AssetLibrary } from './parts/asset-library';
+import { OnboardingHost } from './parts/onboarding';
 import './app.css';
 
 /*
@@ -259,6 +260,8 @@ export function KiviApp({
           onHome={() => navigate('create')}
         />
       )}
+      {/* 新手引导：首页欢迎 / 换新了、首页导览、各页边用边教的提示（parts/onboarding） */}
+      <OnboardingHost home={page === 'create' && !(selected.kind === 'chat' && selected.id)} onGoHome={() => navigate('create')} />
       <DemoPanel />
     </>
   );

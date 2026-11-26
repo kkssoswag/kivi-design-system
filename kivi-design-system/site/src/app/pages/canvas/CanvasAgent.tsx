@@ -23,6 +23,7 @@ import { attempt } from '../../flows/errors';
 import { isMediaNode } from '../../rules/canvas';
 import { AgentComposer, type AgentComposerHandle, type AgentComposerMessage } from '../../parts/agent-composer';
 import { useExpertSession } from '../../parts/expert-session';
+import { requestChapter } from '../../data/onboarding';
 import { startExpert } from '../../data/experts';
 import { GENERAL_EXPERT } from '../../../docs/business/expert-data';
 import { AgentTurn } from '../create/AgentTurn';
@@ -78,6 +79,11 @@ export function CanvasAgent({ canvasId, skill, intro, expert = GENERAL_EXPERT, o
   const chat = chats.find((c) => c.id === chatId);
   const chatTurns = useMemo(() => turns.filter((t) => t.chatId === chatId), [turns, chatId]);
   const active = activeTurnOf(turns, chatId);
+  // 新手引导：第一次等生成确认时，说清楚确认了才生成、才扣费
+  const confirming = interruptOf(active)?.kind === 'confirm';
+  useEffect(() => {
+    if (confirming) requestChapter('canvas-confirm');
+  }, [confirming]);
 
   const [width, setWidth] = useState(WIDTH.base);
   const [resizing, setResizing] = useState(false);

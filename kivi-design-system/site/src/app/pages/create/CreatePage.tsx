@@ -26,6 +26,7 @@ import { AgentInterrupt, interruptOf } from '../../parts/agent-interrupt';
 import { TaskTags } from '../../parts/task-tags';
 import { AssetInfo, CopyPrompt } from '../../parts/asset-info';
 import { useExpertSession } from '../../parts/expert-session';
+import { requestChapter } from '../../data/onboarding';
 import { RecordFeed } from './RecordFeed';
 import { downloadMedia } from '../../flows/files';
 import { appendReferences, useReferenceInbox } from '../../data/ref-inbox';
@@ -98,6 +99,14 @@ function ChatView({ chat, intro, onIntroDone }: { chat: Chat; intro?: ChatIntro;
         ),
     [tasks, assets, chat.id],
   );
+  // 新手引导（parts/onboarding）：这里第一次出生成结果时讲一条记录（提示词、结果、操作）；Agent 第一次回完时说接着聊、重新生成
+  useEffect(() => {
+    if (feedItems.length) requestChapter('chat');
+  }, [feedItems.length]);
+  const agentDone = agentTurns.some((t) => t.chatId === chat.id && t.status === 'done');
+  useEffect(() => {
+    if (agentDone) requestChapter('chat-agent');
+  }, [agentDone]);
   const viewGroup: ViewItem[] = !view ? [] : view.single ? [view.single] : feedItems;
   const foundAt = view?.assetId ? viewGroup.findIndex((g) => g.assetId === view.assetId) : -1;
   const viewIndex = view ? (foundAt >= 0 ? foundAt : Math.min(view.index, viewGroup.length - 1)) : 0;

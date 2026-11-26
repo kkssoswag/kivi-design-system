@@ -1,5 +1,5 @@
 import { Demo, PageHeader } from '@shell';
-import { PopoverPlayground, TooltipPlayground } from './tooltip.demos';
+import { CoachmarkPlayground, PopoverPlayground, TooltipPlayground } from './tooltip.demos';
 
 <PageHeader
   eyebrow="浮层和反馈"
@@ -79,6 +79,47 @@ import { PopoverPlayground, TooltipPlayground } from './tooltip.demos';
 }
 `} />
 
+## Coachmark
+
+引导气泡：新手引导、新功能上线时指着页面上的东西说一句。
+
+<CoachmarkPlayground />
+
+### 分步导览：压暗页面，只亮出目标
+
+<Demo code={`
+() => {
+  const steps = [
+    { title: '说需求', text: '在输入框里写想做什么，参考图直接拖进来。' },
+    { title: '选模型', text: '不选就交给 Agent 挑。' },
+    { title: '发送', text: '发出去会新建一个对话，结果都留在对话里。' },
+  ];
+  const [targets, setTargets] = useState([]);
+  const [step, setStep] = useState(-1);
+  const at = (i) => (el) => el && targets[i] !== el && setTargets((t) => Object.assign([...t], { [i]: el }));
+  const s = steps[step];
+  return (
+    <div style={{ display: 'flex', gap: 8 }}>
+      <Button ref={at(0)} variant="secondary">输入框</Button>
+      <Button ref={at(1)} variant="secondary">模型</Button>
+      <Button ref={at(2)} variant="primary">发送</Button>
+      <Button variant="ghost" onClick={() => setStep(0)}>开始导览</Button>
+      <Coachmark
+        anchor={s ? targets[step] : null}
+        spotlight
+        title={s?.title}
+        description={s?.text}
+        step={step + 1}
+        total={steps.length}
+        nextText={step === steps.length - 1 ? '知道了' : '下一步'}
+        onNext={() => setStep(step === steps.length - 1 ? -1 : step + 1)}
+        onSkip={() => setStep(-1)}
+      />
+    </div>
+  );
+}
+`} />
+
 ## 参数
 
 ### Tooltip
@@ -114,3 +155,19 @@ import { PopoverPlayground, TooltipPlayground } from './tooltip.demos';
 | `children` | `ReactElement` | — | 触发元素，比如 Button。悬停型会加 `aria-describedby`，点击型加 `aria-haspopup="dialog"`、`aria-expanded`、`aria-controls` |
 
 气泡底 `--color-bg-fill-popup`（实色，不用玻璃，同 Tooltip），圆角 8，内边距 12，最宽 320，不加阴影。箭头 12 × 6，同色，指着触发元素中心；离气泡圆角至少 8 + 6，不贴到角上。出现 150ms ease-out 淡入，消失 100ms ease-in 淡出（同 Tooltip）。悬停型 `role="tooltip"`，点击型 `role="dialog"`，标题作为 `aria-labelledby`。ref 给包住触发元素的外壳 `<span>`，其余原生 `<span>` 属性都能传。
+
+### Coachmark
+
+| 属性 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| `anchor` | `Element \| null` | — | 必填。指着哪个元素：页面上已经有的元素，不用包住它。没有就不出现 |
+| `open` | `boolean` | `true` | 显示。出现、消失和菜单同一套：淡入 + 从目标那边 96% 放大、移 4，200ms ease-out / 150ms ease-in |
+| `title` | `ReactNode` | — | 必填。标题，一句话，14 中粗 `--color-text-fill-primary` |
+| `description` | `ReactNode` | — | 说明，一两句，13 / 20 `--color-text-fill-secondary`，和标题间距 4 |
+| `step` / `total` | `number` | — | 第几步（从 1 开始）和一共几步，都传且一共不止一步时左下角写「2 / 5」，12 `--color-text-fill-tertiary` |
+| `nextText` / `onNext` | `ReactNode` / `() => void` | `"下一步"` / — | 主按钮（Button 主要 · 28）。最后一步写「知道了」或要做的事 |
+| `skipText` / `onSkip` | `ReactNode` / `() => void` | `"跳过"` / — | 次按钮（Button 无底灰 · 28），不传 `onSkip` 就没有。Esc 等于点它；没有它时 Esc 等于点主按钮 |
+| `placement` | `"top"` `"bottom"` `"left"` `"right"`，各可加 `-start` `-end` | `"bottom"` | 出在目标哪边，放不下自动翻到对面，不出屏幕 |
+| `spotlight` | `boolean` | `false` | 压暗页面、只亮出目标：目标四周留 4，圆角取目标自己的再加 4，外面盖 `--color-bg-fill-mask`，页面别处点不了。分步导览用，单条提示不压暗 |
+
+气泡底 `--color-bg-fill-popup`（实色，同 Popover），宽 320，圆角 12，内边距 16，不加阴影；箭头 12 × 6，同色，指着目标中心，离目标 10（箭头 6 + 空 4），离气泡圆角至少 12 + 6。底下一行离说明 12：左边步数，右边按钮，间距 8。换 `anchor` 时气泡和亮的那块挪过去（left / top / 宽高 300ms ease-in-out），不是跳过去。出现时焦点进气泡，`role="dialog"`，标题作 `aria-labelledby`、说明作 `aria-describedby`。ref 给气泡，其余原生 `<div>` 属性都能传。
