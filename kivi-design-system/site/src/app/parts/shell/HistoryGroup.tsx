@@ -23,6 +23,8 @@ const HISTORY_FIRST = 6;
 const HISTORY_STEP = 10;
 
 export interface HistoryGroupProps {
+  /** 新手引导指着这一段（data-tour） */
+  tour?: string;
   title: string;
   items: HistoryItem[];
   icon: 'Message' | 'Canvas';
@@ -39,12 +41,13 @@ export interface HistoryGroupProps {
   onOpenNewTab?: (id: string) => void;
 }
 
-export function HistoryGroup({ title, items, icon, selected, collapsed, onSelect, onNew, onRemove, onRename, onPin, onAll, onOpenNewTab }: HistoryGroupProps) {
+export function HistoryGroup({ title, items, icon, selected, collapsed, onSelect, onNew, onRemove, onRename, onPin, onAll, onOpenNewTab, tour }: HistoryGroupProps) {
   const [open, setOpen] = useState(true);
   const [editing, setEditing] = useState<string | null>(null);
   const [shown, setShown] = useState(HISTORY_FIRST);
   return (
     <MenuLabel
+      data-tour={tour}
       collapsible
       collapsed={collapsed}
       expanded={open}

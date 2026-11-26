@@ -1,10 +1,11 @@
 import { Avatar, Button, Divider, Dropdown, Menu, MenuItem, MenuSub, placeholderImageSrc, toast } from '@kivi';
 import { useCopy } from '@kivi/hooks';
 import { setLang, useLang, type Lang } from '../../data/lang';
+import { replayTour } from '../../data/onboarding';
 
 /*
   点头像出的菜单（11-12 用户定）：顶栏原来的教程、反馈、语言、复制用户 Key 都收进来，余额胶囊还在外面。
-  顶上头像 32 + 名字，下面一整行「复制用户 Key」按钮；下面教程（新窗口开飞书文档）、意见反馈（线上弹窗里嵌飞书表单，演示站只弹 Toast）、语言（悬停往一边甩出子菜单）。
+  顶上头像 32 + 名字，下面一整行「复制用户 Key」按钮；下面新手引导（回创作首页再走一遍导览）、教程（新窗口开飞书文档）、意见反馈（线上弹窗里嵌飞书表单，演示站只弹 Toast）、语言（悬停往一边甩出子菜单）。
   线上这里没有退出登录，没加
 */
 
@@ -37,6 +38,9 @@ export function UserMenu() {
             复制用户 Key
           </Button>
           <Divider />
+          <MenuItem icon="Map" onClick={replayTour}>
+            新手引导
+          </MenuItem>
           <MenuItem icon="Document" onClick={() => window.open('https://micoworld.feishu.cn/wiki/K6ARwr4JZimr4kkE8vXcwgEenoc', '_blank', 'noopener')}>
             教程
           </MenuItem>

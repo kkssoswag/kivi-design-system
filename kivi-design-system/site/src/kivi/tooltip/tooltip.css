@@ -213,3 +213,140 @@
   font-size: var(--font-size-14);
   line-height: var(--font-line-height-22);
 }
+
+/* ---------- Coachmark ---------- */
+/* 引导气泡：实色 popup 底（同 Popover），宽 320、圆角 12、内边距 16，带箭头（12 × 6）指着目标中心，离目标 10（箭头 6 + 空 4）。
+   标题 14 中粗 primary，说明 13 / 20 secondary，间距 4；底下一行左边步数 12 tertiary，右边「跳过」（无底灰 28）+ 主按钮（主要 28），离说明 12。
+   出现、消失和菜单同一套：淡入 + 从目标那边 96% 放大、移 4，200ms ease-out / 150ms ease-in。
+   换目标时挪过去：left / top 300ms ease-in-out（屏幕内移动）。压暗：目标四周之外盖 mask 色，目标那块挪的时候一起挪 */
+.kv-coachmark {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: var(--kv-popup-z, 1000);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+  box-sizing: border-box;
+  width: 320px;
+  margin: 0;
+  padding: var(--spacing-16);
+  border-radius: var(--border-radius-12);
+  background: var(--color-bg-fill-popup);
+  color: var(--color-text-fill-secondary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-13);
+  line-height: var(--font-line-height-20);
+  outline: none;
+  transform-origin: var(--kv-popup-origin, 0 0);
+  animation: kv-popup-in var(--motion-duration-200) var(--motion-ease-out) both;
+}
+
+.kv-coachmark[data-state="closed"] {
+  pointer-events: none;
+  animation: kv-popup-out var(--motion-duration-150) var(--motion-ease-in) both;
+}
+
+.kv-coachmark[data-moving] {
+  /* 状态切换：换目标时挪过去 */
+  transition:
+    left var(--motion-duration-300) var(--motion-ease-in-out),
+    top var(--motion-duration-300) var(--motion-ease-in-out);
+}
+
+.kv-coachmark__title {
+  color: var(--color-text-fill-primary);
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-medium);
+}
+
+.kv-coachmark__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-8);
+  margin-top: var(--spacing-8);
+}
+
+.kv-coachmark__step {
+  color: var(--color-text-fill-tertiary);
+  font-size: var(--font-size-12);
+}
+
+.kv-coachmark__actions {
+  display: flex;
+  gap: var(--spacing-8);
+}
+
+/* 箭头：和 Popover 一样的三角，离圆角至少 12 + 6 */
+.kv-coachmark__arrow {
+  --kv-arrow-min: calc(var(--border-radius-12) + 6px); /* 圆角 + 箭头半宽，Figma 没变量 */
+  position: absolute;
+  width: 12px; /* Figma 没变量 */
+  height: 6px; /* Figma 没变量 */
+  background: var(--color-bg-fill-popup);
+  pointer-events: none;
+}
+
+.kv-coachmark[data-side="bottom"] > .kv-coachmark__arrow,
+.kv-coachmark:not([data-side]) > .kv-coachmark__arrow {
+  top: -6px; /* Figma 没变量 */
+  left: clamp(var(--kv-arrow-min), var(--kv-anchor-x, 50%), calc(100% - var(--kv-arrow-min)));
+  transform: translateX(-50%);
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+
+.kv-coachmark[data-side="top"] > .kv-coachmark__arrow {
+  bottom: -6px; /* Figma 没变量 */
+  left: clamp(var(--kv-arrow-min), var(--kv-anchor-x, 50%), calc(100% - var(--kv-arrow-min)));
+  transform: translateX(-50%);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+
+.kv-coachmark[data-side="right"] > .kv-coachmark__arrow,
+.kv-coachmark[data-side="left"] > .kv-coachmark__arrow {
+  width: 6px; /* Figma 没变量 */
+  height: 12px; /* Figma 没变量 */
+  top: clamp(var(--kv-arrow-min), var(--kv-anchor-y, 50%), calc(100% - var(--kv-arrow-min)));
+  transform: translateY(-50%);
+}
+
+.kv-coachmark[data-side="right"] > .kv-coachmark__arrow {
+  left: -6px; /* Figma 没变量 */
+  clip-path: polygon(0 50%, 100% 0, 100% 100%);
+}
+
+.kv-coachmark[data-side="left"] > .kv-coachmark__arrow {
+  right: -6px; /* Figma 没变量 */
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
+
+/* 压暗：铺满屏幕、挡住页面别处的点击；亮的那块是一个透明框，外面一圈超大的 mask 色阴影 */
+.kv-coachmark__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--kv-popup-z, 1000) - 1);
+  overflow: hidden;
+  animation: kv-tooltip-in var(--motion-duration-200) var(--motion-ease-out) both;
+}
+
+.kv-coachmark__scrim[data-state="closed"] {
+  pointer-events: none;
+  animation: kv-tooltip-out var(--motion-duration-150) var(--motion-ease-in) both;
+}
+
+.kv-coachmark__hole {
+  position: absolute;
+  box-shadow: 0 0 0 100vmax var(--color-bg-fill-mask);
+  pointer-events: none;
+}
+
+.kv-coachmark__hole[data-moving] {
+  /* 状态切换：换目标时亮的那块挪过去 */
+  transition:
+    left var(--motion-duration-300) var(--motion-ease-in-out),
+    top var(--motion-duration-300) var(--motion-ease-in-out),
+    width var(--motion-duration-300) var(--motion-ease-in-out),
+    height var(--motion-duration-300) var(--motion-ease-in-out),
+    border-radius var(--motion-duration-300) var(--motion-ease-in-out);
+}

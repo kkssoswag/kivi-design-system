@@ -1,7 +1,8 @@
-import { Button, Popover, Tooltip, type PopoverPlacement } from '@kivi';
+import { useState } from 'react';
+import { Button, Coachmark, Popover, Tooltip, type PopoverPlacement } from '@kivi';
 import { Playground, type PlaygroundState } from '@shell';
 
-// 提示页的属性面板：所有类型、状态都在面板里切。参数表在 tooltip.mdx。Tooltip 只写工具名，Popover 写说明
+// 提示页的属性面板：所有类型、状态都在面板里切。参数表在 tooltip.mdx。Tooltip 只写工具名，Popover 写说明，Coachmark 指着页面上的东西引导
 
 // ---------- Tooltip ----------
 
@@ -91,6 +92,51 @@ export function PopoverPlayground() {
           : { longText: true, ...(s.showTitle ? {} : { title: true }) }
       }
       render={renderPopover}
+    />
+  );
+}
+
+// ---------- Coachmark ----------
+
+type CoachmarkState = { side: string; title: string; text: string; showStep: boolean; showSkip: boolean; nextText: string; open: boolean };
+
+/** 台子：目标按钮在下面，气泡往上弹（弹出类默认展开）；点「跳过」「知道了」写回「展开」 */
+function CoachmarkStage({ s, update }: { s: CoachmarkState; update: (patch: Partial<PlaygroundState>) => void }) {
+  const [anchor, setAnchor] = useState<HTMLButtonElement | null>(null);
+  return (
+    <div style={{ minHeight: 240, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+      <Button ref={setAnchor} variant="secondary">
+        专家
+      </Button>
+      <Coachmark
+        anchor={anchor}
+        open={s.open}
+        placement={s.side as PopoverPlacement}
+        title={s.title}
+        description={s.text}
+        step={s.showStep ? 3 : undefined}
+        total={s.showStep ? 5 : undefined}
+        nextText={s.nextText}
+        onNext={() => update({ open: false })}
+        onSkip={s.showSkip ? () => update({ open: false }) : undefined}
+      />
+    </div>
+  );
+}
+
+export function CoachmarkPlayground() {
+  return (
+    <Playground<CoachmarkState>
+      controls={[
+        { key: 'side', label: '方向', type: 'segment', value: 'top', options: [['top', '上'], ['bottom', '下'], ['left', '左'], ['right', '右']] },
+        { key: 'title', label: '标题', type: 'text', value: '请一位专家' },
+        { key: 'text', label: '说明', type: 'text', value: '视觉、礼物、品牌专家各有一套做法和技能。需求更适合别的专家时，会提醒你换。' },
+        { key: 'showStep', label: '显示步数', type: 'toggle', value: true },
+        { key: 'showSkip', label: '显示跳过', type: 'toggle', value: true },
+        { key: 'nextText', label: '主按钮', type: 'text', value: '下一步' },
+        { key: 'open', label: '展开', type: 'toggle', value: true },
+      ]}
+      render={(s, update) => <CoachmarkStage s={s} update={update} />}
     />
   );
 }

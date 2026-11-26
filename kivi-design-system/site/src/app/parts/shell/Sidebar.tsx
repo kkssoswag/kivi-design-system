@@ -98,6 +98,7 @@ export function Sidebar({ collapsed: collapsedProp, defaultCollapsed = false, on
             {NAV_ITEMS.map((n) => (
               <MenuItem
                 key={n.page}
+                data-tour={`nav-${n.page}`}
                 icon={n.icon}
                 collapsed={collapsed}
                 selected={(page === n.page && (n.page !== 'create' || !selected)) || undefined}
@@ -109,6 +110,7 @@ export function Sidebar({ collapsed: collapsedProp, defaultCollapsed = false, on
             <div className="tpl-ms__gap" />
             <HistoryGroup
               title="对话"
+              tour="side-chats"
               icon="Message"
               items={chatItems}
               selected={selected}

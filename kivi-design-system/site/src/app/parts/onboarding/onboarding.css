@@ -1,0 +1,28 @@
+/* 新手引导（演示站）：新用户的欢迎弹窗。Kimo 128 居中，下面标题 20 / 28 中粗、一段 14 / 22 secondary，都居中 */
+
+.app-onboard__hello {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-8);
+  padding-top: var(--spacing-8);
+  text-align: center;
+}
+
+.app-onboard__hello > .kv-kimo {
+  margin-bottom: var(--spacing-8);
+}
+
+.app-onboard__hello > h2 {
+  margin: 0;
+  color: var(--color-text-fill-primary);
+  font-size: var(--font-size-20);
+  font-weight: var(--font-weight-medium);
+}
+
+.app-onboard__hello > p {
+  margin: 0;
+  color: var(--color-text-fill-secondary);
+  font-size: var(--font-size-14);
+  line-height: var(--font-line-height-22);
+}
