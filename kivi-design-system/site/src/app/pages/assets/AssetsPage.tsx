@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button, ProjectCard, ScrollArea } from '@kivi';
 import { useDB } from '../../data/db';
 import { createCanvas, renameCanvas } from '../../data/canvases';
 import { createFolder, deleteFolder, renameFolder } from '../../data/assets';
-import { requestChapter } from '../../data/onboarding';
 import { confirmDelete, confirmDeleteCanvases } from '../../flows/delete';
 import { shareCanvas } from '../../flows/share';
 import { HistorySection } from './HistorySection';
@@ -67,10 +66,6 @@ export function AssetsPage({
   const [pinned, setPinned] = useState<string[]>(['f1']);
   // 生成历史的「加载下一页」，由它自己挂上来；滚到底时调
   const moreRef = useRef<() => void>();
-  // 新手引导：第一次到资产首页讲三块（二级页不讲）
-  useEffect(() => {
-    if (view.kind === 'home') requestChapter('assets');
-  }, [view.kind]);
 
   // 每个文件夹的数量和封面：数素材（音频没有封面图）
   const folders = useMemo<FolderCardData[]>(() => {
@@ -151,7 +146,7 @@ export function AssetsPage({
   return (
     <ScrollArea className="tpl-as" onReachEnd={() => moreRef.current?.()} reachEndOffset={300}>
       <main className="tpl-as__body">
-        <section className="tpl-as__section" data-tour="assets-folders">
+        <section className="tpl-as__section">
           <SectionHead title="我的素材" onAll={() => setView({ kind: 'folders' })}>
             <Button size={32} variant="ghost-muted" leftIcon="AddSmall" onClick={() => setNameTarget({ kind: 'new-folder' })}>
               新建文件夹
@@ -160,7 +155,7 @@ export function AssetsPage({
           <div className="tpl-as__row">{folders.map((f) => renderFolderCard(f, handlers))}</div>
         </section>
 
-        <section className="tpl-as__section" data-tour="assets-canvases">
+        <section className="tpl-as__section">
           <SectionHead title="我的画布" onAll={() => setView({ kind: 'canvases' })}>
             <Button size={32} variant="ghost-muted" leftIcon="AddSmall" onClick={newCanvas}>
               新建画布

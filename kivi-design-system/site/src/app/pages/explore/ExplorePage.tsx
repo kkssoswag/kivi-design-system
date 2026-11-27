@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { ScrollArea, TabItem, Tabs } from '@kivi';
-import { requestChapter } from '../../data/onboarding';
 import { Discover } from './Discover';
 import { FlowGallery } from './FlowGallery';
 import { Skills } from './Skills';
@@ -43,8 +42,6 @@ export function ExplorePage({
   const viewport = useRef<HTMLDivElement>(null);
   // 当前选项卡的「加载下一屏」，由选项卡自己挂上来
   const moreRef = useRef<() => void>();
-  // 新手引导：第一次进探索讲四个选项卡和找内容
-  useEffect(() => requestChapter('explore'), []);
 
   const body: Record<ExploreTab, ReactNode> = {
     discover: <Discover moreRef={moreRef} initialKeyword={initialTab === 'discover' ? initialKeyword : undefined} />,

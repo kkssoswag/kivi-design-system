@@ -53,6 +53,8 @@ export interface NodePanelProps extends Omit<HTMLAttributes<HTMLDivElement>, 'on
   onUploadReference?: (file: File) => void;
   /** 附件条里拖着排序，参数是挪的那个 `id` 和挪到哪个 `id` 的位置：改连线的顺序，名字（图片1…）跟着变。不分类型，随便换（11-18 用户定）。不传就不能拖 */
   onReorderReference?: (id: string, targetId: string) => void;
+  /** 双击附件条里的参考图，参数是它的 `id`：画布聚焦到那个节点（照线上）。不传双击没反应 */
+  onLocateReference?: (id: string) => void;
   /** 已选的 Lora（照线上：模型支持 Lora 时，参考素材这一行最前面是 Lora 格，后面隔一条竖线再是参考图）。传了就是受控 */
   loras?: LoraFieldItem[];
   /** 非受控时一开始的 Lora */
@@ -132,6 +134,7 @@ export const NodePanel = forwardRef<HTMLDivElement, NodePanelProps>(function Nod
     onAddReference,
     onUploadReference,
     onReorderReference,
+    onLocateReference,
     loras: lorasProp,
     defaultLoras = [],
     onLorasChange,
@@ -337,6 +340,8 @@ export const NodePanel = forwardRef<HTMLDivElement, NodePanelProps>(function Nod
                   onReorder={onReorderReference && ((from, to) => onReorderReference(references[from].id, references[to].id))}
                   // 快捷 @（照线上）：点缩略图，把它以 @ 引用插进提示词
                   onQuote={(item) => insertMention(inputRef.current, item)}
+                  // 双击：画布聚焦到那个节点（照线上）
+                  onLocate={onLocateReference && ((item) => onLocateReference(item.id))}
                   // 悬停时右上角名字直接换成删除，点了断开这条连线（照线上）
                   onRemove={onRemoveReference}
                   onAdd={addKinds.length ? () => pick(addKinds) : undefined}

@@ -122,6 +122,13 @@ export function OnboardingHost({ home, onGoHome }: { home: boolean; onGoHome: ()
   useEffect(() => {
     if (t.gone) endChapter();
   }, [t.gone]);
+  // 讲侧栏一段时，标题右边悬停才出的「+」一直亮着
+  useEffect(() => {
+    if (!t.ready || !step?.hover) return;
+    const el = step.hover();
+    el?.classList.add('is-hover');
+    return () => el?.classList.remove('is-hover');
+  }, [t.ready, step]);
 
   const cur = t.current?.step;
   // 新的一章：上一章留着的那步不出，等这一章第一步找到了再出
@@ -134,7 +141,7 @@ export function OnboardingHost({ home, onGoHome }: { home: boolean; onGoHome: ()
       <Dialog
         open={showIntro}
         onOpenChange={(v) => !v && finishIntro(false)}
-        size={400}
+        size={560}
         aria-label="欢迎来到新版 KIVI"
         footer={
           <>
@@ -148,9 +155,9 @@ export function OnboardingHost({ home, onGoHome }: { home: boolean; onGoHome: ()
         }
       >
         <div className="app-onboard__hello">
-          <Kimo size={128} />
+          <Kimo size={160} />
           <h2>欢迎来到新版 KIVI</h2>
-          <p>第一次打开每个页面，我会带你看看这里能做什么。用过旧版？你的对话和画布都已经迁过来了。</p>
+          <p>之前的画布和对话内容已经迁移过来了</p>
         </div>
       </Dialog>
 

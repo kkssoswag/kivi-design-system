@@ -212,18 +212,21 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, CanvasBoardProps>(funct
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 选中这几个节点、挪到正中（一个节点不放大超过 130%，几个就框进来）
+  const focus = (ids: string[]) => {
+    const nodes = getDoc(canvasId).nodes.filter((n) => ids.includes(n.id));
+    const b = boundsOf(nodes.map(rectOf));
+    if (!b) return;
+    const { w, h } = size();
+    setSel({ nodes: nodes.map((n) => n.id), edges: [] });
+    if (nodes.length === 1) {
+      const k = Math.min(viewRef.current.k, 1.3);
+      setView({ k, x: w / 2 - (b.x + b.w / 2) * k, y: h / 2 - (b.y + b.h / 2) * k }, true);
+    } else setView(fitView(b, w, h, 80, 1.3, ZOOM_MIN), true);
+  };
+
   useImperativeHandle(ref, () => ({
-    focus: (ids) => {
-      const nodes = getDoc(canvasId).nodes.filter((n) => ids.includes(n.id));
-      const b = boundsOf(nodes.map(rectOf));
-      if (!b) return;
-      const { w, h } = size();
-      setSel({ nodes: nodes.map((n) => n.id), edges: [] });
-      if (nodes.length === 1) {
-        const k = Math.min(viewRef.current.k, 1.3);
-        setView({ k, x: w / 2 - (b.x + b.w / 2) * k, y: h / 2 - (b.y + b.h / 2) * k }, true);
-      } else setView(fitView(b, w, h, 80, 1.3, ZOOM_MIN), true);
-    },
+    focus,
     addAtCenter: (type, preset) => addAt(type, centerWorld(), true, undefined, preset),
     select: (ids) => setSel({ nodes: ids, edges: [] }),
     upload: () => {
@@ -640,7 +643,7 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, CanvasBoardProps>(funct
         ))}
         {marquee && <div className="tpl-cb__marquee" style={{ left: marquee.x, top: marquee.y, width: marquee.w, height: marquee.h, '--cb-k': view.k } as CSSProperties} />}
         {selNode && selNode.type !== 'group' && (
-          <NodeFloat canvasId={canvasId} doc={doc} node={selNode} busy={busyOf(selNode)} zoom={view.k} onView={(item) => onView(item, selNode)} onDownload={() => downloadNode(doc, selNode)} onAddToChat={onAddToChat} />
+          <NodeFloat canvasId={canvasId} doc={doc} node={selNode} busy={busyOf(selNode)} zoom={view.k} onView={(item) => onView(item, selNode)} onDownload={() => downloadNode(doc, selNode)} onAddToChat={onAddToChat} onLocate={(nodeId) => focus([nodeId])} />
         )}
         {selNode?.type === 'group' && <GroupFloat canvasId={canvasId} doc={doc} group={selNode} zoom={view.k} />}
         {/* 多选浮条：选中两个及以上，在选区上方 */}

@@ -1,8 +1,9 @@
-import { type CSSProperties } from 'react';
+import { useEffect, type CSSProperties } from 'react';
 import { NodePanel, type AttachmentItem, type GenNodeType } from '@kivi';
 import { addUpstreamFile, disconnectPair, generateNode, reorderInputs, setNodeInputs, stopNodeGen, stopStartOf, upstreamOf, useNodeTask } from '../../data/canvas-doc';
 import type { ToolId } from '../../data/tools';
 import { attempt } from '../../flows/errors';
+import { requestChapter } from '../../data/onboarding';
 import { isGenNode } from '../../rules/canvas';
 import type { CanvasDoc, CanvasItem, CanvasNode } from '../../data/types';
 import { NodeToolbar } from './NodeToolbar';
@@ -34,9 +35,11 @@ export interface NodeFloatProps {
   onDownload: () => void;
   /** 节点工具栏的框选：把节点加进对话 */
   onAddToChat?: (ids: string[], note?: AnnotationNote) => void;
+  /** 双击生成面板里的参考图：画布聚焦到那个节点 */
+  onLocate?: (id: string) => void;
 }
 
-export function NodeFloat({ canvasId, doc, node, busy, zoom, onView, onDownload, onAddToChat }: NodeFloatProps) {
+export function NodeFloat({ canvasId, doc, node, busy, zoom, onView, onDownload, onAddToChat, onLocate }: NodeFloatProps) {
   const fixed = { '--cv-unzoom': 1 / Math.max(zoom, 0.5) } as CSSProperties;
   const center = node.x + node.w / 2;
   const hasResult = node.type === 'text' ? !!node.text : !!node.items?.length;
@@ -48,6 +51,12 @@ export function NodeFloat({ canvasId, doc, node, busy, zoom, onView, onDownload,
   const references: AttachmentItem[] = upstreamOf(doc, node.id)
     .filter((n) => n.type !== 'text' && n.type !== 'group')
     .map((n) => ({ id: n.id, type: n.type as AttachmentItem['type'], name: n.name, src: n.items?.[0]?.poster ?? (n.type === 'video' ? undefined : n.items?.[0]?.src), duration: n.items?.[0]?.duration }));
+  // 新手引导：第一次选中带参考素材的生成节点，提示单击 @、双击定位
+  const genPanel = !node.tool && node.preset !== 'lip-sync' && isGenNode(node);
+  const hasRefs = genPanel && references.length > 0;
+  useEffect(() => {
+    if (hasRefs) requestChapter('canvas-refs');
+  }, [hasRefs]);
 
   return (
     <>
@@ -89,6 +98,7 @@ export function NodeFloat({ canvasId, doc, node, busy, zoom, onView, onDownload,
             loraOptions={LORAS}
             onRemoveReference={(from) => disconnectPair(canvasId, from, node.id)}
             onReorderReference={(from, target) => reorderInputs(canvasId, node.id, from, target)}
+            onLocateReference={onLocate}
             onUploadReference={(file) => void addUpstreamFile(canvasId, node.id, file)}
             onGenerate={(s) => attempt(() => generateNode(canvasId, node.id, s))}
             generating={busy}

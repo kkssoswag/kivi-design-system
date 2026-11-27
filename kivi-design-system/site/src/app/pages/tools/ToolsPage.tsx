@@ -29,8 +29,11 @@ export function ToolsPage({ account }: { account?: ReactNode }) {
   // 每个工具一张原图，切走再切回来还在（页面状态，不进 db）
   const [sources, setSources] = useState<Partial<Record<ToolId, Source>>>({});
   const history = useToolHistory();
-  // 新手引导：第一次进 AI 工具讲有哪些工具、历史在哪
-  useEffect(() => requestChapter('tools'), []);
+  // 新手引导：历史里第一次有出好的图片时，提示右键「加入当前工具」
+  const hasImage = history.some((h) => h.status === 'done' && h.media === 'image');
+  useEffect(() => {
+    if (hasImage) requestChapter('tools');
+  }, [hasImage]);
   useToolResultToasts();
 
   // 上传：点按钮、拖进来、粘贴都走这里，放进当前工具。只收当前工具那一类（图片工具收图、视频工具收视频），

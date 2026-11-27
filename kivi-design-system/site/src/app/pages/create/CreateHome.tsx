@@ -107,8 +107,8 @@ export function CreateHome({
   const [task, setTask] = useState<GenTask>('agent');
   const [detail, setDetail] = useState<ExpertItem | null>(null);
   const [fill, setFill] = useState<{ text: string; key: number; mode: HomeMode }>();
-  // 新手引导（data/onboarding.ts）：第一次看到「生成」「画布」各讲一章；讲之前切到那一边（生成按 Agent 的输入框讲）
-  useEffect(() => requestChapter(mode === 'generate' ? 'home' : 'home-canvas'), [mode]);
+  // 新手引导（data/onboarding.ts）：第一次到创作首页讲一章，讲之前切到「生成」、按 Agent 的输入框讲
+  useEffect(() => requestChapter('home'), []);
   const guideMode = useGuide((s) => s.homeMode);
   useEffect(() => {
     if (!guideMode) return;

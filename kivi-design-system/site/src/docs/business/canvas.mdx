@@ -202,6 +202,7 @@ import { AudioWavePlayground, CanvasHeaderPlayground, ConnectorPlayground, NodeP
 | `onAddReference` | `(slot: 'first' \| 'last') => void` | — | 首尾帧里点了空格的添加格，参数是哪一格。不传时有 `onUploadReference` 就弹出选图片 |
 | `onUploadReference` | `(file: File) => void` | — | 快捷上传（照线上）：参考素材最后跟一个添加格（`AddTile` 56，首尾帧是空格），点了选一个本地文件，选完给你，新建素材节点连进来，传完添加格往右挪。只能选这个模型还收得下的类型（图片 png / jpg / webp、视频 mp4、音频 mp3 / wav），都满了就没有添加格；大小、时长不合格弹 Toast。不传就没有 |
 | `onReorderReference` | `(id: string, targetId: string) => void` | — | 参考图拖着排序：参数是挪的那张和挪到哪张的位置（都是上游节点 `id`），改连进来的顺序，名字（图片1…）和提示词里的 @ 跟着变。不分类型，随便换（11-18 用户定）。不传就不能拖 |
+| `onLocateReference` | `(id: string) => void` | — | 双击参考图：参数是它的上游节点 `id`，画布聚焦到那个节点（照线上）。不传双击没反应 |
 | `loras` | `LoraFieldItem[]` | — | 已选的 Lora，传了就是受控。照线上：图片模型支持 Lora 时（现在是 Qwen Image 2512），参考素材这一行最前面是 Lora 格（`LoraField`），后面隔一条 32 高的竖线再是参考图，间距 8 |
 | `defaultLoras` | `LoraFieldItem[]` | `[]` | 非受控时一开始的 Lora |
 | `onLorasChange` | `(loras: LoraFieldItem[]) => void` | — | 已选的 Lora 变了（添加、删除、改权重） |

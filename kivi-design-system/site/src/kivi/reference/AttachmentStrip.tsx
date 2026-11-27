@@ -12,6 +12,9 @@ import './reference.css';
 
 export type AttachmentType = 'image' | 'video' | 'audio' | 'file';
 
+/** 有双击时，单击等这么久没有第二下才算单击 */
+const DOUBLE_CLICK_MS = 250;
+
 export interface AttachmentItem {
   /** 唯一标识，增删时用它认哪一个 */
   id: string;
@@ -47,6 +50,8 @@ export interface AttachmentStripProps extends Omit<HTMLAttributes<HTMLDivElement
   labels?: boolean;
   /** 快捷引用（照线上）：鼠标移到缩略图上右下角出「@」，点缩略图触发，把它以 @ 引用插进提示词。传了它点缩略图就是引用，不再触发 `onItemClick` */
   onQuote?: (item: AttachmentItem) => void;
+  /** 双击缩略图触发：定位到它来自的地方（照线上画布生成面板：双击参考图，画布聚焦到那个节点）。传了它单击要等一下（双击的间隔）才算单击，双击不会先引用一次 */
+  onLocate?: (item: AttachmentItem) => void;
   /** 最后一格的添加格（AddTile 56 · 描边），点了触发。画布生成面板用：点了选本地文件，传完新素材排在最后，添加格跟着往右挪（照线上）。不传就没有 */
   onAdd?: () => void;
   /** 添加格的说明，读屏和悬停用，默认「上传」 */
@@ -62,7 +67,7 @@ export interface AttachmentStripProps extends Omit<HTMLAttributes<HTMLDivElement
  * 放不下时两头渐隐（宽 56），渐隐上放箭头（玻璃按钮条 ButtonGroup glass · 32，里面 IconButton 28），点一下翻一页，翻到头那边的箭头就没了（11-19，照线上）。
  */
 export const AttachmentStrip = forwardRef<HTMLDivElement, AttachmentStripProps>(function AttachmentStrip(
-  { items, onRemove, onItemClick: onItemClickProp, onReorder, labels = false, onQuote, onAdd, addLabel = '上传', className, style, ...rest },
+  { items, onRemove, onItemClick: onItemClickProp, onReorder, labels = false, onQuote, onLocate, onAdd, addLabel = '上传', className, style, ...rest },
   ref,
 ) {
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -74,6 +79,15 @@ export const AttachmentStrip = forwardRef<HTMLDivElement, AttachmentStripProps>(
     disabled: !onReorder,
   });
   const onItemClick = onQuote ?? onItemClickProp;
+  // 有双击时单击晚一点算：双击的间隔内又点了一下就是双击，不算单击
+  const clickTimer = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => () => clearTimeout(clickTimer.current), []);
+  const click = (item: AttachmentItem) => {
+    if (!onItemClick) return;
+    if (!onLocate) return onItemClick(item);
+    clearTimeout(clickTimer.current);
+    clickTimer.current = setTimeout(() => onItemClick(item), DOUBLE_CLICK_MS);
+  };
   // 自动角标：拖的时候按排好以后的顺序先变
   const sortedTypes: string[] = [];
   items.forEach((item, i) => {
@@ -163,7 +177,14 @@ export const AttachmentStrip = forwardRef<HTMLDivElement, AttachmentStripProps>(
                   role="group"
                   aria-label={item.name}
                   tabIndex={onItemClick || sortProps ? 0 : undefined}
-                  onClick={() => onItemClick?.(item)}
+                  onClick={(e) => e.detail < 2 && click(item)}
+                  onDoubleClick={
+                    onLocate &&
+                    (() => {
+                      clearTimeout(clickTimer.current);
+                      onLocate(item);
+                    })
+                  }
                   onPointerDown={sortProps?.onPointerDown}
                   onDragStart={sortProps?.onDragStart}
                   aria-keyshortcuts={sortProps?.['aria-keyshortcuts']}

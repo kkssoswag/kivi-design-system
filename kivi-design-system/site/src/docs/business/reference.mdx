@@ -109,6 +109,7 @@ import {
 | `onReorder` | `(from: number, to: number) => void` | — | 拖着排序，同 ReferenceStack：被拖的那格跟手，别的格子滑开让位，松手触发，在这里重排 `items`。键盘 Alt + ← / →。不传就不能拖 |
 | `labels` | `boolean` | `false` | 右上角自动写名字：每种类型按排列顺序各自编号（图片1、视频1、图片2…），拖的时候跟着变，和 @ 出来的一致。画布生成面板用；不传用每一项自己的 `badge` |
 | `onQuote` | `(item: AttachmentItem) => void` | — | 快捷引用，同 ReferenceStack：悬停右下角出「@」，点缩略图把它 @ 进提示词，传了它点缩略图不再触发 `onItemClick` |
+| `onLocate` | `(item: AttachmentItem) => void` | — | 双击缩略图触发：定位到它来自的地方（画布生成面板：聚焦到那个节点，照线上）。传了它单击要等 250ms 没有第二下才算，双击不会先引用一次 |
 | `onAdd` | `() => void` | — | 最后一格的添加格（`AddTile` 56），点了触发，不参与拖动。画布生成面板用：点了选本地文件，传完新素材排在最后，添加格跟着往右挪（照线上）。不传就没有 |
 | `addLabel` | `string` | `'上传'` | 添加格的说明，读屏用 |
 
