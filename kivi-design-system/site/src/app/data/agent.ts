@@ -245,7 +245,8 @@ export function sendAgent(chatId: string, user: AgentUserMessage, canvas?: Agent
   return request(() => {
     const now = Date.now();
     const d = demo.get();
-    const asks = [...(d.askQuestion ? (['question'] as const) : []), ...(d.larkAuth ? (['lark'] as const) : [])];
+    // 一次只等一张卡：问题卡和飞书授权互斥（演示开关里也是开一个关一个）
+    const asks: NonNullable<AgentTurn['asks']> = d.askQuestion ? ['question'] : d.larkAuth ? ['lark'] : [];
     const turn: AgentTurn = { id: uid('ag'), chatId, user, script: pickScript(kindOf(user.refs)), step: 0, beatAt: now, status: 'running', blocks: [], createdAt: now, canvas, ...(asks.length ? { asks } : {}) };
     db.set((s) => ({
       ...s,
