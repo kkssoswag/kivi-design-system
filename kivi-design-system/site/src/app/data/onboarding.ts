@@ -4,14 +4,14 @@ import { createStore, useStore } from './store';
 /*
   改版后的新手引导（演示站），新老用户一套：
   - 第一次打开先出 Kimo 欢迎：「开始」或「跳过引导」（跳过后哪一章都不再出）。
-  - 之后按页面分章，第一次到哪讲哪：创作首页、对话页（有生成结果时）、画布。分章导览压暗页面、只亮出讲的那块。
-    另有几条不压暗的小提示：对话里 Agent 第一次回完、画布里选中的节点有参考素材、画布里第一次等确认、AI 工具历史里第一次有图片。
+  - 之后按页面分章，第一次到哪讲哪：创作首页、画布。分章导览压暗页面、只亮出讲的那块。
+    另有几条不压暗的小提示：画布里选中的节点有参考素材、画布里第一次等确认、AI 工具历史里第一次有图片。
   - 页面到了时机就 requestChapter，看过的、跳过的不再出；目标找不到（换页了）就先不算看过，下次再到这页还会出。
   - 看过没看过记在 db.flags（guide-*），重置演示数据就回到没看过。账号菜单「新手引导」把各章清掉、回首页重讲。
   正在讲的章、排队的章是这次打开的状态，不存。每章讲什么在 parts/onboarding/steps.ts。
 */
 
-export type ChapterId = 'home' | 'chat' | 'chat-agent' | 'canvas' | 'canvas-refs' | 'canvas-confirm' | 'tools';
+export type ChapterId = 'home' | 'canvas' | 'canvas-refs' | 'canvas-confirm' | 'tools';
 export type HomeMode = 'generate' | 'canvas';
 
 export const INTRO_FLAG = 'guide-intro';

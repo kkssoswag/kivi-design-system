@@ -9,7 +9,8 @@ import type { ChapterId, HomeMode } from '../../data/onboarding';
 export interface GuideStep {
   /** 指着谁：每次现找，页面上没有（或藏着）就返回 null */
   target: () => Element | null;
-  title: string;
+  /** 标题；说明本身够清楚就不写 */
+  title?: string;
   /** 一句话说明 */
   description?: string;
   /** 分几项说：「名称」+ 一句话 */
@@ -43,19 +44,6 @@ const sideGroup = (name: string) => () => {
   return shown(label?.closest('.kv-menu__group') ?? label);
 };
 
-/** 对话里最后一条有成品的生成记录，和它里面的东西 */
-function doneRecord() {
-  const records = [...document.querySelectorAll('.tpl-ms__feed .tpl-record')];
-  return records.reverse().find((r) => r.querySelector('.kv-result-tile:not([aria-busy]):not([aria-invalid])')) ?? null;
-}
-const inRecord = (selector: string) => () => shown(doneRecord()?.querySelector(selector));
-
-/** 对话里最后一个写着这几个字的按钮（Agent 回复下面的「重新生成」） */
-const lastButton = (text: string) => () => {
-  const buttons = [...document.querySelectorAll('.tpl-ms__feed button')].filter((b) => b.textContent?.trim() === text);
-  return shown(buttons[buttons.length - 1]);
-};
-
 /** AI 工具历史里第一张出好的结果 */
 const firstToolResult = () => {
   const records = [...document.querySelectorAll('.tpl-at__side .tpl-at__record')];
@@ -63,14 +51,13 @@ const firstToolResult = () => {
 };
 
 export const CHAPTERS: Record<ChapterId, Chapter> = {
-  // 创作首页：生成和画布、四种模式、输入框里的专家 / 模型 / 技能、发现、侧栏对话和画布、账号
+  // 创作首页：生成和画布、四种模式、输入框里的专家 / 模型 / 技能、侧栏对话和画布
   home: {
     spotlight: true,
     mode: 'generate',
     steps: [
       {
         target: q('[data-tour="home-mode"]'),
-        title: '生成和画布',
         items: [
           ['生成', '一句话出图、视频、音频，适合单次产出'],
           ['画布', '用节点串起多步流程，适合成套物料、反复调整'],
@@ -91,7 +78,7 @@ export const CHAPTERS: Record<ChapterId, Chapter> = {
       {
         target: q(`${BOX} [aria-label="当前专家"]`),
         title: '专家',
-        description: '按领域请专家来做；需求不对口时会提醒你换。',
+        description: '按领域请专家来做，需求不对口时会提醒你换。通用专家不带领域知识，适合经验丰富的用户。',
         placement: 'bottom-start',
       },
       {
@@ -107,12 +94,6 @@ export const CHAPTERS: Record<ChapterId, Chapter> = {
         placement: 'bottom-start',
       },
       {
-        target: q('section[aria-label="生成推荐内容"] .tpl-home__head'),
-        title: '发现',
-        description: '大家公开的作品，点开看提示词，可加入参考。',
-        placement: 'bottom',
-      },
-      {
         target: sideGroup('side-chats'),
         hover: sideLabel('side-chats'),
         title: '对话',
@@ -125,52 +106,7 @@ export const CHAPTERS: Record<ChapterId, Chapter> = {
         title: '画布',
         description: '「+」新建画布，「全部」看所有画布。旧版的画布都在这里。',
         placement: 'right-start',
-      },
-      {
-        target: q('.tpl-ms__avatar'),
-        title: '账号',
-        description: '复制 Key、教程、反馈、语言；重看引导也在这里。',
-        placement: 'bottom-end',
         nextText: '开始创作',
-      },
-    ],
-  },
-  // 对话页：有了生成结果才讲
-  chat: {
-    spotlight: true,
-    steps: [
-      {
-        target: inRecord('.kv-gen-prompt'),
-        title: '生成记录',
-        description: '提示词和参数都记在这里。',
-        placement: 'bottom-start',
-      },
-      {
-        target: inRecord('.kv-result-tile:not([aria-busy]):not([aria-invalid])'),
-        title: '结果',
-        description: '点开看大图；悬停可下载、加入参考、用工具处理。',
-        placement: 'right',
-      },
-      {
-        target: inRecord('.tpl-row'),
-        title: '接着改',
-        items: [
-          ['重新编辑', '填回输入框，改完再生成'],
-          ['再次生成', '原参数再出一次'],
-        ],
-        placement: 'bottom-start',
-      },
-    ],
-  },
-  // 对话里 Agent 第一次回完：不压暗
-  'chat-agent': {
-    spotlight: false,
-    steps: [
-      {
-        target: lastButton('重新生成'),
-        title: '接着说就行',
-        description: '想改哪里直接说；不满意点「重新生成」。',
-        placement: 'top-start',
       },
     ],
   },

@@ -162,7 +162,7 @@ import { CoachmarkPlayground, PopoverPlayground, TooltipPlayground } from './too
 |---|---|---|---|
 | `anchor` | `Element \| null` | — | 必填。指着哪个元素：页面上已经有的元素，不用包住它。没有就不出现 |
 | `open` | `boolean` | `true` | 显示。出现、消失和菜单同一套：淡入 + 从目标那边 96% 放大、移 4，200ms ease-out / 150ms ease-in |
-| `title` | `ReactNode` | — | 必填。标题，一句话，14 中粗 `--color-text-fill-primary` |
+| `title` | `ReactNode` | — | 标题，一句话，14 中粗 `--color-text-fill-primary`。不写就只有说明（说明本身已经够清楚时） |
 | `description` | `ReactNode` | — | 说明，一两句，13 / 20 `--color-text-fill-secondary`，和标题间距 4 |
 | `step` / `total` | `number` | — | 第几步（从 1 开始）和一共几步，都传且一共不止一步时左下角写「2 / 5」，12 `--color-text-fill-tertiary` |
 | `nextText` / `onNext` | `ReactNode` / `() => void` | `"下一步"` / — | 主按钮（Button 主要 · 28）。最后一步写「知道了」或要做的事 |

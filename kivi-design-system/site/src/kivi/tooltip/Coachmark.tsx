@@ -10,8 +10,8 @@ export interface CoachmarkProps extends Omit<HTMLAttributes<HTMLDivElement>, 'ti
   anchor: Element | null;
   /** 显示，默认显示 */
   open?: boolean;
-  /** 标题，一句话 */
-  title: ReactNode;
+  /** 标题，一句话。不写就只有说明（说明本身已经够清楚时） */
+  title?: ReactNode;
   /** 说明，一两句 */
   description?: ReactNode;
   /** 第几步，从 1 开始。和 total 一起传，左下角写「2 / 5」 */
@@ -145,16 +145,19 @@ export const Coachmark = forwardRef<HTMLDivElement, CoachmarkProps>(function Coa
         ref={setBubble}
         className={cx('kv-coachmark', className)}
         role="dialog"
-        aria-labelledby={titleId}
+        aria-labelledby={title !== undefined ? titleId : undefined}
         aria-describedby={description !== undefined ? descId : undefined}
+        aria-label={title === undefined ? '引导' : undefined}
         tabIndex={-1}
         data-state={state}
         {...rest}
       >
         <span className="kv-coachmark__arrow" aria-hidden />
-        <b id={titleId} className="kv-coachmark__title">
-          {title}
-        </b>
+        {title !== undefined && (
+          <b id={titleId} className="kv-coachmark__title">
+            {title}
+          </b>
+        )}
         {description !== undefined && (
           <div id={descId} className="kv-coachmark__desc">
             {description}
